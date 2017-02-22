@@ -1,24 +1,11 @@
-## LOCKSS-Daemon
+## LAAWS for of the LOCKSS Daemon
 
 This is the source tree for the LOCKSS daemon.
 See [http://www.lockss.org/](#) for information about the LOCKSS project.
 
 ### Obtaining Source
-A one-time copy can be obtained with wget or curl:
 
-`wget https://github.com/lockss/lockss-daemon/archive/master.zip`
-
-or
-
-`curl -L -o master.zip https://github.com/lockss/lockss-daemon/archive/master.zip`
-
-A buildable snapshot can be obtained by cloning the master branch
-`git clone --depth 1 --branch master https://github.com/lockss/lockss-daemon.git`
-
-To establish a local copy of the LOCKSS git repository you can
-use the “git clone” command to establish the repository and “git pull” to pull in updates:
-
-`git clone https://github.com/lockss/lockss-daemon.git`
+`git clone https://gitlab.lockss.org/laaws/laaws-daemon.git`
 
 To update the local copy run within you local lockss-daemon dir:
 
@@ -27,13 +14,10 @@ To update the local copy run within you local lockss-daemon dir:
 ### Building and Installing
 
 ### Dependencies:
-- Sun JDK 7.  Java 8 is not yet supported.
+- This daemon should be built with Java 8.
 - Ant 1.7.1 or greater.  (http://ant.apache.org/)
 - Python 2.5 or greater (but not 3.x).
 
-On Debian or Ubuntu you can grab all of the above with:
-
-`apt-get install python sun-java7-jdk ant ant-optional`
 
 ### Other Dependencies:
 
