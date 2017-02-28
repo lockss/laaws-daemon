@@ -144,7 +144,6 @@ Args:
 
   <!--  Directories -->
   <property name="java.lib"       value="${env.JAVA_HOME}/lib" />
-  <property name="jre.lib"        value="${env.JAVA_HOME}/jre/lib"/>
   <property name="maven.home"     value="${env.MAVEN_HOME}" />
   <property name="src"            value="${basedir}/src" />
   <property name="classes"        value="${basedir}/classes" />
@@ -216,9 +215,6 @@ Args:
 
   <!-- Library jars -->
 
-  <!-- Needed by Java 8 -->
-  <property name="jdk.rt.jar" value="${jre.lib}/rt.jar"/>
-
   <property name="rhino.jar"      value="${lib}/rhino.jar"/>
   <property name="js-engine.jar"  value="${lib}/js-engine.jar"/>
   <property name="script.jar"     value="${lib}/script.jar"/>
@@ -232,8 +228,13 @@ Args:
   <property name="mailapi.jar"    value="${lib}/javamail-mailapi-1.3.2.jar"/>
   <property name="activation.jar" value="${lib}/activation-1.0.2.jar"/>
   <property name="castor.jar"     value="${lib}/castor-0.9.4.1-xml.jar"/>
-  <property name="xerces.jar"     value="${lib}/xerces-xercesImpl.jar"/>
-  <property name="xml-apis.jar"   value="${lib}/xml-apis.jar"/>
+  <!-- the jars needed for xml processeing using xerces2j and xalan -->
+  <property name="xerces.jar"     value="${lib}/xercesImpl-2.11.0.jar"/>
+  <property name="xml-apis.jar"   value="${lib}/xml-apis-1.4.01.jar"/>
+  <property name="xalan.jar"      value="${lib}/xalan-2.7.2.jar"/>
+  <property name="xml-resolver.jar" value="${lib}/xml-resolver-1.2.jar" />
+  <property name="xalan-serializer.jar" value="${lib}/xalan-serializer-2.7.2.jar" />
+
   <property name="jimi.jar"       value="${lib}/JimiProClasses.jar"/>
   <property name="jetty.jar"      value="${lib}/jetty-5.1.5L.jar"/>
   <property name="servlet.jar"    value="${lib}/javax.servlet.jar"/>
@@ -302,7 +303,6 @@ Args:
   <property name="xmlunit.jar"    value="${lib}/xmlunit1.0.jar" />
   <property name="oai-harvester.jar" value="${lib}/harvester2-0.1.12-p1.jar"/>
   <!-- Needed by OAI harvester: Xalan, Xerces, XML-APIs, Log4j -->
-  <property name="xalan.jar"      value="${lib}/xalan.jar"/>
 
   <property name="js.jar"         value="${test.lib}/js.jar" />
   <property name="junit.jar"      value="${test.lib}/junit.jar"/>
@@ -451,9 +451,6 @@ Args:
   	value="${lib}/org.slf4j-slf4j-api.jar" />
   <property name="org.slf4j-slf4j-log4j12.jar"
   	value="${lib}/org.slf4j-slf4j-log4j12.jar" />
-  <property name="xml-resolver-xml-resolver.jar"
-    value="${lib}/xml-resolver-xml-resolver.jar" />
-  <property name="xalan-serializer.jar" value="${lib}/xalan-serializer.jar" />
   <property name="xmltooling-1.3.2.jar" value="${lib}/xmltooling-1.3.2.jar" />
 
   <!-- Needed by restful web services -->
@@ -469,7 +466,7 @@ Args:
   <property name="empty.db.parent.dir" value="${tmpdir}" />
   <property name="empty.db.dir" value="${empty.db.parent.dir}/db" />
   <property name="empty.db.archive"
-            value="${test.classes}/org/lockss/metadata/db.zip" />
+            value="${test.classes}/org/lockss/db/db.zip" />
 
   <!--  Compiler options -->
   <property name="javac.debug"             value="on" />
@@ -612,7 +609,7 @@ Args:
   	<pathelement path="${org.slf4j-slf4j-api.jar}" />
     <pathelement path="${org.slf4j-slf4j-log4j12.jar}" />
     <pathelement path="${xalan-serializer.jar}" />
-    <pathelement path="${xml-resolver-xml-resolver.jar}" />
+    <pathelement path="${xml-resolver.jar}" />
     <pathelement path="${xmltooling-1.3.2.jar}" />
     <!-- Needed by restful web services -->
     <pathelement path="${javax.annotation-api-1.2.jar}" />
@@ -620,7 +617,6 @@ Args:
     <pathelement path="${resteasy-client-3.0.19.Final.jar}" />
     <pathelement path="${jackson-jaxrs-json-provider.jar}" />
   	<!-- Needed by Java 8 -->
-    <pathelement path="${jdk.rt.jar}" />
   </path>
 
   <path id="run.classpath">
@@ -751,7 +747,6 @@ Args:
            memoryMaximumSize="256m"
            >
        <classpath refid="@{cpid}" />
-      <compilerarg value="-XDignore.symbol.file" />
       <javacelem/>
     </javac>
    </sequential>
@@ -831,6 +826,7 @@ Test results in ${test.results}
      </if>
     <junit1 fork="${fork}" printsummary="yes"
          haltonfailure="${halt}" failureproperty="failed"
+         tempdir="${tmpdir}"
          filtertrace="${filtertrace}" showoutput="${showoutput}">
       <junitelem/>
       <jvmarg value="-server"/>
@@ -1445,9 +1441,10 @@ The target you have selected requires compiling under JDK 1.8.
         <echo message="Building daemon ${releasename}" />
       </then>
     </if>
-    <!-- Build file with SVN revision info for all files -->
-    <exec executable="svn" dir="${src}" output="${build.filerev.file}">
-      <arg line="--verbose status" />
+    <!-- Build file with git blob info -->
+    <exec executable="git" dir="${src}" output="${build.filerev.file}"
+	  failifexecutionfails="false">
+      <arg line="show -s --pretty=oneline" />
     </exec>
   </target>
 
@@ -1621,7 +1618,7 @@ Must specify output dir with -Doutdir=dir
     <!-- classpath with the tests and packaged plugin jar -->
     <path id="pkgd.plugin.test.run.classpath">
       <path refid="test.run.classpath" />
-      <pathelement path="${plugin.jar}" />
+<!--       <pathelement path="${plugin.jar}" /> -->
     </path>
 
     <echo message="Validating plugin ${plugin.pkg.name}"/>
@@ -1637,6 +1634,8 @@ Must specify output dir with -Doutdir=dir
       <jvmarg line="${jvmargs}"/>
       <sysproperty key="org.lockss.test.TestPluginNames"
 		   value="${plugin.pkg.name}"/>
+      <sysproperty key="org.lockss.test.TestPluginJar"
+		   value="${plugin.jar}"/>
       <sysproperty key="org.lockss.manager.PluginManager"
 		   value="org.lockss.test.NonVersionCheckingPluginManager"/>
       <sysproperty key="org.lockss.unitTesting" value="true"/>
