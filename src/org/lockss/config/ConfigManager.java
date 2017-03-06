@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,12 +31,10 @@ package org.lockss.config;
 import java.io.*;
 import java.util.*;
 import java.net.*;
-
 import org.apache.commons.collections.Predicate;
 import org.apache.commons.io.*;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.oro.text.regex.*;
-
 import org.lockss.app.*;
 import org.lockss.account.*;
 import org.lockss.clockss.*;
@@ -625,11 +619,16 @@ public class ConfigManager implements LockssManager {
     return theMgr.currentConfig;
   }
 
-  void setCurrentConfig(Configuration newConfig) {
+  public void setCurrentConfig(Configuration newConfig) {
+    final String DEBUG_HEADER = "setCurrentConfig(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "newConfig = " + newConfig);
+
     if (newConfig == null) {
       log.warning("attempt to install null Configuration");
     }
     currentConfig = newConfig;
+    if (log.isDebug2())
+      log.debug2(DEBUG_HEADER + "currentConfig = " + currentConfig);
   }
 
   /** Create a sealed Configuration object from a Properties */
@@ -1007,12 +1006,23 @@ public class ConfigManager implements LockssManager {
   }
 
   boolean updateConfig() {
-    return updateConfig(configUrlList);
+    final String DEBUG_HEADER = "updateConfig(): ";
+    boolean result = updateConfig(configUrlList);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "configUrlList = " + configUrlList);
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+    return result;
   }
 
   public boolean updateConfig(List urls) {
+    final String DEBUG_HEADER = "updateConfig(List): ";
     needImmediateReload = false;
     boolean res = updateConfigOnce(urls, true);
+    if (log.isDebug3()) {
+      log.debug3(DEBUG_HEADER + "urls = " + urls);
+      log.debug3(DEBUG_HEADER + "needImmediateReload = " + needImmediateReload);
+      log.debug3(DEBUG_HEADER + "res = " + res);
+    }
     if (res && needImmediateReload) {
       updateConfigOnce(urls, false);
     }
@@ -1022,6 +1032,7 @@ public class ConfigManager implements LockssManager {
     connPool.closeIdleConnections(0);
     updateRemoteConfigFailover();
 
+    if (log.isDebug2()) log.debug3(DEBUG_HEADER + "res = " + res);
     return res;
   }
 
@@ -1036,6 +1047,7 @@ public class ConfigManager implements LockssManager {
   }
 
   public boolean updateConfigOnce(List urls, boolean reload) {
+    final String DEBUG_HEADER = "updateConfigOnce(): ";
     startUpdateTime = TimeBase.nowMs();
     if (currentConfig.isEmpty()) {
       // first load preceded by platform config setup
@@ -1072,6 +1084,12 @@ public class ConfigManager implements LockssManager {
     loadList(newConfig, gens);
 
     boolean did = installConfig(newConfig, gens);
+    if (log.isDebug3()) {
+      log.debug3(DEBUG_HEADER + "reload = " + reload);
+      log.debug3(DEBUG_HEADER + "sendVersionInfo = " + sendVersionInfo);
+      log.debug3(DEBUG_HEADER + "gens = " + gens);
+      log.debug3(DEBUG_HEADER + "did = " + did);
+    }
     long tottime = TimeBase.msSince(startUpdateTime);
     long cbtime = TimeBase.msSince(startCallbacksTime);
     if (did) {
@@ -1086,6 +1104,7 @@ public class ConfigManager implements LockssManager {
 	log.debug("Reload time: " + StringUtil.timeIntervalToString(tottime));
       }
     }
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "did = " + did);
     return did;
   }
 
