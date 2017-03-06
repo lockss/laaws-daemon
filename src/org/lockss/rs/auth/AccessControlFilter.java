@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -50,14 +50,13 @@ import org.lockss.util.Logger;
  * Abstract Access Control filter to be extended in each web service.
  */
 public abstract class AccessControlFilter implements ContainerRequestFilter {
-  private static final String forbiddenAccess = "Access blocked for all users.";
-  private static final String noAuthorizationHeader =
-      "No authorization header.";
-  private static final String noCredentials = "No userid/password credentials.";
-  private static final String badCredentials =
+  public static final String forbiddenAccess = "Access blocked for all users.";
+  public static final String noAuthorizationHeader = "No authorization header.";
+  public static final String noCredentials = "No userid/password credentials.";
+  public static final String badCredentials =
       "Bad userid/password credentials.";
-  private static final String noUser = "User not found.";
-  private static final String noRequiredRole =
+  public static final String noUser = "User not found.";
+  public static final String noRequiredRole =
       "User does not have the required role.";
 
   private static final Logger log = Logger.getLogger(AccessControlFilter.class);
@@ -139,7 +138,7 @@ public abstract class AccessControlFilter implements ContainerRequestFilter {
 	  + Arrays.toString(method.getDeclaredAnnotations()));
 
       requestContext.abortWith(Response.status(Response.Status.FORBIDDEN)
-	  .entity(forbiddenAccess).build());
+	  .entity(toJsonMessage(forbiddenAccess)).build());
       return;
     }
 
@@ -171,7 +170,7 @@ public abstract class AccessControlFilter implements ContainerRequestFilter {
       log.info(DEBUG_HEADER + noAuthorizationHeader);
 
       requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED)
-	  .entity(noAuthorizationHeader).build());
+	  .entity(toJsonMessage(noAuthorizationHeader)).build());
       return;
     }
 
@@ -184,7 +183,7 @@ public abstract class AccessControlFilter implements ContainerRequestFilter {
       log.info(DEBUG_HEADER + noCredentials);
 
       requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED)
-	  .entity(noCredentials).build());
+	  .entity(toJsonMessage(noCredentials)).build());
       return;
     }
 
@@ -196,7 +195,7 @@ public abstract class AccessControlFilter implements ContainerRequestFilter {
 	  + "bad credentials = " + Arrays.toString(credentials));
 
       requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED)
-	  .entity(badCredentials).build());
+	  .entity(toJsonMessage(badCredentials)).build());
       return;
     }
 
@@ -204,8 +203,16 @@ public abstract class AccessControlFilter implements ContainerRequestFilter {
       log.debug3(DEBUG_HEADER + "credentials[0] = " + credentials[0]);
 
     // Get the user account.
-    UserAccount userAccount = LockssDaemon.getLockssDaemon().getAccountManager()
-	.getUser(credentials[0]);
+    UserAccount userAccount = null;
+
+    try {
+      userAccount = LockssDaemon.getLockssDaemon().getAccountManager()
+	  .getUser(credentials[0]);
+    } catch (Exception e) {
+      log.error("credentials[0] = " + credentials[0]);
+      log.error("credentials[1] = " + credentials[1]);
+      log.error("LockssDaemon.getLockssDaemon().getAccountManager().getUser(credentials[0])", e);
+    }
 
     // Check whether no user was found.
     if (userAccount == null) {
@@ -213,7 +220,7 @@ public abstract class AccessControlFilter implements ContainerRequestFilter {
       log.info(DEBUG_HEADER + noUser);
 
       requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED)
-	  .entity(badCredentials).build());
+	  .entity(toJsonMessage(badCredentials)).build());
       return;
     }
 
@@ -235,7 +242,7 @@ public abstract class AccessControlFilter implements ContainerRequestFilter {
 	  + "bad credentials = " + Arrays.toString(credentials));
 
       requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED)
-	  .entity(badCredentials).build());
+	  .entity(toJsonMessage(badCredentials)).build());
       // No: Check whether the user has the role required to execute this
       // operation.
     } else if (isAuthorized(userAccount, permissibleRoles)) {
@@ -247,7 +254,7 @@ public abstract class AccessControlFilter implements ContainerRequestFilter {
       log.info(DEBUG_HEADER + "userName = " + userAccount.getName());
 
       requestContext.abortWith(Response.status(Response.Status.UNAUTHORIZED)
-	  .entity(noRequiredRole).build());
+	  .entity(toJsonMessage(noRequiredRole)).build());
     }
   }
 
@@ -339,5 +346,16 @@ public abstract class AccessControlFilter implements ContainerRequestFilter {
     // The user is not authorized because it does not have any of the
     // permissible roles.
     return false;
+  }
+
+  /**
+   * Formats to JSON any message to be returned.
+   * 
+   * @param message
+   *          A String with the message to be formatted.
+   * @return a String with the JSON-formatted message.
+   */
+  private static String toJsonMessage(String message) {
+    return "{\"message\":\"" + message + "\"}"; 
   }
 }
