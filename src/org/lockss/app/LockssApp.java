@@ -129,6 +129,15 @@ public abstract class LockssApp {
 
   protected static LockssApp theApp;
 
+  // The indication of whether the Configuration REST web service is used.
+  private boolean useRestWs = false;
+
+  // The properties needed to access the Configuration REST web service.
+  protected String serviceLocation = null;
+  protected String serviceUser = null;
+  protected String servicePassword = null;
+  protected Integer serviceTimeout = null;
+
   protected LockssApp() {
     theApp = this;
   }
@@ -141,6 +150,29 @@ public abstract class LockssApp {
   protected LockssApp(List<String> propUrls, String groupNames) {
     this.propUrls = propUrls;
     this.groupNames = groupNames;
+    theApp = this;
+  }
+
+  /**
+   * Constructor used to access the Configuration REST web service.
+   *
+   * @param serviceLocation
+   *          A String with the configuration REST service location.
+   * @param serviceUser
+   *          A String with the configuration REST service user name.
+   * @param servicePassword
+   *          A String with the configuration REST service user password.
+   * @param serviceTimeout
+   *          An Integer with the configuration REST service connection timeout
+   *          value.
+   */
+  protected LockssApp(String serviceLocation, String serviceUser,
+      String servicePassword, Integer serviceTimeout) {
+    this.serviceLocation = serviceLocation;
+    this.serviceUser = serviceUser;
+    this.servicePassword = servicePassword;
+    this.serviceTimeout = serviceTimeout;
+    useRestWs = true;
     theApp = this;
   }
 
@@ -449,16 +481,43 @@ public abstract class LockssApp {
    * init our configuration and extract any parameters we will use locally
    */
   protected void initProperties() {
-    ConfigManager configMgr = ConfigManager.makeConfigManager(propUrls,
-							      groupNames);
+    ConfigManager configMgr = null;
+
+    // Check whether the configuration is obtained via files, not via a
+    // Configuration REST web service.
+    if (!useRestWs) {
+      // Yes: Create the configuration manager that uses file data.
+      configMgr = ConfigManager.makeConfigManager(propUrls, groupNames);
+    } else {
+      // No: Create the configuration manager that uses a Configuration REST web
+      // service.
+      log.info("Configuration REST web service location = '" + serviceLocation
+	  + "'");
+      configMgr = ConfigManager.makeConfigManager(serviceLocation, serviceUser,
+	  servicePassword, serviceTimeout);
+    }
+
     configMgr.initService(this);
     configMgr.startService();
-    log.info("Waiting for config");
-    if (!configMgr.waitConfig()) {
-      log.critical("Initial config load timed out");
-      System.exit(Constants.EXIT_CODE_RESOURCE_UNAVAILABLE);
+
+    // Check whether the configuration is obtained via files, not via a
+    // Configuration REST web service.
+    if (!useRestWs) {
+      // Yes: Wait for the configuration to be loaded.
+      log.info("Waiting for config");
+
+      if (!configMgr.waitConfig()) {
+	log.critical("Initial config load timed out");
+	System.exit(Constants.EXIT_CODE_RESOURCE_UNAVAILABLE);
+      }
     }
+
     log.info("Config loaded");
+
+    if (log.isDebug3()) {
+      log.debug3("ConfigManager.getCurrentConfig() = "
+	  + ConfigManager.getCurrentConfig());
+    }
 
     prevExitOnce = CurrentConfig.getBooleanParam(PARAM_APP_EXIT_ONCE,
 						 DEFAULT_APP_EXIT_ONCE);

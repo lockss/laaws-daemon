@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,7 +25,6 @@ be used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Stanford University.
 
 */
-
 package org.lockss.plugin;
 
 import java.io.*;
@@ -471,7 +470,10 @@ public class PluginManager
    * in the right order.
    */
   public void startLoadablePlugins() {
-    if (loadablePluginsReady || paramAuContentFromWs) {
+    final String DEBUG_HEADER = "startLoadablePlugins(): ";
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "loadablePluginsReady = "
+	+ loadablePluginsReady);
+    if (loadablePluginsReady) {
       return;
     }
 
@@ -479,8 +481,12 @@ public class PluginManager
     log.debug("Initializing loadable plugin registries before starting AUs");
     initLoadablePluginRegistries(getPluginRegistryUrls(config));
     synchStaticPluginList(config);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "Calling configureAllPlugins(config)");
     configureAllPlugins(config);
     loadablePluginsReady = true;
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "loadablePluginsReady = "
+	+ loadablePluginsReady);
   }
 
   public void setLoadablePluginsReady(boolean val) {
@@ -488,6 +494,9 @@ public class PluginManager
   }
 
   List getPluginRegistryUrls(Configuration config) {
+    final String DEBUG_HEADER = "getPluginRegistryUrls(): ";
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ "useDefaultPluginRegistries = " + useDefaultPluginRegistries);
     if (useDefaultPluginRegistries) {
       return ListUtil.append(config.getList(PARAM_PLUGIN_REGISTRIES),
 			     config.getList(PARAM_USER_PLUGIN_REGISTRIES));
@@ -2731,6 +2740,8 @@ public class PluginManager
    * Load all plugin registry plugins.
    */
   void initLoadablePluginRegistries(List urls) {
+    final String DEBUG_HEADER = "initLoadablePluginRegistries(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER	+ "urls = " + urls);
     // Load the keystore if necessary
     initKeystore(configMgr.getCurrentConfig());
 
@@ -2853,21 +2864,46 @@ public class PluginManager
   // Ensure plugins listed in o.l.plugin.registry or in jars listed in
   // o.l.plugin.registryJars are loaded.
   void synchStaticPluginList(Configuration config) {
+    final String DEBUG_HEADER = "synchStaticPluginList(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Invoked.");
     List<String> nameList = config.getList(PARAM_PLUGIN_REGISTRY);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "nameList = " + nameList);
     for (String name : nameList) {
       String key = pluginKeyFromName(name);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "key = " + key);
       ensurePluginLoaded(key);
     }
 
     List<String> jarList = config.getList(PARAM_PLUGIN_REGISTRY_JARS);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "jarList = " + jarList);
     if (!jarList.isEmpty()) {
       Pattern pat =
 	Pattern.compile(config.get(PARAM_PLUGIN_MEMBER_PATTERN,
 				   DEFAULT_PLUGIN_MEMBER_PATTERN));
-      for (String name : getClasspath()) {
-	if (jarList.contains(name) ||
-	    jarList.contains(new File(name).getName())) {
-	  ensureJarPluginsLoaded(name, pat);
+      // Check whether content is obtained via the local repository, not from
+      // web services.
+      if (!isAuContentFromWs()) {
+	// Yes.
+	for (String name : getClasspath()) {
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "name = " + name);
+	  if (jarList.contains(name) ||
+	      jarList.contains(new File(name).getName())) {
+	    ensureJarPluginsLoaded(name, pat);
+	  }
+	}
+      } else {
+	// No.
+	for (String jarName : jarList) {
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "jarName = " + jarName);
+
+	  File jarFile = new File(jarName);
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "jarFile = " + jarFile);
+
+	  if (jarFile != null && jarFile.exists()) {
+	    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+		+ "jarFile.getAbsolutePath() = " + jarFile.getAbsolutePath());
+	    ensureJarPluginsLoaded(jarName, pat);
+	  }
 	}
       }
     }
@@ -2875,6 +2911,7 @@ public class PluginManager
     // remove plugins on retract list, unless they have one or more
     // configured AUs
     synchronized (pluginMap) {
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "retract = " + retract);
       if (retract != null) {
 	for (Iterator iter = retract.iterator(); iter.hasNext(); ) {
 	  String name = (String)iter.next();
@@ -2889,6 +2926,7 @@ public class PluginManager
 	}
       }
     }
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
 
   // Load plugins in jar whose name matches PARAM_PLUGIN_MEMBER_PATTERN
@@ -2909,7 +2947,7 @@ public class PluginManager
       log.error("Couldn't open plugin registry jar: " + jarname);
     }
   }
-    
+
   private static List<String> getClasspath() {
     String cp = System.getProperty("java.class.path");
     if (cp == null) {

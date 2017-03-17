@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2010-2011 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2010-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,13 +25,10 @@ be used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Stanford University.
 
 */
-
 package org.lockss.config;
 
 import java.util.*;
-
 import org.lockss.app.LockssDaemon;
-import org.lockss.daemon.ConfigParamDescr;
 import org.lockss.daemon.TitleConfig;
 import org.lockss.exporter.biblio.BibliographicItem;
 import org.lockss.plugin.ArchivalUnit;
@@ -131,10 +124,33 @@ public class TdbUtil {
    * @return the TdbAu or <code>null</code> if no corresponding TdbAU
    */
   public static TdbAu getTdbAu(String auid) {
-    PluginManager pluginMgr = LockssDaemon.getLockssDaemon().getPluginManager();
+    return getTdbAu(auid, (Plugin)null);
+  }
+
+  /**
+   * Get the TdbAu that corresponds to the specified auid and plugin.
+   * 
+   * @param auid
+   *          the AU id
+   * @param plugin
+   *          A Plugin with the plugin
+   * @return the TdbAu or <code>null</code> if no corresponding TdbAU
+   */
+  public static TdbAu getTdbAu(String auid, Plugin plugin) {
+    final String DEBUG_HEADER = "getTdbAu(): ";
+    if (logger.isDebug2()) logger.debug2(DEBUG_HEADER + "auid = " + auid);
+
     String pluginId = PluginManager.pluginNameFromAuId(auid);
-    Plugin plugin = 
-        pluginMgr.getPlugin(PluginManager.pluginKeyFromName(pluginId));
+    if (logger.isDebug3())
+      logger.debug3(DEBUG_HEADER + "pluginId = " + pluginId);
+
+    if (plugin == null) {
+      PluginManager pluginMgr =
+	  LockssDaemon.getLockssDaemon().getPluginManager();
+      plugin = pluginMgr.getPlugin(PluginManager.pluginKeyFromName(pluginId));
+      if (logger.isDebug3()) logger.debug3(DEBUG_HEADER + "plugin = " + plugin);
+    }
+
     if (plugin != null) {
       Tdb tdb = ConfigManager.getCurrentConfig().getTdb();
       if (tdb != null) {
@@ -143,15 +159,22 @@ public class TdbUtil {
           Properties props = PluginManager.defPropsFromProps(plugin,
 							     tdbau.getParams());
           String genauid = PluginManager.generateAuId(pluginId, props);
+          if (logger.isDebug3())
+            logger.debug3(DEBUG_HEADER + "genauid = " + genauid);
+
           if (auid.equals(genauid)) {
+            if (logger.isDebug2())
+              logger.debug2(DEBUG_HEADER + "Found TdbAu = " + tdbau);
             return tdbau;
           }
         }
       }
-    }    
+    }
+
+    if (logger.isDebug2()) logger.debug2(DEBUG_HEADER + "Did not find TdbAu.");
     return null;
   }
-  
+
   /**
    * Get the TdbTitle with which an AU is associated.
    * 

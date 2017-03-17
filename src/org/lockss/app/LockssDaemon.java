@@ -283,6 +283,25 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     theDaemon = this;
   }
 
+  /**
+   * Constructor used to access the Configuration REST web service.
+   *
+   * @param serviceLocation
+   *          A String with the configuration REST service location.
+   * @param serviceUser
+   *          A String with the configuration REST service user name.
+   * @param servicePassword
+   *          A String with the configuration REST service user password.
+   * @param serviceTimeout
+   *          An Integer with the configuration REST service connection timeout
+   *          value.
+   */
+  protected LockssDaemon(String serviceLocation, String serviceUser,
+      String servicePassword, Integer serviceTimeout) {
+    super(serviceLocation, serviceUser, servicePassword, serviceTimeout);
+    theDaemon = this;
+  }
+
   protected ManagerDesc[] getManagerDescs() {
     return managerDescs;
   }

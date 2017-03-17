@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -25,7 +25,6 @@ be used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Stanford University.
 
 */
-
 package org.lockss.plugin.base;
 
 import java.io.*;
@@ -40,6 +39,7 @@ import org.lockss.truezip.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
 import org.lockss.ws.entities.ContentResult;
+import org.lockss.ws.entities.LockssWebServicesFault;
 import org.lockss.rewriter.*;
 import org.lockss.extractor.*;
 
@@ -298,12 +298,29 @@ public class BaseCachedUrl implements CachedUrl {
     String auId = au.getAuId();
     if (logger.isDebug3()) logger.debug3(DEBUG_HEADER + "auId = " + auId);
 
+    ContentResult wsResult = null;
+
     try {
       // Get the URL content via web services.
-      ContentResult wsResult = new FetchFileClient().getUrlContent(url, auId);
+      wsResult = new FetchFileClient().getUrlContent(url, auId);
       if (logger.isDebug3())
 	logger.debug3(DEBUG_HEADER + "wsResult = " + wsResult);
+    } catch (LockssWebServicesFault lwsf) {
+      if (lwsf.getMessage().indexOf("No content for url") != -1) {
+	logger.warning(lwsf.getMessage());
+	return;
+      } else {
+	logger.error("LockssWebServicesFault caught getting content for url = "
+	    + url + ", auId = " + auId, lwsf);
+	return;
+      }
+    } catch (Exception e) {
+      logger.error("Exception caught getting content for url = " + url
+	  + ", auId = " + auId, e);
+      return;
+    }
 
+    try {
       // Get the URL content input stream.
       inputStreamFromWs = wsResult.getDataHandler().getInputStream();
       if (logger.isDebug3()) logger.debug3(DEBUG_HEADER
@@ -448,6 +465,13 @@ public class BaseCachedUrl implements CachedUrl {
     Properties properties = getPropertiesFromWs();
     if (logger.isDebug3())
 	logger.debug3(DEBUG_HEADER + "properties = " + properties);
+
+    // Check whether no properties were obtained.
+    if (properties == null) {
+      // Yes: Do nothing more.
+      if (logger.isDebug2()) logger.debug2(DEBUG_HEADER + "contentType = null");
+      return null;
+    }
 
     // Get the content type property.
     String contentType =

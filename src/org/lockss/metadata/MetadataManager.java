@@ -46,12 +46,8 @@ import java.util.TreeMap;
 import org.lockss.app.BaseLockssDaemonManager;
 import org.lockss.app.ConfigurableManager;
 import org.lockss.app.LockssApp;
-//import org.lockss.app.LockssDaemon;
-import org.lockss.config.BaseConfigFile;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
-import org.lockss.config.FileConfigFile;
-import org.lockss.config.Tdb;
 import org.lockss.config.TdbAu;
 import org.lockss.config.Configuration.Differences;
 import org.lockss.daemon.LockssRunnable;
@@ -350,10 +346,6 @@ public class MetadataManager extends BaseLockssDaemonManager implements
   private boolean onDemandMetadataExtractionOnly =
       DEFAULT_ON_DEMAND_METADATA_EXTRACTION_ONLY;
 
-  // The map of archival unit configurations keyed by the archival unit
-  // identifier.
-  private Map<String, Configuration> auConfigurations = null;
-
   /**
    * Starts the MetadataManager service.
    */
@@ -480,18 +472,6 @@ public class MetadataManager extends BaseLockssDaemonManager implements
 	if (log.isDebug3())
 	  log.debug3("mandatoryMetadataFields = " + mandatoryMetadataFields);
       }
-
-      // Check whether the content is obtained via web services, not from the
-      // local repository.
-      if (config.getBoolean(PluginManager.PARAM_AU_CONTENT_FROM_WS,
-	  PluginManager.DEFAULT_AU_CONTENT_FROM_WS)) {
-	// Yes: Check whether the manager is being, or has been, started.
-	if (pluginMgr != null) {
-	  // Yes: Populate the map of archival unit configurations keyed by the
-	  // archival unit identifier.
-	  populateAuConfigurations();
-	}
-      }
     }
   }
 
@@ -502,66 +482,6 @@ public class MetadataManager extends BaseLockssDaemonManager implements
    */
   public static String getManagerKey() {
     return "MetadataManager";
-  }
-
-  /**
-   * Populates the map of archival unit configurations keyed by the archival
-   * unit identifier.
-   */
-  private void populateAuConfigurations() {
-    final String DEBUG_HEADER = "populateAuConfigurations(): ";
-
-    auConfigurations = new HashMap<String, Configuration>();
-
-    try {
-      ConfigManager configManager = getDaemon().getConfigManager();
-      List<String> configUrlList =
-	  (List<String>)configManager.getConfigUrlList();
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "configUrlList = " + configUrlList);
-
-      for (String configUrl : configUrlList) {
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "configUrl = " + configUrl);
-
-	BaseConfigFile cf = new FileConfigFile(configUrl);
-	Tdb tdb = cf.getConfiguration().getTdb();
-	if (tdb == null) {
-	  continue;
-	}
-
-	for (String pluginId : tdb.getAllPluginsIds()) {
-	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "pluginId = " + pluginId);
-
-	  for (TdbAu.Id tdbAuId : tdb.getTdbAuIds(pluginId)) {
-	    String auId = tdbAuId.toString().replaceAll("&pub_down~true", "");
-	    //if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
-
-	    TdbAu tdbAu = tdb.getTdbAuById(tdbAuId);
-	    if (log.isDebug3()) {
-	      //log.debug3(DEBUG_HEADER + "tdbAu = " + tdbAu);
-	      //log.debug3(DEBUG_HEADER
-		  //+ "tdbAu.getAttrs() = " + tdbAu.getAttrs());
-	      //log.debug3(DEBUG_HEADER
-		  //+ "tdbAu.getParams() = " + tdbAu.getParams());
-	      //log.debug3(DEBUG_HEADER
-		  //+ "tdbAu.getProperties() = " + tdbAu.getProperties());
-	    }
-
-	    Properties properties = new Properties();
-	    properties.putAll(tdbAu.getParams());
-
-	    Configuration auConf = ConfigManager.fromProperties(properties);
-	    //if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConf = " + auConf);
-
-	    auConfigurations.put(auId, auConf);
-	  }
-	}
-      }
-    } catch (Exception e) {
-      log.error("Error getting AU configurations", e);
-    }
   }
 
   /**
@@ -4794,7 +4714,7 @@ public class MetadataManager extends BaseLockssDaemonManager implements
    * @return an ArchivalUnit with the archival unit.
    */
   public ArchivalUnit getAu(String auId) {
-    final String DEBUG_HEADER = "getAu(): ";
+    final String DEBUG_HEADER = "getAu(auId): ";
     boolean isAuContentFromWs = pluginMgr.isAuContentFromWs();
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
@@ -4807,7 +4727,6 @@ public class MetadataManager extends BaseLockssDaemonManager implements
 
     // No: Get the archival unit from the local repository.
     return pluginMgr.getAuFromId(auId);
-
   }
 
   /**
@@ -4862,10 +4781,10 @@ public class MetadataManager extends BaseLockssDaemonManager implements
    * @return an ArchivalUnit with the archival unit.
    */
   private ArchivalUnit getAu(String auId, Plugin plugin) {
-    final String DEBUG_HEADER = "getAu(): ";
+    final String DEBUG_HEADER = "getAu(auId, plugin): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
 
-    Configuration auConf = getAuConf(auId);
+    Configuration auConf = getAuConf(auId, plugin);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConf = " + auConf);
 
     ArchivalUnit au = null;
@@ -4909,22 +4828,32 @@ public class MetadataManager extends BaseLockssDaemonManager implements
    *          A String with the identifier of the archival unit.
    * @return a Configuration with the configuration of the archival unit.
    */
-  private Configuration getAuConf(String auId) {
+  private Configuration getAuConf(String auId, Plugin plugin) {
     final String DEBUG_HEADER = "getAuConf(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
 
+    // Get the Archival Unit title database.
+    TdbAu tdbAu = getDaemon().getConfigManager().getTdbAu(auId, plugin);
     Configuration auConf = null;
 
-    if (auConfigurations != null) {
-      auConf = auConfigurations.get(auId);
+    // Get the Archival Unit configuration, if possible.
+    if (tdbAu != null) {
+      tdbAu.prettyLog(2);
+      Properties properties = new Properties();
+      properties.putAll(tdbAu.getParams());
+
+      auConf = ConfigManager.fromPropertiesUnsealed(properties);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConf = " + auConf);
     }
 
+    // Check whether no Archival Unit configuration was found.
     if (auConf == null) {
+      // Yes: Create an empty Archival Unit configuration.
       auConf = ConfigManager.EMPTY_CONFIGURATION;
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConf = " + auConf);
     }
 
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auConf = " + auConf);
     return auConf;
   }
 

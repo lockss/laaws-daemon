@@ -25,7 +25,6 @@ be used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Stanford University.
 
 */
-
 package org.lockss.config;
 
 import java.io.*;
@@ -516,6 +515,15 @@ public class ConfigManager implements LockssManager {
   private List<Pattern> expertConfigDenyPats;
   private boolean enableExpertConfig;
 
+  // The indication of whether the Configuration REST web service is used.
+  private boolean useRestWs = false;
+
+  // The properties needed to access the Configuration REST web service.
+  private String serviceLocation = null;
+  private String serviceUser = null;
+  private String servicePassword = null;
+  private Integer serviceTimeout = null;
+
   public ConfigManager() {
     this(null, null);
   }
@@ -529,6 +537,31 @@ public class ConfigManager implements LockssManager {
       configUrlList = new ArrayList(urls);
     }
     this.groupNames = groupNames;
+    configCache = new ConfigCache(this);
+    registerConfigurationCallback(Logger.getConfigCallback());
+    registerConfigurationCallback(MiscConfig.getConfigCallback());
+  }
+
+  /**
+   * Constructor used to access the Configuration REST web service.
+   *
+   * @param serviceLocation
+   *          A String with the configuration REST service location.
+   * @param serviceUser
+   *          A String with the configuration REST service user name.
+   * @param servicePassword
+   *          A String with the configuration REST service user password.
+   * @param serviceTimeout
+   *          An Integer with the configuration REST service connection timeout
+   *          value.
+   */
+  public ConfigManager(String serviceLocation, String serviceUser,
+      String servicePassword, Integer serviceTimeout) {
+    this.serviceLocation = serviceLocation;
+    this.serviceUser = serviceUser;
+    this.servicePassword = servicePassword;
+    this.serviceTimeout = serviceTimeout;
+    useRestWs = true;
     configCache = new ConfigCache(this);
     registerConfigurationCallback(Logger.getConfigCallback());
     registerConfigurationCallback(MiscConfig.getConfigCallback());
@@ -550,7 +583,25 @@ public class ConfigManager implements LockssManager {
    * initialized.  Service should extend this to perform any startup
    * necessary. */
   public void startService() {
-    startHandler();
+    // Check whether the configuration is obtained via files, not via a
+    // Configuration REST web service.
+    if (!useRestWs) {
+      // Yes: Start the configuration handler that will periodically check the
+      // configuration files.
+      startHandler();
+    } else {
+      // No: Get the configuration from the Configuration REST web service.
+      Configuration newConfig = new GetConfigClient(serviceLocation,
+	  serviceUser, servicePassword, serviceTimeout).getConfig();
+
+      // Initialize its title database, if necessary.
+      if (newConfig.getTdb() == null) {
+	newConfig.setTdb(new Tdb());
+      }
+
+      // Install this new configuration.
+      installConfig(newConfig);
+    }
   }
 
   /** Reset to unconfigured state.  See LockssTestCase.tearDown(), where
@@ -587,6 +638,27 @@ public class ConfigManager implements LockssManager {
 
   public static ConfigManager makeConfigManager(List urls, String groupNames) {
     theMgr = new ConfigManager(urls, groupNames);
+    return theMgr;
+  }
+
+  /**
+   * Constructor factory used to access the Configuration REST web service.
+   *
+   * @param serviceLocation
+   *          A String with the configuration REST service location.
+   * @param serviceUser
+   *          A String with the configuration REST service user name.
+   * @param servicePassword
+   *          A String with the configuration REST service user password.
+   * @param serviceTimeout
+   *          An Integer with the configuration REST service connection timeout
+   *          value.
+   */
+  public static ConfigManager makeConfigManager(String serviceLocation,
+      String serviceUser, String servicePassword, Integer serviceTimeout) {
+    theMgr = new ConfigManager(serviceLocation, serviceUser, servicePassword,
+	serviceTimeout);
+
     return theMgr;
   }
 
@@ -1008,8 +1080,6 @@ public class ConfigManager implements LockssManager {
   boolean updateConfig() {
     final String DEBUG_HEADER = "updateConfig(): ";
     boolean result = updateConfig(configUrlList);
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "configUrlList = " + configUrlList);
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
     return result;
   }
@@ -1019,7 +1089,7 @@ public class ConfigManager implements LockssManager {
     needImmediateReload = false;
     boolean res = updateConfigOnce(urls, true);
     if (log.isDebug3()) {
-      log.debug3(DEBUG_HEADER + "urls = " + urls);
+      log.debug3(DEBUG_HEADER + "urls.size() = " + urls.size());
       log.debug3(DEBUG_HEADER + "needImmediateReload = " + needImmediateReload);
       log.debug3(DEBUG_HEADER + "res = " + res);
     }
@@ -1087,7 +1157,8 @@ public class ConfigManager implements LockssManager {
     if (log.isDebug3()) {
       log.debug3(DEBUG_HEADER + "reload = " + reload);
       log.debug3(DEBUG_HEADER + "sendVersionInfo = " + sendVersionInfo);
-      log.debug3(DEBUG_HEADER + "gens = " + gens);
+      log.debug3(DEBUG_HEADER + "gens.size() = " + gens.size());
+      log.debug3(DEBUG_HEADER + "useRestWs = " + useRestWs);
       log.debug3(DEBUG_HEADER + "did = " + did);
     }
     long tottime = TimeBase.msSince(startUpdateTime);
@@ -1252,7 +1323,16 @@ public class ConfigManager implements LockssManager {
       + "." + StringUtil.sanitizeToIdentifier(name.toLowerCase()) + ".";
   }
 
-  // used by testing utilities
+  /**
+   * Installs the passed configuration as the current one. Used by testing
+   * utilities and by REST web services that get their configuration from a
+   * separate Configuration REST web service instead of relying on local files.
+   * 
+   * @param newConfig
+   *          A Configuration with the configuration to be installed.
+   * @return <code>TRUE</code> if the passed configuration is installed,
+   *         <code>FALSE</code> otherwise.
+   */
   boolean installConfig(Configuration newConfig) {
     return installConfig(newConfig, Collections.EMPTY_LIST);
   }
@@ -2760,6 +2840,75 @@ public class ConfigManager implements LockssManager {
     } else {
 //       log.warning("Attempt to stop handler when it isn't running");
     }
+  }
+
+  /**
+   * Provides the configuration of an archival unit given its identifier and
+   * plugin.
+   * 
+   * @param auId
+   *          A String with the identifier of the archival unit.
+   * @param plugin
+   *          A Plugin with the plugin.
+   * @return a Configuration with the configuration of the archival unit.
+   */
+  public TdbAu getTdbAu(String auId, Plugin plugin) {
+    final String DEBUG_HEADER = "getTdbAu(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "auId = " + auId);
+      log.debug2(DEBUG_HEADER + "plugin = " + plugin);
+    }
+
+    // Get the Archival Unit title database from the current configuration.
+    TdbAu tdbAu = TdbUtil.getTdbAu(auId, plugin);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "tdbAu = " + tdbAu);
+
+    // Check whether the Archival Unit title database has not been found and the
+    // configuration is obtained via a Configuration REST web service.
+    if (tdbAu == null && useRestWs) {
+      // Yes.
+      try {
+	// Get the Archival Unit title database from the Configuration REST web
+	// service.
+	TdbAu newTdbAu = new GetTdbAuClient(serviceLocation, serviceUser,
+	    servicePassword, serviceTimeout).getTdbAu(auId);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newTdbAu = " + newTdbAu);
+	newTdbAu.prettyLog(2);
+
+	// Create a new title database.
+	Tdb copyTdb = new Tdb();
+
+	// Add the new Archival Unit title database to this new title database.
+	boolean added = copyTdb.addTdbAu(newTdbAu);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "added = " + added);
+
+	if (added) {
+	  tdbAu = copyTdb.getTdbAuById(newTdbAu);
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "tdbAu = " + tdbAu);
+	}
+
+	// Copy the current title database to the new one.
+	copyTdb.copyFrom(getCurrentConfig().getTdb());
+
+	// Make a copy of the current configuration.
+	Configuration newConfig = getCurrentConfig().copy();
+
+	// Add to this new configuration the new title database.
+	newConfig.setTdb(copyTdb);
+
+	// Install the new configuration.
+	installConfig(newConfig);
+      } catch (Exception e) {
+	log.error("Exception caught getting the configuration of Archival Unit "
+	    + auId, e);
+      }
+    }
+
+    if (tdbAu != null) {
+      tdbAu.prettyLog(2);
+    }
+
+    return tdbAu;
   }
 
   // Handler thread, periodically reloads config

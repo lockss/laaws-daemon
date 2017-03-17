@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,7 +29,6 @@ package org.lockss.config;
 
 import java.io.*;
 import java.util.*;
-
 import org.apache.commons.collections.map.Flat3Map;
 import org.lockss.config.Tdb.TdbException;
 import org.lockss.exporter.biblio.BibliographicItem;
@@ -41,7 +36,6 @@ import org.lockss.exporter.biblio.BibliographicUtil;
 import org.lockss.plugin.*;
 import org.lockss.subscription.BibliographicPeriod;
 import org.lockss.util.*;
-
 
 /**
  * This class represents a title database archival unit (AU).
@@ -1118,6 +1112,115 @@ public class TdbAu implements BibliographicItem, Comparable<TdbAu> {
   }
 
   /**
+   * Convenience method that generates a TdbAu from a Properties class.
+   *
+   * @param props
+   *          A Properties to be used to populate the TdbAu.
+   * @return a TdbAu populated with the passed Properties.
+   * @throws Exception
+   *           if there are errors.
+   */
+  public static TdbAu fromProperties(Properties props) throws Exception {
+    final String DEBUG_HEADER = "fromProperties(): ";
+    if (logger.isDebug2()) logger.debug2(DEBUG_HEADER + "props = " + props);
+
+    // Create the basic result.
+    TdbAu tdbAu =
+	new TdbAu(props.getProperty("title"), props.getProperty("plugin"));
+
+    tdbAu.props = new HashMap<String, String>();
+    tdbAu.params = new HashMap<String, String>();
+    tdbAu.attrs = new HashMap<String, String>();
+
+    // Loop through all the passed properties.
+    for (Object key : props.keySet()) {
+      // The name of the property.
+      String name = (String)key;
+      if (logger.isDebug3()) logger.debug3(DEBUG_HEADER + "name = " + name);
+
+      // Check whether it is a parameter.
+      if (name.startsWith("param.") && name.endsWith("key")) {
+	// Yes: Recover the original data.
+	String originalKey = props.getProperty(name);
+	if (logger.isDebug3())
+	  logger.debug3(DEBUG_HEADER + "originalKey = " + originalKey);
+
+	String prefix = name.substring(0, name.length()-3);
+	if (logger.isDebug3())
+	  logger.debug3(DEBUG_HEADER + "prefix = " + prefix);
+
+	String originalValue = props.getProperty(prefix + "value");
+	if (logger.isDebug3())
+	  logger.debug3(DEBUG_HEADER + "originalValue = " + originalValue);
+
+	// Save the parameter in the result.
+	tdbAu.setParam(originalKey, originalValue);
+	// No: Check whether it is an attribute.
+      } else if (name.startsWith("attributes.")) {
+	// Yes: Recover the original data.
+	String originalKey = name.substring("attributes.".length());
+	if (logger.isDebug3())
+	  logger.debug3(DEBUG_HEADER + "originalKey = " + originalKey);
+
+	String originalValue = props.getProperty(name);
+	if (logger.isDebug3())
+	  logger.debug3(DEBUG_HEADER + "originalValue = " + originalValue);
+
+	// Save the attribute in the result.
+	tdbAu.setAttr(originalKey, originalValue);
+	// No: Check whether it is a property.
+      } else if (!name.startsWith("param.") && !name.startsWith("link.")
+	  && !"journal.id".equals(name) && !"journal.title".equals(name)
+	  && !"plugin".equals(name)&& !"publisher.id".equals(name)
+	  && !"title".equals(name)) {
+	// Yes: Recover the original data.
+	String originalValue = props.getProperty(name);
+	if (logger.isDebug3())
+	  logger.debug3(DEBUG_HEADER + "originalValue = " + originalValue);
+
+	// Save the property in the result.
+	tdbAu.setPropertyByName(name, originalValue);
+      }
+    }
+
+    // Add the title, if necessary.
+    TdbTitle tdbTitle = null;
+
+    String titleName = props.getProperty("journal.title");
+    if (logger.isDebug3())
+      logger.debug3(DEBUG_HEADER + "titleName = " + titleName);
+
+    String titleId = props.getProperty("journal.id");
+    if (logger.isDebug3()) logger.debug3(DEBUG_HEADER + "titleId = " + titleId);
+
+    if (titleName != null || titleId != null) {
+      tdbTitle = new TdbTitle(titleName, titleId);
+
+      String publisherId = props.getProperty("publisher.id");
+      if (logger.isDebug3())
+	logger.debug3(DEBUG_HEADER + "publisherId = " + publisherId);
+
+      Tdb tdb = ConfigManager.getCurrentConfig().getTdb();
+      TdbPublisher tdbPublisher = tdb.getTdbPublisher(publisherId);
+      if (logger.isDebug3())
+	logger.debug3(DEBUG_HEADER + "tdbPublisher = " + tdbPublisher);
+
+      if (tdbPublisher == null) {
+	tdbPublisher = new TdbPublisher(publisherId);
+	if (logger.isDebug3())
+	  logger.debug3(DEBUG_HEADER + "tdbPublisher = " + tdbPublisher);
+      }
+
+      tdbTitle.setTdbPublisher(tdbPublisher);
+
+      tdbAu.title = tdbTitle;
+    }
+
+    if (logger.isDebug2()) logger.debug2(DEBUG_HEADER + "tdbAu = " + tdbAu);
+    return tdbAu;
+  }
+
+  /**
    * Create a copy of this TdbAu for the specified title
    * <p>
    * This is method is used by Tdb to make a deep copy of a publisher.
@@ -1153,6 +1256,34 @@ public class TdbAu implements BibliographicItem, Comparable<TdbAu> {
     }
   }
 
+  /**
+   * Logs a full description of this object in a nice format.
+   * 
+   * @param indent
+   *          An int with the number of columns of indentation to use in
+   *          formatting.
+   */
+  public void prettyLog(int indent) {
+    if (logger.isDebug()) {
+      logger.debug(StringUtil.tab(indent) + "AU: " + name);
+      indent += 2;
+      logger.debug(StringUtil.tab(indent) + "Plugin: " + pluginId);
+      logger.debug(StringUtil.tab(indent) + "Title: " + title);
+      indent += 2;
+      logger.debug(StringUtil.tab(indent) + "Name: " + title.getName());
+      logger.debug(StringUtil.tab(indent) + "Publisher: "
+	  + title.getPublisherName());
+      indent -= 2;
+      plogSortedMap("Params:", params, indent);
+      if (attrs != null && !attrs.isEmpty()) {
+	plogSortedMap("Attrs:", attrs, indent);
+      }
+      if (props != null && !props.isEmpty()) {
+	plogSortedMap("Additional props:", props, indent);
+      }
+    }
+  }
+
   void pprintSortedMap(String title, Map<String,String> map,
 		       PrintStream ps, int indent) {
     ps.println(StringUtil.tab(indent) + title);
@@ -1161,6 +1292,32 @@ public class TdbAu implements BibliographicItem, Comparable<TdbAu> {
     for (Map.Entry<String,String> ent : sorted.entrySet()) {
       ps.println(StringUtil.tab(indent) +
 		 ent.getKey() + " = " + ent.getValue());
+    }
+  }
+
+  /**
+   * Logs a full description of a map in a nice format.
+   * 
+   * @param title
+   *          A String with the title of the map.
+   * @param map
+   *          A Map<String, String> with the map.
+   * @param indent
+   *          An int with the number of columns of indentation to use in
+   *          formatting.
+   */
+  private void plogSortedMap(String title, Map<String, String> map, int indent)
+  {
+    if (logger.isDebug()) {
+      logger.debug(StringUtil.tab(indent) + title);
+      indent += 2;
+
+      TreeMap<String, String> sorted = new TreeMap<String, String>(map);
+
+      for (Map.Entry<String,String> ent : sorted.entrySet()) {
+	logger.debug(StringUtil.tab(indent)
+	    + ent.getKey() + " = " + ent.getValue());
+      }
     }
   }
 
