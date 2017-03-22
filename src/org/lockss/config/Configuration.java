@@ -4,7 +4,7 @@
 
 /*
 
-Copyright (c) 2001-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2001-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -353,10 +353,12 @@ public abstract class Configuration {
   static {
     boolStrings.put("true", Boolean.TRUE);
     boolStrings.put("yes", Boolean.TRUE);
+    boolStrings.put("y", Boolean.TRUE);
     boolStrings.put("on", Boolean.TRUE);
     boolStrings.put("1", Boolean.TRUE);
     boolStrings.put("false", Boolean.FALSE);
     boolStrings.put("no", Boolean.FALSE);
+    boolStrings.put("n", Boolean.FALSE);
     boolStrings.put("off", Boolean.FALSE);
     boolStrings.put("0", Boolean.FALSE);
   }
@@ -392,7 +394,7 @@ public abstract class Configuration {
    */
   public boolean getBoolean(String key, boolean dfault) {
     String val = get(key);
-    if (val == null) {
+    if (StringUtil.isNullString(val)) {
       return dfault;
     }
     Boolean bool = stringToBool(val);
@@ -422,7 +424,7 @@ public abstract class Configuration {
    */
   public int getInt(String key, int dfault) {
     String val = get(key);
-    if (val == null) {
+    if (StringUtil.isNullString(val)) {
       return dfault;
     }
     try {
@@ -495,7 +497,7 @@ public abstract class Configuration {
    */
   public long getLong(String key, long dfault) {
     String val = get(key);
-    if (val == null) {
+    if (StringUtil.isNullString(val)) {
       return dfault;
     }
     try {
@@ -536,7 +538,7 @@ public abstract class Configuration {
    */
   public long getTimeInterval(String key, long dfault) {
     String val = get(key);
-    if (val == null) {
+    if (StringUtil.isNullString(val)) {
       return dfault;
     }
     try {
@@ -573,7 +575,7 @@ public abstract class Configuration {
    */
   public long getSize(String key, long dfault) {
     String val = get(key);
-    if (val == null) {
+    if (StringUtil.isNullString(val)) {
       return dfault;
     }
     try {
@@ -649,7 +651,7 @@ public abstract class Configuration {
    */
   public double getDouble(String key, double dfault) {
     String val = get(key);
-    if (val == null) {
+    if (StringUtil.isNullString(val)) {
       return dfault;
     }
     try {
@@ -659,6 +661,23 @@ public abstract class Configuration {
 		  e.toString());
       return dfault;
     }
+  }
+
+  /** If val is of the form "<code>@<i>param_name</i></code>", and
+   * <i>param_name</i> is the name of a parameter set in this
+   * Configuration, return its value.  If it is not set, return
+   * <i>dfault</i>.  If val is not of the form
+   * "<code>@<i>param_name</i></code>" return it verbatim.
+   * @param key any String value, possibly beginning with <code>@</code>.
+   * @param dfault the default value to return if the named param is not set
+   * @return a String
+   */
+  public String getIndirect(String val, String dfault) {
+    if (val != null && val.startsWith("@")) {
+      String param = val.substring(1);
+      val = get(param, dfault);
+    }
+    return val;
   }
 
   InvalidParam newInvalid(String msg, String key, String val) {

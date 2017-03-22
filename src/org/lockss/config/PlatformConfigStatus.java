@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2000-2007 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,6 +33,7 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.config;
 
 import java.util.*;
+
 import org.lockss.app.*;
 import org.lockss.daemon.status.*;
 import org.lockss.util.*;
@@ -92,6 +97,10 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
       List res = new ArrayList();
       addSum(res, "Hostname", config.get(PARAM_PLATFORM_FQDN));
       addSum(res, "IP Address", config.get(PARAM_PLATFORM_IP_ADDRESS));
+      if (daemon.isClockss()) {
+	addSum(res, "IP Address",
+	       config.get(PARAM_PLATFORM_SECOND_IP_ADDRESS));
+      }
       List<String> groups = config.getPlatformGroupList();
       if (groups != null) {
 	if (groups.size() == 1) {
@@ -103,6 +112,12 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
       addSum(res, "Project", config.get(PARAM_PLATFORM_PROJECT));
       addSum(res, "V3 Identity", config.get(PARAM_PLATFORM_LOCAL_V3_IDENTITY));
       String smtpHost = config.get(PARAM_PLATFORM_SMTP_HOST);
+      if (smtpHost != null) {
+	int smtpPort =
+	  config.getInt(PARAM_PLATFORM_SMTP_PORT,
+			org.lockss.mail.SmtpMailService.DEFAULT_SMTPPORT);
+	addSum(res, "Mail Relay", smtpHost + ":" + smtpPort);
+      }
       addSum(res, "Admin Email", config.get(PARAM_PLATFORM_ADMIN_EMAIL));
       addSum(res, "Disks",
 	     seplist(config.getList(PARAM_PLATFORM_DISK_SPACE_LIST)));
@@ -127,9 +142,15 @@ public class PlatformConfigStatus extends BaseLockssDaemonManager {
       
       addSum(res, "Cwd",
 	     PlatformUtil.getInstance().getCwd());
-      List propsUrls = ConfigManager.getConfigManager().getConfigUrlList();
+      ConfigManager mgr = ConfigManager.getConfigManager();
+      List propsUrls = mgr.getSpecUrlList();
+      List loadedUrls = mgr.getLoadedUrlList();
       if (propsUrls != null) {
 	addSum(res, "Props", StringUtil.separatedString(propsUrls, ", "));
+	if (!propsUrls.equals(loadedUrls)) {
+	  addSum(res, "Loaded from local failover",
+		 StringUtil.separatedString(loadedUrls, ", "));
+	}
       }
       return res;
     }
