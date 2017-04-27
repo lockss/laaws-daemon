@@ -44,12 +44,24 @@ import javax.ws.rs.core.PathSegment;
 import javax.ws.rs.core.Response;
 import org.lockss.account.UserAccount;
 import org.lockss.app.LockssDaemon;
+import org.lockss.config.Configuration;
+import org.lockss.config.CurrentConfig;
 import org.lockss.util.Logger;
 
 /**
  * Abstract Access Control filter to be extended in each web service.
  */
 public abstract class AccessControlFilter implements ContainerRequestFilter {
+  public static final String BASIC_AUTH_TYPE = "basic";
+  public static final String NONE_AUTH_TYPE = "none";
+
+  /** Prefix for configuration properties. */
+  public static final String PREFIX = Configuration.PREFIX + "restAuth.";
+  public static final String PARAM_AUTH_TYPE = PREFIX + "authenticationType";
+  public static final String DEFAULT_AUTH_TYPE = NONE_AUTH_TYPE;
+
+  public static final String invalidAutheticationType =
+      "Invalid Authentication Type (must be BASIC or NONE).";
   public static final String forbiddenAccess = "Access blocked for all users.";
   public static final String noAuthorizationHeader = "No authorization header.";
   public static final String noCredentials = "No userid/password credentials.";
@@ -93,6 +105,30 @@ public abstract class AccessControlFilter implements ContainerRequestFilter {
     final String DEBUG_HEADER = "filter(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Invoked.");
 
+    // Get the configured authentication type.
+    String authenticationType =
+	CurrentConfig.getParam(PARAM_AUTH_TYPE, DEFAULT_AUTH_TYPE);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "authenticationType = " + authenticationType);
+
+    // Check whether access is allowed to anybody.
+    if (NONE_AUTH_TYPE.equalsIgnoreCase(authenticationType)) {
+      // Yes: Continue normally.
+      if (log.isDebug2())
+	log.debug2(DEBUG_HEADER + "Authorized (like everybody else).");
+      return;
+      // No: Check whether the authentication type is not "basic".
+    } else if (!BASIC_AUTH_TYPE.equalsIgnoreCase(authenticationType)) {
+      // Yes: Report the problem.
+      log.error(invalidAutheticationType);
+      log.error("authenticationType = " + authenticationType);
+
+      requestContext.abortWith(Response.status(Response.Status.FORBIDDEN)
+	  .entity(toJsonMessage(authenticationType + ": "
+	      + invalidAutheticationType)).build());
+      return;
+    }
+
     Method method = resourceInfo.getResourceMethod();
     if (log.isDebug3()) {
       log.debug3(DEBUG_HEADER + "method = " + method);
@@ -100,7 +136,7 @@ public abstract class AccessControlFilter implements ContainerRequestFilter {
 	  + Arrays.toString(method.getDeclaredAnnotations()));
     }
 
-    // Check whether access is allowed to anybody.
+    // Check whether access to this method is allowed to anybody.
     if (method.isAnnotationPresent(PermitAll.class)) {
       // Yes: Continue normally.
       if (log.isDebug2())
@@ -129,7 +165,7 @@ public abstract class AccessControlFilter implements ContainerRequestFilter {
       return;
     }
 
-    // Check whether access is denied to everybody.
+    // Check whether access to this method is denied to everybody.
     if (method.isAnnotationPresent(DenyAll.class)) {
       // Yes: Report the problem.
       log.info(DEBUG_HEADER + forbiddenAccess);
