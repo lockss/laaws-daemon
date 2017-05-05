@@ -27,12 +27,12 @@
  */
 package org.lockss.config;
 
+import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import org.jboss.resteasy.client.jaxrs.BasicAuthentication;
 import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import org.lockss.util.Logger;
-import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 
 /**
  * A client for the Configuration REST web service operation that provides the
@@ -92,10 +92,6 @@ public class GetConfigClient {
     }
 
     // Make the request to the REST service and get its response.
-//    Map<String, String> result = (Map<String, String>)builder.build()
-//	.target(serviceLocation)
-//	.register(new BasicAuthentication(serviceUser, servicePassword))
-//	.path("config").request().get(Map.class);
     Properties result = (Properties)builder.build()
 	.target(serviceLocation)
 	.register(new BasicAuthentication(serviceUser, servicePassword))

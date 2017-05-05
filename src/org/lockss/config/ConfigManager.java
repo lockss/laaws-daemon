@@ -692,15 +692,10 @@ public class ConfigManager implements LockssManager {
   }
 
   public void setCurrentConfig(Configuration newConfig) {
-    final String DEBUG_HEADER = "setCurrentConfig(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "newConfig = " + newConfig);
-
     if (newConfig == null) {
       log.warning("attempt to install null Configuration");
     }
     currentConfig = newConfig;
-    if (log.isDebug2())
-      log.debug2(DEBUG_HEADER + "currentConfig = " + currentConfig);
   }
 
   /** Create a sealed Configuration object from a Properties */
@@ -2909,6 +2904,124 @@ public class ConfigManager implements LockssManager {
     }
 
     return tdbAu;
+  }
+
+  /**
+   * Adds to the configuration, if necessary, the title database of an archival
+   * unit given its identifier and plugin.
+   * 
+   * @param auId
+   *          A String with the identifier of the archival unit.
+   * @param plugin
+   *          A Plugin with the plugin.
+   */
+  public void addTdbAu(String auId, Plugin plugin) {
+    final String DEBUG_HEADER = "addTdbAu(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "auId = " + auId);
+      log.debug2(DEBUG_HEADER + "plugin = " + plugin);
+    }
+
+    // Get the Archival Unit title database from the current configuration.
+    TdbAu tdbAu = TdbUtil.getTdbAu(auId, plugin);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "tdbAu = " + tdbAu);
+
+    // Check whether the Archival Unit title database has not been found and the
+    // configuration is obtained via a Configuration REST web service.
+    if (tdbAu == null && useRestWs) {
+      // Yes.
+      try {
+	// Get the Archival Unit title database from the Configuration REST web
+	// service.
+	TdbAu newTdbAu = new GetTdbAuClient(serviceLocation, serviceUser,
+	    servicePassword, serviceTimeout).getTdbAu(auId);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "newTdbAu = " + newTdbAu);
+	newTdbAu.prettyLog(2);
+
+	// Create a new title database.
+	Tdb copyTdb = new Tdb();
+
+	// Add the new Archival Unit title database to this new title database.
+	boolean added = copyTdb.addTdbAu(newTdbAu);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "added = " + added);
+
+	if (added) {
+	  tdbAu = copyTdb.getTdbAuById(newTdbAu);
+	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "tdbAu = " + tdbAu);
+	}
+
+	// Copy the current title database to the new one.
+	copyTdb.copyFrom(getCurrentConfig().getTdb());
+
+	// Make a copy of the current configuration.
+	Configuration newConfig = getCurrentConfig().copy();
+
+	// Add to this new configuration the new title database.
+	newConfig.setTdb(copyTdb);
+
+	// Install the new configuration.
+	installConfig(newConfig);
+      } catch (Exception e) {
+	log.error("Exception caught getting the configuration of Archival Unit "
+	    + auId, e);
+      }
+    }
+
+    if (tdbAu != null) {
+      tdbAu.prettyLog(2);
+    }
+  }
+
+  /**
+   * Provides the configuration of an archival unit given its identifier.
+   * 
+   * @param auId
+   *          A String with the identifier of the archival unit.
+   * @return a Configuration with the configuration of the archival unit.
+   */
+  public Configuration getAuConfig(String auId, Plugin plugin) {
+    final String DEBUG_HEADER = "getAuConfig(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "auId = " + auId);
+      log.debug2(DEBUG_HEADER + "plugin = " + plugin);
+    }
+
+    Configuration auConfig = null;
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "useRestWs = " + useRestWs);
+
+    if (useRestWs) {
+      try {
+	auConfig = new GetAuConfigClient(serviceLocation, serviceUser,
+	    servicePassword, serviceTimeout).getAuConfig(auId);
+        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+      } catch (Exception e) {
+	log.error("Exception caught getting the configuration of Archival Unit "
+	    + auId, e);
+      }
+    } else {
+      // Get the Archival Unit title database.
+      TdbAu tdbAu = getTdbAu(auId, plugin);
+
+      // Get the Archival Unit configuration, if possible.
+      if (tdbAu != null) {
+        tdbAu.prettyLog(2);
+        Properties properties = new Properties();
+        properties.putAll(tdbAu.getParams());
+
+        auConfig = ConfigManager.fromPropertiesUnsealed(properties);
+        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+      }
+
+      // Check whether no Archival Unit configuration was found.
+      if (auConfig == null) {
+        // Yes: Create an empty Archival Unit configuration.
+        auConfig = ConfigManager.EMPTY_CONFIGURATION;
+        if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConfig = " + auConfig);
+      }
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auConfig = " + auConfig);
+    return auConfig;
   }
 
   // Handler thread, periodically reloads config

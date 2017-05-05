@@ -261,8 +261,10 @@ Args:
   				  value="${lib}/commons-codec-1.10.jar"/>
   <property name="commons.compress.jar"
   				  value="${lib}/commons-compress-1.10.jar"/>
-  <property name="commons.httpclient.jar"
-  			value="${lib}/commons-httpclient-3.0-rc4.jar"/>
+  <!-- property name="commons.httpclient.jar"
+  			value="${lib}/commons-httpclient-3.0-rc4.jar"/ -->
+  <property name="httpcore.jar" value="${lib}/httpcore-4.4.6.jar"/>
+  <property name="httpclient.jar" value="${lib}/httpclient-4.5.3.jar"/>
   <property name="commons.io.jar"
 	        value="${lib}/commons-io-2.4.jar" />
   <property name="commons.jxpath.jar"
@@ -323,11 +325,11 @@ Args:
   <property name="xoai-common.jar" value="${lib}/xoai-common-4.1.0.jar"/>
   <property name="xoai-service-provider.jar" value="${lib}/xoai-service-provider-4.1.0-p2.jar"/>
   <property name="xml-io.jar" value="${lib}/xml-io-1.0.3-p2.jar"/>
-  <property name="httpcore.jar" value="${lib}/httpcore-4.3.2.jar"/>
+  <!-- property name="httpcore.jar" value="${lib}/httpcore-4.3.2.jar"/ -->
   <property name="hamcrest-all.jar" value="${lib}/hamcrest-all-1.3.jar"/>
   <property name="stax2-api.jar" value="${lib}/stax2-api-3.0.4.jar"/>
   <property name="test-support.jar" value="${lib}/test-support-1.0.4.jar"/>
-  <property name="httpclient.jar" value="${lib}/httpclient-4.3.1.jar"/>
+  <!-- property name="httpclient.jar" value="${lib}/httpclient-4.3.1.jar"/ -->
 
   <!-- PDFBox -->
   <property name="pdfbox.version" value="1.8.11" />
@@ -352,9 +354,12 @@ Args:
 <!--  <property name="bouncycastle.mail-old.jar" value="${lib}/bcmail-jdk14-132.jar" /> -->
 
   <!-- Needed by ArcExploder, exporters, jcr repo: -->
-  <property name="heritrix.jar" value="${lib}/heritrix-commons-3.1.0-p1.jar" />
+  <!-- property name="heritrix.jar" value="${lib}/heritrix-commons-3.1.0-p1.jar" / -->
+  <property name="webarchive-commons.jar"
+	value="${lib}/webarchive-commons-1.1.8-jar-with-dependencies.jar" />
   <property name="heritrix-fastutil.jar" value="${lib}/fastutil-5.0.7.jar" />
-  <property name="heritrix-guava.jar" value="${lib}/guava-r08.jar" />
+  <!-- property name="heritrix-guava.jar" value="${lib}/guava-r08.jar" / -->
+  <property name="guava.jar" value="${lib}/guava-18.0.jar" />
 
   <!-- Database schema documentation. -->
   <property name="schemaSpy.jar" value="${lib}/schemaSpy_5.0.0.jar" />
@@ -410,8 +415,10 @@ Args:
   <property name="asm-tree.jar" value="${lib}/asm-tree-3.0.jar" />
   <property name="cxf.jar" value="${lib}/cxf-2.6.2.jar" />
   <property name="FastInfoset.jar" value="${lib}/FastInfoset-1.2.9.jar" />
-  <property name="jaxb-impl.jar" value="${lib}/jaxb-impl-2.2.5.jar" />
-  <property name="jaxb-xjc.jar" value="${lib}/jaxb-xjc-2.2.5.jar" />
+  <!-- property name="jaxb-impl.jar" value="${lib}/jaxb-impl-2.2.5.jar" / -->
+  <property name="jaxb-runtime.jar" value="${lib}/jaxb-runtime-2.2.11.jar" />
+  <!-- property name="jaxb-xjc.jar" value="${lib}/jaxb-xjc-2.2.5.jar" / -->
+  <property name="jaxb-xjc.jar" value="${lib}/jaxb-xjc-2.2.11.jar" />
   <property name="mimepull.jar" value="${lib}/mimepull-1.7.jar" />
   <property name="neethi.jar" value="${lib}/neethi-3.0.2.jar" />
   <property name="spring-aop.jar" value="${lib}/spring-aop-3.0.7.RELEASE.jar" />
@@ -494,7 +501,9 @@ Args:
     <pathelement path="${commons.codec.jar}" />
     <pathelement path="${commons.configuration.jar}" />
     <pathelement path="${commons.compress.jar}" />
-    <pathelement path="${commons.httpclient.jar}" />
+    <!-- pathelement path="${commons.httpclient.jar}" / -->
+    <pathelement path="${httpcore.jar}" />
+    <pathelement path="${httpclient.jar}" />
     <pathelement path="${commons.io.jar}" />
     <pathelement path="${commons.jxpath.jar}" />
     <pathelement path="${commons.compress.jar}" />
@@ -549,9 +558,11 @@ Args:
     <pathelement path="${oai-harvester.jar}" />
     <pathelement path="${xalan.jar}" />
     <!-- jars needed by the ArcCrawler -->
-    <pathelement path="${heritrix.jar}" />
+    <!-- pathelement path="${heritrix.jar}" / -->
+    <pathelement path="${webarchive-commons.jar}" />
     <pathelement path="${heritrix-fastutil.jar}" />
-    <pathelement path="${heritrix-guava.jar}" />
+    <!-- pathelement path="${heritrix-guava.jar}" / -->
+    <pathelement path="${guava.jar}" />
     <pathelement path="${commons.beanutils.jar}" />
     <!-- Jars for I18N -->
     <pathelement path="${gettext.commons.jar}" />
@@ -560,7 +571,8 @@ Args:
 	<pathelement path="${asm.jar}" />
 	<pathelement path="${cxf.jar}" />
 	<pathelement path="${FastInfoset.jar}" />
-	<pathelement path="${jaxb-impl.jar}" />
+	<!-- pathelement path="${jaxb-impl.jar}" / -->
+	<pathelement path="${jaxb-runtime.jar}" />
 	<pathelement path="${jaxb-xjc.jar}" />
 	<pathelement path="${mimepull.jar}" />
 	<pathelement path="${neethi.jar}" />
@@ -589,11 +601,9 @@ Args:
     <pathelement path="${xoai-common.jar}" />
     <pathelement path="${xoai-service-provider.jar}" />
     <pathelement path="${xml-io.jar}" />
-    <pathelement path="${httpcore.jar}" />
     <pathelement path="${hamcrest-all.jar}" />
     <pathelement path="${stax2-api.jar}" />
     <pathelement path="${test-support.jar}" />
-    <pathelement path="${httpclient.jar}" />
     <!-- Needed by OIOSAML -->
     <pathelement path="${commons-digester-commons-digester.jar}" />
     <pathelement path="${commons-fileupload-commons-fileupload.jar}" />

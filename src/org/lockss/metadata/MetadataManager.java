@@ -40,15 +40,15 @@ import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Properties;
+//import java.util.Properties;
 import java.util.Set;
 import java.util.TreeMap;
 import org.lockss.app.BaseLockssDaemonManager;
 import org.lockss.app.ConfigurableManager;
 import org.lockss.app.LockssApp;
-import org.lockss.config.ConfigManager;
+//import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
-import org.lockss.config.TdbAu;
+//import org.lockss.config.TdbAu;
 import org.lockss.config.Configuration.Differences;
 import org.lockss.daemon.LockssRunnable;
 import org.lockss.daemon.status.StatusService;
@@ -66,7 +66,7 @@ import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
 import org.lockss.plugin.Plugin;
 import org.lockss.plugin.Plugin.Feature;
-import org.lockss.plugin.PluginManager.PluginInfo;
+//import org.lockss.plugin.PluginManager.PluginInfo;
 import org.lockss.plugin.PluginManager;
 import org.lockss.scheduler.Schedule;
 import org.lockss.util.Constants;
@@ -4613,29 +4613,29 @@ public class MetadataManager extends BaseLockssDaemonManager implements
     final String DEBUG_HEADER = "onDemandStartReindexing(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
 
-    boolean isAuContentFromWs = pluginMgr.isAuContentFromWs();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
+    // Get the AU.
+    ArchivalUnit au = pluginMgr.getAuFromId(auId);
+    if (log.isDebug3()) log.debug3("au = " + au);
 
-    Plugin plugin = null;
-    ArchivalUnit au = null;
+//    Plugin plugin = null;
+//    ArchivalUnit au = null;
 
-    // Check whether the content comes from web services.
-    if (isAuContentFromWs) {
-      // Yes: Get the plugin.
-      plugin = getAuPlugin(auId);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "plugin = " + plugin);
-
-      // Get the AU.
-      au = getAu(auId, plugin);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
-    } else {
-      // No: Get the archival unit from the local repository.
-      au = pluginMgr.getAuFromId(auId);
-
-      // Get the plugin.
-      plugin = au.getPlugin();
-    }
+//    // Check whether the content comes from web services.
+//    if (isAuContentFromWs) {
+//      // Yes: Get the plugin.
+//      plugin = getAuPlugin(auId);
+//      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "plugin = " + plugin);
+//
+//      // Get the AU.
+//      au = getAu(auId, plugin);
+//      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
+//    } else {
+//      // No: Get the archival unit from the local repository.
+//      au = pluginMgr.getAuFromId(auId);
+//
+//      // Get the plugin.
+//      plugin = au.getPlugin();
+//    }
 
     // Check whether it does not exist.
     if (au == null) {
@@ -4645,22 +4645,33 @@ public class MetadataManager extends BaseLockssDaemonManager implements
       throw new IllegalArgumentException(message);
     }
 
+    // No: Check whether the content comes from web services.
+    boolean isAuContentFromWs = pluginMgr.isAuContentFromWs();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
+
+    if (isAuContentFromWs) {
+      // Yes: Add the Archival Unit title database to the configuration, if
+      // necessary.
+      getDaemon().getConfigManager().addTdbAu(auId, au.getPlugin());
+    }
+
     // No: Get the metadata extractor.
-    ArticleMetadataExtractor ae = null;
-
-    if (useMetadataExtractor) {
-      ae = plugin.getArticleMetadataExtractor(MetadataTarget.OpenURL(), au);
-    }
-
-    if (ae == null) {
-      ae = new BaseArticleMetadataExtractor(null);
-    }
+//    ArticleMetadataExtractor ae = null;
+//
+//    if (useMetadataExtractor) {
+//      ae = plugin.getArticleMetadataExtractor(MetadataTarget.OpenURL(), au);
+//    }
+//
+//    if (ae == null) {
+//      ae = new BaseArticleMetadataExtractor(null);
+//    }
 
     // Schedule the pending AU.
     if (log.isDebug3()) log.debug3(DEBUG_HEADER
 	+ "Creating the reindexing task for AU: " + au.getName());
 
-    ReindexingTask task = new ReindexingTask(au, ae);
+    ReindexingTask task = new ReindexingTask(au, getMetadataExtractor(au));
     task.setFullReindex(true);
 
     log.debug(DEBUG_HEADER + "Running the reindexing task for AU: "
@@ -4682,7 +4693,7 @@ public class MetadataManager extends BaseLockssDaemonManager implements
     if (log.isDebug2()) log.debug2("auId = " + auId);
 
     // Get the AU.
-    ArchivalUnit au = getAu(auId);
+    ArchivalUnit au = pluginMgr.getAuFromId(auId);
     if (log.isDebug3()) log.debug3("au = " + au);
 
     // Check whether it does not exist.
@@ -4693,7 +4704,18 @@ public class MetadataManager extends BaseLockssDaemonManager implements
       throw new IllegalArgumentException(message);
     }
 
-    // No: Schedule the removal of the AU.
+    // No: Check whether the content comes from web services.
+    boolean isAuContentFromWs = pluginMgr.isAuContentFromWs();
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
+
+    if (isAuContentFromWs) {
+      // Yes: Add the Archival Unit title database to the configuration, if
+      // necessary.
+      getDaemon().getConfigManager().addTdbAu(auId, au.getPlugin());
+    }
+
+    // Schedule the removal of the AU.
     if (log.isDebug3()) log.debug3(DEBUG_HEADER
 	+ "Creating the metadata removal task for AU: " + au.getName());
 
@@ -4706,156 +4728,157 @@ public class MetadataManager extends BaseLockssDaemonManager implements
     return task;
   }
 
-  /**
-   * Provides an archival unit given its identifier.
-   * 
-   * @param auId
-   *          A String with the identifier of the archival unit.
-   * @return an ArchivalUnit with the archival unit.
-   */
-  public ArchivalUnit getAu(String auId) {
-    final String DEBUG_HEADER = "getAu(auId): ";
-    boolean isAuContentFromWs = pluginMgr.isAuContentFromWs();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
+//  /**
+//   * Provides an archival unit given its identifier.
+//   * 
+//   * @param auId
+//   *          A String with the identifier of the archival unit.
+//   * @return an ArchivalUnit with the archival unit.
+//   */
+//  public ArchivalUnit getAu(String auId) {
+//    final String DEBUG_HEADER = "getAu(auId): ";
+//    boolean isAuContentFromWs = pluginMgr.isAuContentFromWs();
+//    if (log.isDebug3())
+//      log.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
+//
+//    // Check whether the content comes from web services.
+//    if (isAuContentFromWs) {
+//      // Yes.
+//      return getAu(auId, getAuPlugin(auId));
+//    }
+//
+//    // No: Get the archival unit from the local repository.
+//    return pluginMgr.getAuFromId(auId);
+//  }
 
-    // Check whether the content comes from web services.
-    if (isAuContentFromWs) {
-      // Yes.
-      return getAu(auId, getAuPlugin(auId));
-    }
+//  /**
+//   * Provides the plugin of an archival unit.
+//   * 
+//   * @param auId
+//   *          A String with the identifier of the archival unit.
+//   * @return a Plugin with the plugin of the archival unit.
+//   */
+//  Plugin getAuPlugin(String auId) {
+//    final String DEBUG_HEADER = "getAuPlugin(): ";
+//    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
+//
+//    String pluginKey = PluginManager.pluginIdFromAuId(auId);
+//    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pluginKey = " + pluginKey);
+//
+//    String pluginName = "";
+//    Plugin plugin = null;
+//
+//    try {
+//      pluginName = PluginManager.pluginNameFromKey(pluginKey);
+//      if (log.isDebug3())
+//	log.debug3(DEBUG_HEADER + "Trying to retrieve plugin " + pluginKey);
+//
+//      PluginInfo info =
+//	  pluginMgr.loadPlugin(pluginKey, this.getClass().getClassLoader());
+//
+//      if (info != null) {
+//	plugin = info.getPlugin();
+//      	plugin = pluginMgr.getPluginFromAuId(auId);
+//      } else {
+//	String message = "Couldn't retrieve plugin " + pluginKey;
+//	log.error(message);
+//	throw new IllegalArgumentException(message);
+//      }
+//    } catch (Exception e) {
+//      String message = "Error instantiating plugin for auId = " + auId;
+//      log.error(message, e);
+//      throw new IllegalArgumentException(message);
+//    }
+//
+//    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "plugin = " + plugin);
+//    return plugin;
+//  }
 
-    // No: Get the archival unit from the local repository.
-    return pluginMgr.getAuFromId(auId);
-  }
+//  /**
+//   * Provides an archival unit given its identifier and plugin.
+//   * 
+//   * @param auId
+//   *          A String with the identifier of the archival unit.
+//   * @param plugin
+//   *          A Plugin with the archival unit plugin.
+//   * @return an ArchivalUnit with the archival unit.
+//   */
+//  private ArchivalUnit getAu(String auId, Plugin plugin) {
+//    final String DEBUG_HEADER = "getAu(auId, plugin): ";
+//    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
+//
+//    Configuration auConf = getAuConf(auId, plugin);
+//    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConf = " + auConf);
+//
+//    ArchivalUnit au = null;
+//
+//    try {
+//      au = plugin.configureAu(auConf, null);
+//      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
+//    } catch (Exception e) {
+//      String message = "Error instantiating archival unit " + auId;
+//      log.error(message, e);
+//      throw new IllegalArgumentException(message);
+//    }
+//
+//    // Determine whether content is obtained via web services, not from the
+//    // local repository.
+//    boolean isAuContentFromWs = pluginMgr.isAuContentFromWs();
+//    if (log.isDebug3())
+//      log.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
+//
+//    // Check whether the local repository is used.
+//    if (!isAuContentFromWs) {
+//      // Yes.
+//      try {
+//	getDaemon().startOrReconfigureAuManagers(au, auConf);
+//      } catch (Exception e) {
+//	String message =
+//	    "Error configuring managers for archival unit " + auId;
+//	log.error(message, e);
+//	throw new IllegalArgumentException(message);
+//      }
+//    }
+//
+//    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "au = " + au);
+//    return au;
+//  }
 
-  /**
-   * Provides the plugin of an archival unit.
-   * 
-   * @param auId
-   *          A String with the identifier of the archival unit.
-   * @return a Plugin with the plugin of the archival unit.
-   */
-  Plugin getAuPlugin(String auId) {
-    final String DEBUG_HEADER = "getAuPlugin(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
-
-    String pluginKey = PluginManager.pluginIdFromAuId(auId);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pluginKey = " + pluginKey);
-
-    String pluginName = "";
-    Plugin plugin = null;
-
-    try {
-      pluginName = PluginManager.pluginNameFromKey(pluginKey);
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "Trying to retrieve plugin " + pluginKey);
-
-      PluginInfo info =
-	  pluginMgr.loadPlugin(pluginKey, this.getClass().getClassLoader());
-
-      if (info != null) {
-	plugin = info.getPlugin();
-      } else {
-	String message = "Couldn't retrieve plugin " + pluginKey;
-	log.error(message);
-	throw new IllegalArgumentException(message);
-      }
-    } catch (Exception e) {
-      String message = "Error instantiating plugin " + pluginName;
-      log.error(message, e);
-      throw new IllegalArgumentException(message);
-    }
-
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "plugin = " + plugin);
-    return plugin;
-  }
-
-  /**
-   * Provides an archival unit given its identifier and plugin.
-   * 
-   * @param auId
-   *          A String with the identifier of the archival unit.
-   * @param plugin
-   *          A Plugin with the archival unit plugin.
-   * @return an ArchivalUnit with the archival unit.
-   */
-  private ArchivalUnit getAu(String auId, Plugin plugin) {
-    final String DEBUG_HEADER = "getAu(auId, plugin): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
-
-    Configuration auConf = getAuConf(auId, plugin);
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConf = " + auConf);
-
-    ArchivalUnit au = null;
-
-    try {
-      au = plugin.configureAu(auConf, null);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
-    } catch (Exception e) {
-      String message = "Error instantiating archival unit " + auId;
-      log.error(message, e);
-      throw new IllegalArgumentException(message);
-    }
-
-    // Determine whether content is obtained via web services, not from the
-    // local repository.
-    boolean isAuContentFromWs = pluginMgr.isAuContentFromWs();
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
-
-    // Check whether the local repository is used.
-    if (!isAuContentFromWs) {
-      // Yes.
-      try {
-	getDaemon().startOrReconfigureAuManagers(au, auConf);
-      } catch (Exception e) {
-	String message =
-	    "Error configuring managers for archival unit " + auId;
-	log.error(message, e);
-	throw new IllegalArgumentException(message);
-      }
-    }
-
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "au = " + au);
-    return au;
-  }
-
-  /**
-   * Provides the configuration of an archival unit given its identifier.
-   * 
-   * @param auId
-   *          A String with the identifier of the archival unit.
-   * @return a Configuration with the configuration of the archival unit.
-   */
-  private Configuration getAuConf(String auId, Plugin plugin) {
-    final String DEBUG_HEADER = "getAuConf(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
-
-    // Get the Archival Unit title database.
-    TdbAu tdbAu = getDaemon().getConfigManager().getTdbAu(auId, plugin);
-    Configuration auConf = null;
-
-    // Get the Archival Unit configuration, if possible.
-    if (tdbAu != null) {
-      tdbAu.prettyLog(2);
-      Properties properties = new Properties();
-      properties.putAll(tdbAu.getParams());
-
-      auConf = ConfigManager.fromPropertiesUnsealed(properties);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConf = " + auConf);
-    }
-
-    // Check whether no Archival Unit configuration was found.
-    if (auConf == null) {
-      // Yes: Create an empty Archival Unit configuration.
-      auConf = ConfigManager.EMPTY_CONFIGURATION;
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConf = " + auConf);
-    }
-
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auConf = " + auConf);
-    return auConf;
-  }
+//  /**
+//   * Provides the configuration of an archival unit given its identifier.
+//   * 
+//   * @param auId
+//   *          A String with the identifier of the archival unit.
+//   * @return a Configuration with the configuration of the archival unit.
+//   */
+//  private Configuration getAuConf(String auId, Plugin plugin) {
+//    final String DEBUG_HEADER = "getAuConf(): ";
+//    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
+//
+//    // Get the Archival Unit title database.
+//    TdbAu tdbAu = getDaemon().getConfigManager().getTdbAu(auId, plugin);
+//    Configuration auConf = null;
+//
+//    // Get the Archival Unit configuration, if possible.
+//    if (tdbAu != null) {
+//      tdbAu.prettyLog(2);
+//      Properties properties = new Properties();
+//      properties.putAll(tdbAu.getParams());
+//
+//      auConf = ConfigManager.fromPropertiesUnsealed(properties);
+//      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConf = " + auConf);
+//    }
+//
+//    // Check whether no Archival Unit configuration was found.
+//    if (auConf == null) {
+//      // Yes: Create an empty Archival Unit configuration.
+//      auConf = ConfigManager.EMPTY_CONFIGURATION;
+//      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auConf = " + auConf);
+//    }
+//
+//    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auConf = " + auConf);
+//    return auConf;
+//  }
 
   /**
    * Runs the specified metadata removal task.
@@ -5099,8 +5122,9 @@ public class MetadataManager extends BaseLockssDaemonManager implements
         log.debug3(DEBUG_HEADER + "mandatoryFields = " + mandatoryFields);
 
       // Write the AU metadata to the database.
-      mdItemSeq = new AuMetadataRecorder(mdManager, auId)
-	  .recordMetadataItem(conn, mandatoryFields, mditr);
+      mdItemSeq = new AuMetadataRecorder(mdManager,
+	  pluginMgr.getPluginFromAuId(auId), auId).recordMetadataItem(conn,
+	      mandatoryFields, mditr);
 
       // Complete the database transaction.
       MetadataDbManager.commitOrRollback(conn, log);

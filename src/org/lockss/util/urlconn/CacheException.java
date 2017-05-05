@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2000-2010 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,7 +34,10 @@ package org.lockss.util.urlconn;
 
 import java.io.*;
 import java.util.*;
+
 import org.lockss.util.Constants;
+import org.lockss.config.*;
+import org.lockss.crawler.BaseCrawler;
 import org.lockss.plugin.PluginFetchEventResponse;
 
 /** Hierarchy of exceptions that may be returned from a plugin's {@link
@@ -54,6 +61,12 @@ public class CacheException
   //Exceptions with this attribute will signal that we have a serious error
   //such as a permission problem or a site wide issue
   public static final int ATTRIBUTE_FATAL = 3;
+
+  //If an exception with this attribute is thrown in a context where a file
+  //would otherwise have been stored, the file won't be stored.  Useful for
+  //validators to reject files (possibly after retries, if used with
+  //ATTRIBUTE_RETRY) without causing the crawl to fail.
+  public static final int ATTRIBUTE_NO_STORE = 4;
 
   protected static boolean defaultSuppressStackTrace = true;
 
@@ -862,6 +875,23 @@ public class CacheException
 
     public WarningOnly(String message) {
       super(message);
+    }
+  }
+
+  /** Do not store the received file, record a warning and proceed.  Makes
+   * sense only in a ContentValidator, as that's the only place it's possible to prevent the file from being stored. */
+  public static class NoStoreWarningOnly
+      extends CacheException {
+    public NoStoreWarningOnly() {
+      super();
+    }
+
+    public NoStoreWarningOnly(String message) {
+      super(message);
+    }
+
+    protected void setAttributes() {
+      attributeBits.set(ATTRIBUTE_NO_STORE);
     }
   }
 }

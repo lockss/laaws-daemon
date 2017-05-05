@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -43,6 +43,7 @@ import org.lockss.metadata.MetadataManager;
 import org.lockss.metadata.MetadataManager.ReindexingStatus;
 import org.lockss.metadata.ReindexingTask;
 import org.lockss.plugin.ArchivalUnit;
+import org.lockss.plugin.PluginManager;
 import org.lockss.scheduler.StepTask;
 import org.lockss.util.Logger;
 
@@ -95,6 +96,9 @@ public class JobManager extends BaseLockssDaemonManager implements
 
   // The sleep delay when no jobs are ready.
   private long sleepDelaySeconds = DEFAULT_SLEEP_DELAY_SECONDS;
+
+  // The plugin manager.
+  private PluginManager pluginManager = null;
 
   // The database manager.
   private JobDbManager dbManager = null;
@@ -157,6 +161,8 @@ public class JobManager extends BaseLockssDaemonManager implements
       log.info("JobManager not enabled.");
       return;
     }
+
+    pluginManager = getDaemon().getPluginManager();
 
     //dbManager = getDaemon().getDbManager();
     dbManager =
@@ -884,8 +890,8 @@ public class JobManager extends BaseLockssDaemonManager implements
       // Get the Archival Unit.
 //      ArchivalUnit au =
 //	  LockssDaemon.getLockssDaemon().getMetadataManager().getAu(auId);
-      ArchivalUnit au = mdManager.getAu(auId);
-      if (log.isDebug3()) log.debug3("au = " + au);
+      ArchivalUnit au = pluginManager.getAuFromId(auId);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 
       // Check whether it does exist.
       if (au != null) {

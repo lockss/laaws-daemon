@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -47,6 +47,7 @@ import org.lockss.plugin.AuUtil.AuProxyInfo;
 import org.lockss.plugin.PluginManager.CuContentReq;
 import org.lockss.plugin.PrintfConverter.UrlListConverter;
 import org.lockss.plugin.definable.DefinableArchivalUnit;
+import org.lockss.proxy.ProxyManager;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 
@@ -106,10 +107,10 @@ public class OpenUrlResolver {
   
   private static final Logger log = Logger.getLogger(OpenUrlResolver.class);
 
-  /** the LOCKSS daemon */
-  //private final LockssDaemon daemon;
   /** the PluginManager */
   private final PluginManager pluginMgr;
+  /** the ProxyManager */
+  private final ProxyManager proxyMgr;
   
   /** maximum redirects for looking up DOI url */
   private static final int MAX_REDIRECTS = 10;
@@ -381,8 +382,8 @@ public class OpenUrlResolver {
     if (daemon == null) {
       throw new IllegalArgumentException("LOCKSS daemon not specified");
     }
-    //this.daemon = daemon;
     this.pluginMgr = daemon.getPluginManager();
+    this.proxyMgr = daemon.getProxyManager();
   }
   
   /**
@@ -867,6 +868,10 @@ public class OpenUrlResolver {
                      : OpenUrlInfo.ResolvedTo.TITLE);
 
       // create bibliographic item with only title properties
+      resolved.resolvedBibliographicItem =  
+            new BibliographicItemImpl()
+              .setPublisherName(pub)
+              .setPublicationTitle(title);
       return resolved;
       
     } else  if (pub != null) {
@@ -874,6 +879,9 @@ public class OpenUrlResolver {
           null, null, OpenUrlInfo.ResolvedTo.PUBLISHER);
       
       // create bibliographic item with only publisher properties
+      resolved.resolvedBibliographicItem =  
+        new BibliographicItemImpl()
+          .setPublisherName(pub);
       return resolved;
     }
 
@@ -1111,23 +1119,38 @@ public class OpenUrlResolver {
    * @return a resolved URL
    */
   String resolveUrl(String aUrl, String auProxySpec) { // protected for testing
+    final String DEBUG_HEADER = "resolveUrl(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "aUrl = " + aUrl);
+      log.debug2(DEBUG_HEADER + "auProxySpec = " + auProxySpec);
+    }
+
     String url = aUrl;
+
     try {
+      final LockssUrlConnectionPool connectionPool =
+        proxyMgr.getQuickConnectionPool();
+      
       // get proxy host and port for the proxy spec or the current config
       AuProxyInfo proxyInfo = AuUtil.getAuProxyInfo(auProxySpec);
       String proxyHost = proxyInfo.getHost();
       int proxyPort = proxyInfo.getPort();
       
       for (int i = 0; i < MAX_REDIRECTS; i++) {
+        if (log.isDebug3()) log.debug3(DEBUG_HEADER + " i = " + i);
         // no need to look further if content already cached
         if (pluginMgr.findCachedUrl(url) != null) {
+          if (log.isDebug2()) log.debug2(DEBUG_HEADER + " url = '" + url + "'");
           return url;
         }
         
-        // test URL by opening connection
         LockssUrlConnection conn = null;
+
         try {
-          conn = UrlUtil.openConnection(url, null);
+          // test URL by opening connection
+          conn = UrlUtil.openConnection(url, connectionPool);
+          if (log.isDebug3()) log.debug3(DEBUG_HEADER + " conn = " + conn);
+
           conn.setFollowRedirects(false);
           conn.setRequestProperty("user-agent", LockssDaemon.getUserAgent());
 
@@ -1144,10 +1167,15 @@ public class OpenUrlResolver {
           
           // if not redirected, validate based on response code
           String url2 = conn.getResponseHeaderValue("Location");
+          if (log.isDebug3())
+            log.debug3(DEBUG_HEADER + " url2 = '" + url2 + "'");
           if (url2 == null) {
             int response = conn.getResponseCode();
-            log.debug3(i + " response code: " + response);
+            if (log.isDebug3())
+              log.debug3(DEBUG_HEADER + " response code: " + response);
             if (response == HttpURLConnection.HTTP_OK) {
+              if (log.isDebug2())
+        	log.debug2(DEBUG_HEADER + " url = '" + url + "'");
               return url;
             }
             return null;
@@ -1178,7 +1206,6 @@ public class OpenUrlResolver {
     OpenUrlInfo resolved = noOpenUrlInfo;
     try {
       // resolve from database manager
-      //DbManager dbMgr = daemon.getDbManager();
       MetadataDbManager dbMgr = getMetadataDbManager();
       resolved = resolveFromDoi(dbMgr, doi);
     } catch (IllegalArgumentException ex) {
@@ -1367,7 +1394,6 @@ public class OpenUrlResolver {
     
     // try resolving from the metadata database first
     try {
-      //DbManager dbMgr = daemon.getDbManager();
       MetadataDbManager dbMgr = getMetadataDbManager();
       OpenUrlInfo aResolved = resolveFromIssn(dbMgr, issn, pub, date, 
                                   volume, issue, spage, artnum, author, atitle);
@@ -1401,6 +1427,15 @@ public class OpenUrlResolver {
         aResolved = OpenUrlInfo.newInstance(
             null,null, OpenUrlInfo.ResolvedTo.TITLE);
           // create bibliographic item with only title properties
+        aResolved.resolvedBibliographicItem =  
+            new BibliographicItemImpl()
+              .setPublisherName(title.getPublisherName())
+              .setPublicationTitle(title.getName())
+              .setProprietaryIds(title.getProprietaryIds())
+              .setCoverageDepth(title.getCoverageDepth())
+              .setPrintIssn(title.getPrintIssn())
+              .setEissn(title.getEissn())
+              .setIssnL(title.getIssnL());
          if (resolved == null) {
            resolved = aResolved;
          } else {
@@ -1437,14 +1472,30 @@ public class OpenUrlResolver {
       MetadataDbManager dbMgr,
       String issn, String pub, String date, String volume, String issue, 
       String spage, String artnum, String author, String atitle) {
-          
+    final String DEBUG_HEADER = "resolveFromIssn(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "issn = " + issn);
+      log.debug2(DEBUG_HEADER + "pub = " + pub);
+      log.debug2(DEBUG_HEADER + "date = " + date);
+      log.debug2(DEBUG_HEADER + "volume = " + volume);
+      log.debug2(DEBUG_HEADER + "issue = " + issue);
+      log.debug2(DEBUG_HEADER + "spage = " + spage);
+      log.debug2(DEBUG_HEADER + "artnum = " + artnum);
+      log.debug2(DEBUG_HEADER + "author = " + author);
+      log.debug2(DEBUG_HEADER + "atitle = " + atitle);
+    }
+
     // true if properties specified a journal item
     boolean hasJournalSpec =
         (date != null) || (volume != null) || (issue != null);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "hasJournalSpec = " + hasJournalSpec);
 
     // true if properties specify an article
     boolean hasArticleSpec =    (spage != null) || (artnum != null) 
                              || (author != null) || (atitle != null);
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "hasArticleSpec = " + hasArticleSpec);
 
     Connection conn = null;
     OpenUrlInfo resolved = null;
@@ -1584,21 +1635,41 @@ public class OpenUrlResolver {
       }
       
       String qstr = select.toString() + from.toString() + where.toString();
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "qstr = " + qstr);
+
       // only one value expected; any more and the query was under-specified
       int maxPublishersPerArticle = getMaxPublishersPerArticle();
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	  + "maxPublishersPerArticle = " + maxPublishersPerArticle);
+
       String[][] results = new String[maxPublishersPerArticle+1][11];
       int count = resolveFromQuery(conn, qstr, args, results);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "count = " + count);
+
       if (count <= maxPublishersPerArticle) {
         // ensure at most one result per publisher+provider in case
         // more than one publisher+provider publishes the same serial
         Set<String> pubs = new HashSet<String>();
         for (int i = 0; i < count; i++) {
+          if (log.isDebug3()) log.debug3(DEBUG_HEADER + "i = " + i);
+
           // combine publisher and provider columns to determine uniqueness
-          if (!pubs.add(results[i][1] + results[i][10])) {
-            return noOpenUrlInfo;
+          String unique = results[i][1] + results[i][10];
+          if (log.isDebug3()) log.debug3(DEBUG_HEADER + "unique = " + unique);
+
+          if (!pubs.add(unique)) {
+            if (log.isDebug3())
+              log.debug3(DEBUG_HEADER + "'" + unique + "' is not unique");
+
+            resolved = noOpenUrlInfo;
+            if (log.isDebug2())
+              log.debug2(DEBUG_HEADER + "resolved = " + resolved);
+            return resolved;
           }
+
           OpenUrlInfo info = OpenUrlInfo.newInstance(results[i][0], null, 
                                                 OpenUrlInfo.ResolvedTo.ARTICLE);
+
           if (resolved == null) {
             resolved = info;
           } else {
@@ -1607,10 +1678,13 @@ public class OpenUrlResolver {
         }
       }
     } catch (DbException dbe) {
-      log.error("Getting ISSN:" + issn, dbe);
+      log.error("Exception caught getting ISSN:" + issn, dbe);
     } finally {
       MetadataDbManager.safeRollbackAndClose(conn);
     }
+
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "resolved = " + resolved);
+
     return (resolved == null) ? noOpenUrlInfo : resolved;
   }
 
@@ -1643,8 +1717,6 @@ public class OpenUrlResolver {
     final String DEBUG_HEADER = "resolveFromQuery(): ";
     log.debug3(DEBUG_HEADER + "query: " + query);
 
-    //PreparedStatement stmt = 
-	//daemon.getDbManager().prepareStatement(conn, query);
     MetadataDbManager dbMgr = getMetadataDbManager();
     PreparedStatement stmt = dbMgr.prepareStatement(conn, query);
 
@@ -1657,7 +1729,6 @@ public class OpenUrlResolver {
       }
 
       stmt.setMaxRows(results.length); // only need 2 to to determine if unique
-      //ResultSet resultSet = daemon.getDbManager().executeQuery(stmt);
       ResultSet resultSet = dbMgr.executeQuery(stmt);
       
       for ( ; count < results.length && resultSet.next(); count++) {
@@ -2016,6 +2087,15 @@ public class OpenUrlResolver {
       if (resolved.resolvedTo != OpenUrlInfo.ResolvedTo.NONE) {
         if (resolved.resolvedTo == OpenUrlInfo.ResolvedTo.TITLE) {
           // create bibliographic item with only title properties
+          resolved.resolvedBibliographicItem =  
+            new BibliographicItemImpl()
+              .setPublisherName(tdbau.getPublisherName())
+              .setPublicationTitle(tdbau.getPublicationTitle())
+              .setProprietaryIds(tdbau.getProprietaryIds())
+              .setCoverageDepth(tdbau.getCoverageDepth())
+              .setPrintIssn(tdbau.getPrintIssn())
+              .setEissn(tdbau.getEissn())
+              .setIssnL(tdbau.getIssnL());
         } else {
           resolved.resolvedBibliographicItem = tdbau;
         }
@@ -2327,7 +2407,6 @@ public class OpenUrlResolver {
     // only go to database manager if requesting individual article/chapter
     try {
       // resolve from database manager
-      //DbManager dbMgr = daemon.getDbManager();
       MetadataDbManager dbMgr = getMetadataDbManager();
       OpenUrlInfo aResolved = resolveFromIsbn(
           dbMgr, isbn, pub, date, volume, edition, 

@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2000-2006 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,6 +39,7 @@ import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.util.*;
 import org.lockss.util.SerializationException.FileNotFound;
+import org.lockss.remote.*;
 import org.lockss.account.*;
 
 /** A rudimentary cron facility.  Tasks are added programmatically, checked
@@ -162,6 +167,7 @@ public class Cron
 
   /** Install standard tasks */
   void installTasks() {
+    addTask(new RemoteApi.CreateBackupFile(getDaemon()));
     addTask(new SendPasswordReminder(getDaemon()));
   }
 

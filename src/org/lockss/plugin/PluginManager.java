@@ -999,12 +999,13 @@ public class PluginManager
 	  ", expected: "+ auId;
 	throw new ArchivalUnit.ConfigurationException(msg);
       }
-      try {
-	getDaemon().startOrReconfigureAuManagers(au, auConf);
-      } catch (Exception e) {
-	throw new
-	  ArchivalUnit.ConfigurationException("Couldn't configure AU managers",
-					      e);
+      if (!isAuContentFromWs()) {
+	try {
+	  getDaemon().startOrReconfigureAuManagers(au, auConf);
+	} catch (Exception e) {
+	  throw new ArchivalUnit.ConfigurationException(
+	      "Couldn't configure AU managers", e);
+	}
       }
       if (oldAu != null) {
 	log.debug("Reconfigured AU " + au);
@@ -1025,11 +1026,21 @@ public class PluginManager
 
   ArchivalUnit createAu(Plugin plugin, Configuration auConf, AuEvent event)
       throws ArchivalUnit.ConfigurationException {
+    final String DEBUG_HEADER = "createAu(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "plugin = " + plugin);
+      log.debug2(DEBUG_HEADER + "auConf = " + auConf);
+      log.debug2(DEBUG_HEADER + "event = " + event);
+    }
     String auid = null;
     ArchivalUnit oldAu = null;
     try {
       auid = generateAuId(plugin, auConf);
-      oldAu = getAuFromId(auid);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auid = " + auid);
+      if (!isAuContentFromWs()) {
+	oldAu = getAuFromId(auid);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "oldAu = " + oldAu);
+      }
     } catch (Exception e) {
       // no action.  Bad/missing config value might cause getAuFromId() to
       // throw.  It will be caught soon when creating the AU; for now we
@@ -1043,13 +1054,14 @@ public class PluginManager
       ArchivalUnit au = plugin.createAu(auConf);
       inactiveAuIds.remove(au.getAuId());
       log.debug("Created AU " + au);
-      try {
-	getDaemon().startOrReconfigureAuManagers(au, auConf);
-      } catch (Exception e) {
-	log.error("Couldn't start AU processes", e);
-	throw new
-	  ArchivalUnit.ConfigurationException("Couldn't start AU processes",
-					      e);
+      if (!isAuContentFromWs()) {
+	try {
+	  getDaemon().startOrReconfigureAuManagers(au, auConf);
+	} catch (Exception e) {
+	  log.error("Couldn't start AU processes", e);
+	  throw new ArchivalUnit.ConfigurationException(
+	      "Couldn't start AU processes", e);
+	}
       }
       putAuInMap(au);
       signalAuEvent(au, event, null);
@@ -1248,12 +1260,44 @@ public class PluginManager
       }
       auList = null;
     }
-    addHostAus(au);
+    if (!isAuContentFromWs()) {
+      addHostAus(au);
+    }
   }
 
+  /**
+   * Provides an Archival Unit given its identifier.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @return an ArchivalUnit with the requested Archival Unit.
+   */
   public ArchivalUnit getAuFromId(String auId) {
+    final String DEBUG_HEADER = "getAuFromId(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
+
     ArchivalUnit au = (ArchivalUnit)auMap.get(auId);
-    if (log.isDebug3()) log.debug3("getAu(" + auId + ") = " + au);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
+
+    // Check whether no Archival Unit was found and the content comes from web
+    // services.
+    if (au == null && isAuContentFromWs()) {
+      Plugin plugin = getPluginFromAuId(auId);
+      Configuration auConfig = configMgr.getAuConfig(auId, plugin);
+
+      // Get the AU.
+      try {
+	au = createAu(plugin, auConfig,
+	    new AuEvent(AuEvent.Type.Create, false));
+	au.setConfiguration(auConfig);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
+      } catch (Exception e) {
+	log.error("Failed to create Archival Unit - auId = " + auId
+	    + ", auConfig = " + auConfig, e);
+      }
+    }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "au = " + au);
     return au;
   }
 
@@ -1305,21 +1349,21 @@ public class PluginManager
   }
 
   void flush404Cache(ArchivalUnit au) {
-    try {
-      Collection<String> stems = normalizeStems(au.getUrlStems());
-      synchronized (hostAus) {
-	for (String stem : stems) {
-	  AuSearchSet searchSet = hostAus.get(stem);
-	  if (searchSet != null) {
-	    if (log.isDebug2()) {
-	      log.debug2("Flushing 404 cache for: " + stem);
+    if (!isAuContentFromWs()) {
+      try {
+	Collection<String> stems = normalizeStems(au.getUrlStems());
+	synchronized (hostAus) {
+	  for (String stem : stems) {
+	    AuSearchSet searchSet = hostAus.get(stem);
+	    if (searchSet != null) {
+	      if (log.isDebug2()) log.debug2("Flushing 404 cache for: " + stem);
+	      searchSet.flush404Cache();
 	    }
-	    searchSet.flush404Cache();
 	  }
 	}
+      } catch (Exception e) {
+	log.error("flush404Cache()", e);
       }
-    } catch (Exception e) {
-      log.error("flush404Cache()", e);
     }
   }
 
@@ -1930,8 +1974,42 @@ public class PluginManager
     return getPlugin(pluginKeyFromId(pluginId));
   }
 
+  /**
+   * Provides the plugin of an Archival Unit.
+   * 
+   * @param auId
+   *          A String with the Archival Unit identifier.
+   * @return a Plugin with the Archival Unit plugin.
+   */
   public Plugin getPluginFromAuId(String auid) {
-    return getPlugin(pluginKeyFromId(pluginIdFromAuId(auid)));
+    final String DEBUG_HEADER = "getPluginFromAuId(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auid = " + auid);
+
+    String pluginKey = pluginIdFromAuId(auid);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "pluginKey = " + pluginKey);
+
+    Plugin plugin = getPlugin(pluginKeyFromId(pluginKey));
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "plugin = " + plugin);
+
+    if (plugin == null && isAuContentFromWs()) {
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "Trying to retrieve plugin " + pluginKey);
+
+      try {
+        PluginInfo info =
+            loadPlugin(pluginKey, this.getClass().getClassLoader());
+
+        if (info != null) {
+          plugin = info.getPlugin();
+        }
+      } catch (Exception e) {
+        String message = "Error instantiating plugin "
+            + pluginNameFromKey(pluginIdFromAuId(auid));
+        log.error(message, e);
+      }
+    }
+
+    return plugin;
   }
 
   protected void setPlugin(String pluginKey, Plugin plugin) {

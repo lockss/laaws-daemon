@@ -296,17 +296,20 @@ public class AuMetadataRecorder {
    * 
    * @param mdManager
    *          A MetadataManager with the metadata manager.
+   * @param plugin
+   *          A Plugin with the Archival Unit plugin.
    * @param auId
    *          A String with the Archival Unit identifier.
    */
-  public AuMetadataRecorder(MetadataManager mdManager, String auId) {
+  public AuMetadataRecorder(MetadataManager mdManager, Plugin plugin,
+      String auId) {
     this.task = null;
     this.mdManager = mdManager;
     mdManagerSql = mdManager.getMetadataManagerSql();
     dbManager = mdManager.getDbManager();
     this.au = null;
 
-    this.plugin = mdManager.getAuPlugin(auId);
+    this.plugin = plugin;
     isBulkContent = plugin.isBulkContent();
     platform = plugin.getPublishingPlatform();
     pluginVersion = mdManager.getPluginMetadataVersionNumber(plugin);

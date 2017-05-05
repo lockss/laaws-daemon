@@ -45,7 +45,7 @@ import dk.itst.oiosaml.configuration.SAMLConfigurationFactory;
 import dk.itst.oiosaml.sp.service.DispatcherServlet;
 import dk.itst.oiosaml.sp.service.session.SessionDestroyListener;
 import dk.itst.oiosaml.sp.service.util.Constants;
-import org.apache.cxf.transport.servlet.CXFServlet;
+//import org.apache.cxf.transport.servlet.CXFServlet;
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.account.*;
@@ -572,13 +572,13 @@ public class AdminServletManager extends BaseServletManager {
 	  return mgr != null && mgr.isReady();
 	}};
 
-  protected static final ServletDescr SERVLET_CXF_WEB_SERVICES =
-      new ServletDescr("CXFServlet",
-                       CXFServlet.class,
-                       "JAX-WS CXF Servlet",
-		       "ws/*",
-		       0,
-	               "JAX-WS CXF Web Services");
+//  protected static final ServletDescr SERVLET_CXF_WEB_SERVICES =
+//      new ServletDescr("CXFServlet",
+//                       CXFServlet.class,
+//                       "JAX-WS CXF Servlet",
+//		       "ws/*",
+//		       0,
+//	               "JAX-WS CXF Web Services");
 
   protected static final ServletDescr SERVLET_SUB_MANAGEMENT =
       new ServletDescr("SubscriptionManagement",
@@ -654,7 +654,7 @@ public class AdminServletManager extends BaseServletManager {
     SERVLET_DEBUG_PANEL,
     SERVLET_EXPERT_CONFIG,
     SERVLET_LIST_HOLDINGS,
-    SERVLET_COUNTER_REPORTS,
+//    SERVLET_COUNTER_REPORTS,
     //SERVLET_OPENURL_QUERY,
     SERVLET_TIME_GATE,
     SERVLET_TIME_MAP,
@@ -671,10 +671,10 @@ public class AdminServletManager extends BaseServletManager {
     LINK_HELP,
     LINK_LOGOUT,
     LOGIN_FORM,
-    SERVLET_CXF_WEB_SERVICES,
-    SERVLET_MD_MONITOR,
-    SERVLET_MD_CONTROL,
-    SERVLET_OIOSAML
+//    SERVLET_CXF_WEB_SERVICES,
+//    SERVLET_MD_MONITOR,
+//    SERVLET_MD_CONTROL,
+//    SERVLET_OIOSAML
   };
 
   // XXXUI List of servlets to show in new UI: parallel main list but with new versions
@@ -718,7 +718,7 @@ public class AdminServletManager extends BaseServletManager {
     LINK_HELP,
     LINK_LOGOUT,
     LOGIN_FORM,
-    SERVLET_CXF_WEB_SERVICES,
+//    SERVLET_CXF_WEB_SERVICES,
     SERVLET_MD_MONITOR,
     SERVLET_MD_CONTROL,
     SERVLET_OIOSAML
@@ -764,7 +764,7 @@ public class AdminServletManager extends BaseServletManager {
     LINK_HELP,
     LINK_LOGOUT,
     LOGIN_FORM,
-    SERVLET_CXF_WEB_SERVICES,
+//    SERVLET_CXF_WEB_SERVICES,
     SERVLET_MD_MONITOR,
     SERVLET_MD_CONTROL,
     SERVLET_OIOSAML

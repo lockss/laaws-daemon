@@ -48,7 +48,7 @@ public class TestAdminServletManager extends LockssTestCase {
   ServletDescr readOnlyDescrs[] = {
     LINK_CONTACT,
     LINK_HELP,
-    SERVLET_CXF_WEB_SERVICES,
+//    SERVLET_CXF_WEB_SERVICES,
     SERVLET_OIOSAML
   };
 

@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -34,7 +30,6 @@ package org.lockss.util.urlconn;
 
 import java.io.*;
 import java.net.*;
-import java.net.ProtocolException;
 import java.util.*;
 import org.apache.oro.text.regex.*;
 import org.lockss.test.*;
@@ -277,7 +272,8 @@ public class FuncLockssHttpClient extends LockssTestCase {
     // check for the standard default request headers
     assertHeaderLine("^Accept:", req);
     assertHeaderLine("^Connection:", req);
-    assertHeaderLine("^User-Agent: Jakarta Commons-HttpClient", req);
+//HC3    assertHeaderLine("^User-Agent: Jakarta Commons-HttpClient", req);
+    assertHeaderLine("^User-Agent: Apache-HttpClient", req);
 
     assertEquals(200, conn.getResponseCode());
     conn.release();
@@ -330,7 +326,8 @@ public class FuncLockssHttpClient extends LockssTestCase {
     // check for the standard default request headers
     assertHeaderLine("^Accept:", req);
     assertHeaderLine("^Connection:", req);
-    assertHeaderLine("^User-Agent: Jakarta Commons-HttpClient", req);
+//HC3    assertHeaderLine("^User-Agent: Jakarta Commons-HttpClient", req);
+    assertHeaderLine("^User-Agent: Apache-HttpClient", req);
 
     assertEquals(200, conn.getResponseCode());
     for (int i = 0; true; i++) {
@@ -609,7 +606,8 @@ public class FuncLockssHttpClient extends LockssTestCase {
     assertMatchesRE("^GET / HTTP/", req);
     assertNoHeaderLine("^Accept:", req);
     assertNoHeaderLine("^Connection:", req);
-    assertNoHeaderLine("^User-Agent: Jakarta Commons-HttpClient", req);
+//HC3    assertNoHeaderLine("^User-Agent: Jakarta Commons-HttpClient", req);
+    assertNoHeaderLine("^User-Agent: Apache-HttpClient", req);
 
     assertEquals(200, conn.getResponseCode());
     conn.release();
@@ -665,17 +663,21 @@ public class FuncLockssHttpClient extends LockssTestCase {
     testCookie("RFC2109", true);
   }
 
-  public void testCookieCompatibility() throws Exception {
-    testCookie("COMPATIBILITY", false);
-  }
+// TODO: Migrate to HttpClient 4?
+// In HttpClient 4, "COMPATIBILITY" means one header line, not overridable.
+//  public void testCookieCompatibility() throws Exception {
+//    testCookie("COMPATIBILITY", false);
+//  }
 
   public void testCookieCompatibilityA() throws Exception {
     testCookie("COMPATIBILITY", true);
   }
 
-  public void testCookieNetscape() throws Exception {
-    testCookie("NETSCAPE", false);
-  }
+// TODO: Migrate to HttpClient 4?
+//In HttpClient 4, "NETSCAPE" means one header line, not overridable.
+//  public void testCookieNetscape() throws Exception {
+//    testCookie("NETSCAPE", false);
+//  }
 
   public void testCookieNetscapeA() throws Exception {
     testCookie("NETSCAPE", true);
@@ -697,7 +699,7 @@ public class FuncLockssHttpClient extends LockssTestCase {
       throws Exception {
     Properties p = new Properties();
     if ("default".equals(policy)) {
-      policy = "compatibility";
+      policy = "COMPATIBILITY";
       singleHeader = true;
     } else {
       p.put(LockssUrlConnection.PARAM_COOKIE_POLICY, policy);
@@ -755,13 +757,19 @@ public class FuncLockssHttpClient extends LockssTestCase {
       c2 = "cutter=leaf; \\$Path=/";
       ver = "\\$Version=0; ";
     } else {
-      c1 = "monster=42";
-      c2 = "cutter=leaf";
+//HC3       c1 = "monster=42";
+      c1 = "cutter=leaf";
+//HC3       c2 = "cutter=leaf";
+      c2 = "monster=42";
     }
     if (policy.equalsIgnoreCase("ignore")) {
       assertNoHeaderLine("^Cookie:", req);
     } else if (singleHeader) {
-      assertHeaderLine("^Cookie: " + ver + c1 + "; " + c2, req);
+      if ("COMPATIBILITY".equals(policy) || "NETSCAPE".equals(policy)) {
+	assertHeaderLine("^Cookie: " + ver + c1 + "; " + c2, req);
+      } else {
+	assertHeaderLine("^Cookie: " + ver + c2 + "; " + c1, req);
+      }
     } else {
       assertHeaderLine("^Cookie: " + ver + c1, req);
       assertHeaderLine("^Cookie: " + ver + c2, req);

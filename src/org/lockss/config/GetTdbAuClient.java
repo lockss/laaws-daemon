@@ -106,7 +106,7 @@ public class GetTdbAuClient {
     // Make the request to the REST service and get its response.
     Properties properties = (Properties)builder.build().target(serviceLocation)
 	.register(new BasicAuthentication(serviceUser, servicePassword))
-	.path("aus").path(encodedAuId).request().get(Properties.class);
+	.path("aus/tdb").path(encodedAuId).request().get(Properties.class);
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "properties = " + properties);
 
     TdbAu result = TdbAu.fromProperties(properties);
