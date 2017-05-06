@@ -356,7 +356,7 @@ Args:
   <!-- Needed by ArcExploder, exporters, jcr repo: -->
   <!-- property name="heritrix.jar" value="${lib}/heritrix-commons-3.1.0-p1.jar" / -->
   <property name="webarchive-commons.jar"
-	value="${lib}/webarchive-commons-1.1.8-jar-with-dependencies.jar" />
+  	value="${lib}/webarchive-commons-1.1.7-patch1.jar" />
   <property name="heritrix-fastutil.jar" value="${lib}/fastutil-5.0.7.jar" />
   <!-- property name="heritrix-guava.jar" value="${lib}/guava-r08.jar" / -->
   <property name="guava.jar" value="${lib}/guava-18.0.jar" />
