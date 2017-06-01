@@ -31,6 +31,7 @@ import java.util.*;
 import org.apache.commons.lang3.*;
 import org.lockss.util.*;
 import org.lockss.alert.*;
+import org.lockss.app.LockssApp.ManagerDesc;
 import org.lockss.daemon.*;
 import org.lockss.db.DbManager;
 import org.lockss.exporter.FetchTimeExportManager;
@@ -38,6 +39,7 @@ import org.lockss.exporter.counter.CounterReportsManager;
 import org.lockss.account.*;
 import org.lockss.hasher.*;
 import org.lockss.scheduler.*;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.plugin.*;
 import org.lockss.truezip.*;
@@ -55,6 +57,7 @@ import org.lockss.remote.*;
 import org.lockss.clockss.*;
 import org.lockss.safenet.*;
 import org.apache.commons.collections.map.LinkedMap;
+import org.lockss.job.JobDbManager;
 import org.lockss.job.JobManager;
 
 /**
@@ -120,7 +123,7 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   public static final String IDENTITY_MANAGER = "IdentityManager";
   public static final String CRAWL_MANAGER = "CrawlManager";
   public static final String PLUGIN_MANAGER = "PluginManager";
-  //public static final String METADATA_MANAGER = "MetadataManager";
+  public static final String METADATA_MANAGER = "MetadataManager";
   public static final String POLL_MANAGER = "PollManager";
   public static final String PSM_MANAGER = "PsmManager";
   public static final String REPOSITORY_MANAGER = "RepositoryManager";
@@ -145,12 +148,14 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
   public static final String CLOCKSS_PARAMS = "ClockssParams";
   public static final String SAFENET_MANAGER = "SafenetManager";
   public static final String TRUEZIP_MANAGER = "TrueZipManager";
-  //public static final String DB_MANAGER = "DbManager";
+  public static final String DB_MANAGER = "DbManager";
   public static final String COUNTER_REPORTS_MANAGER = "CounterReportsManager";
   public static final String SUBSCRIPTION_MANAGER = "SubscriptionManager";
   public static final String FETCH_TIME_EXPORT_MANAGER =
       "FetchTimeExportManager";
-  //public static final String JOB_MANAGER = "JobManager";
+  public static final String JOB_MANAGER = "JobManager";
+  public static final String METADATA_DB_MANAGER = "MetadataDbManager";
+  public static final String JOB_DB_MANAGER = "JobDbManager";
 
   // Manager descriptors.  The order of this table determines the order in
   // which managers are initialized and started.
@@ -181,9 +186,12 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     // start plugin manager after generic services
     new ManagerDesc(PLUGIN_MANAGER, "org.lockss.plugin.PluginManager"),
     // start database manager before any manager that uses it.
-    new ManagerDesc(DbManager.getManagerKey(), "org.lockss.db.DbManager"),
-    // start metadata manager after pluggin manager and database manager.
-    new ManagerDesc(MetadataManager.getManagerKey(), "org.lockss.metadata.MetadataManager"),
+    new ManagerDesc(DB_MANAGER, "org.lockss.db.DbManager"),
+    // start metadata manager after plugin manager and database manager.
+    new ManagerDesc(METADATA_MANAGER, "org.lockss.metadata.MetadataManager"),
+    // start metadata database manager after metadata manager
+    new ManagerDesc(METADATA_DB_MANAGER,
+	"org.lockss.metadata.MetadataDbManager"),
     // start proxy and servlets after plugin manager
     new ManagerDesc(REMOTE_API, "org.lockss.remote.RemoteApi"),
     // Start the COUNTER reports manager.
@@ -196,7 +204,9 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
     new ManagerDesc(FETCH_TIME_EXPORT_MANAGER,
 	"org.lockss.exporter.FetchTimeExportManager"),
     // Start the job manager.
-    new ManagerDesc(JobManager.getManagerKey(), "org.lockss.job.JobManager"),
+    new ManagerDesc(JOB_MANAGER, "org.lockss.job.JobManager"),
+    // Start the job database manager.
+    new ManagerDesc(JOB_DB_MANAGER, "org.lockss.job.JobDbManager"),
     // NOTE: Any managers that are needed to decide whether a servlet is to be
     // enabled or not (through ServletDescr.isEnabled()) need to appear before
     // the AdminServletManager on the next line.
@@ -500,9 +510,9 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
    * @return the MetadataManager
    * @throws IllegalArgumentException if the manager is not available.
    */
-//  public MetadataManager getMetadataManager() {
-//    return (MetadataManager) getManager(METADATA_MANAGER);
-//  }
+  public MetadataManager getMetadataManager() {
+    return (MetadataManager) getManager(METADATA_MANAGER);
+  }
 
   /**
    * return the Account Manager
@@ -596,9 +606,9 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
    * @throws IllegalArgumentException
    *           if the manager is not available.
    */
-//  public DbManager getDbManager() {
-//    return (DbManager) getManager(DB_MANAGER);
-//  }
+  public DbManager getDbManager() {
+    return (DbManager) getManager(DB_MANAGER);
+  }
 
   /**
    * Provides the COUNTER reports manager.
@@ -631,6 +641,39 @@ private final static String LOCKSS_USER_AGENT = "LOCKSS cache";
    */
   public FetchTimeExportManager getFetchTimeExportManager() {
     return (FetchTimeExportManager) getManager(FETCH_TIME_EXPORT_MANAGER);
+  }
+
+  /**
+   * Provides the job manager instance.
+   * 
+   * @return a JobManager with the job manager instance.
+   * @throws IllegalArgumentException
+   *           if the manager is not available.
+   */
+  public JobManager getJobManager() {
+    return (JobManager) getManager(JOB_MANAGER);
+  }
+
+  /**
+   * Provides the metadata database manager instance.
+   * 
+   * @return a MetadataDbManager with the metadata database manager instance.
+   * @throws IllegalArgumentException
+   *           if the manager is not available.
+   */
+  public MetadataDbManager getMetadataDbManager() {
+    return (MetadataDbManager) getManager(METADATA_DB_MANAGER);
+  }
+
+  /**
+   * Provides the job database manager instance.
+   * 
+   * @return a JobDbManager with the job database manager instance.
+   * @throws IllegalArgumentException
+   *           if the manager is not available.
+   */
+  public JobDbManager getJobDbManager() {
+    return (JobDbManager) getManager(JOB_DB_MANAGER);
   }
 
   /**

@@ -40,13 +40,13 @@ import java.util.zip.*;
 import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
-//import org.lockss.exporter.counter.CounterReportsManager;
+import org.lockss.exporter.counter.CounterReportsManager;
 import org.lockss.account.*;
 import org.lockss.plugin.*;
 import org.lockss.poller.*;
 import org.lockss.protocol.*;
 import org.lockss.state.*;
-//import org.lockss.subscription.SubscriptionManager;
+import org.lockss.subscription.SubscriptionManager;
 import org.lockss.repository.*;
 import org.lockss.servlet.ServletManager;
 import org.lockss.util.*;
@@ -587,19 +587,19 @@ public class RemoteApi
 	addAusToZip(zip, aus);
       }
 
-//      // Add any configured subscriptions to the zip file.
-//      SubscriptionManager subMgr = getDaemon().getSubscriptionManager();
-//      
-//      if (subMgr != null && subMgr.isReady()) {
-//	subMgr.writeSubscriptionsBackupToZip(zip);
-//      }
-//
-//      // Add any COUNTER aggregate statistics to the zip file.
-//      CounterReportsManager crMgr = getDaemon().getCounterReportsManager();
-//      
-//      if (crMgr != null && crMgr.isReady()) {
-//	crMgr.writeAggregatesBackupToZip(zip);
-//      }
+      // Add any configured subscriptions to the zip file.
+      SubscriptionManager subMgr = getDaemon().getSubscriptionManager();
+      
+      if (subMgr != null && subMgr.isReady()) {
+	subMgr.writeSubscriptionsBackupToZip(zip);
+      }
+
+      // Add any COUNTER aggregate statistics to the zip file.
+      CounterReportsManager crMgr = getDaemon().getCounterReportsManager();
+      
+      if (crMgr != null && crMgr.isReady()) {
+	crMgr.writeAggregatesBackupToZip(zip);
+      }
 
       zip.close();
       if (permFile != null) {
@@ -737,19 +737,19 @@ public class RemoteApi
     try {
       ZipUtil.unzip(configBackupStream, dir);
 
-//      // Restore any COUNTER aggregate statistics from the zip file.
-//      CounterReportsManager crMgr = getDaemon().getCounterReportsManager();
-//      
-//      if (crMgr != null && crMgr.isReady()) {
-//	crMgr.loadAggregatesFromBackup(dir);
-//      }
-//
-//      // Restore any subscriptions from the zip file.
-//      SubscriptionManager subMgr = getDaemon().getSubscriptionManager();
-//      
-//      if (subMgr != null && subMgr.isReady()) {
-//	subMgr.loadSubscriptionsFromBackup(dir);
-//      }
+      // Restore any COUNTER aggregate statistics from the zip file.
+      CounterReportsManager crMgr = getDaemon().getCounterReportsManager();
+      
+      if (crMgr != null && crMgr.isReady()) {
+	crMgr.loadAggregatesFromBackup(dir);
+      }
+
+      // Restore any subscriptions from the zip file.
+      SubscriptionManager subMgr = getDaemon().getSubscriptionManager();
+      
+      if (subMgr != null && subMgr.isReady()) {
+	subMgr.loadSubscriptionsFromBackup(dir);
+      }
 
       File autxt = new File(dir, ConfigManager.CONFIG_FILE_AU_CONFIG);
       if (!autxt.exists()) {

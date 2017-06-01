@@ -27,6 +27,7 @@
  */
 package org.lockss.ws.metadata;
 
+import static org.lockss.db.SqlConstants.*;
 import static org.lockss.metadata.SqlConstants.*;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1175,8 +1176,8 @@ public class MetadataMonitorServiceImpl implements MetadataMonitorService {
    * @return a MetadataManager with the metadata manager.
    */
   private MetadataManager getMetadataManager() {
-    return (MetadataManager)LockssApp.getManager(MetadataManager
-	.getManagerKey());
+    return (MetadataManager)(LockssApp.getManager(
+	LockssDaemon.METADATA_MANAGER));
   }
 
   /**

@@ -282,6 +282,14 @@
     <boolean>true</boolean>
   </entry>
   <entry>
+    <string>plugin_send_referrer</string>
+    <boolean>false</boolean>
+  </entry>
+  <entry>
+    <string>plugin_store_probe_permission</string>
+    <boolean>false</boolean>
+  </entry>
+  <entry>
     <string>plugin_archive_file_types</string>
     <org.lockss.plugin.ArchiveFileTypes>
       <extMimeMap>
@@ -295,6 +303,13 @@
 	</entry>
       </extMimeMap>
     </org.lockss.plugin.ArchiveFileTypes>
+  </entry>
+  <entry>
+    <string>au_url_mime_type</string>
+    <list>
+      <string>.*\.ris$, application/x-research-info-systems</string>
+      <string>"%s.*/pdf_url.*", base_url,application/pdf</string>
+    </list>
   </entry>
   <entry>
     <string>plugin_cache_result_list</string>

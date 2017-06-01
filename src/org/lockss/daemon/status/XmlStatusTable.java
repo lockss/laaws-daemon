@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -30,9 +34,13 @@ package org.lockss.daemon.status;
 
 import java.util.*;
 import java.text.*;
+
 import org.apache.commons.lang3.time.FastDateFormat;
+
 import org.lockss.util.*;
 import org.lockss.config.*;
+import org.lockss.servlet.*;
+
 import org.w3c.dom.*;
 
 public class XmlStatusTable {
@@ -63,11 +71,17 @@ public class XmlStatusTable {
   }
 
   Format getDateFormat(String spec) {
+    if ("GMT".equalsIgnoreCase(spec) || "UTC".equalsIgnoreCase(spec)) {
+      return DisplayConverter.TABLE_DATE_FORMATTER_GMT;
+    } else if ("local".equalsIgnoreCase(spec)) {
+      return DisplayConverter.TABLE_DATE_FORMATTER_LOCAL;
+    } else {
       try {
 	return FastDateFormat.getInstance(spec);
       } catch (RuntimeException e) {
 	logger.warning("org.lockss.admin.xmlDateFormat invalid: " + spec, e);
 	return getDateFormat(DEFAULT_XML_DATE_FORMAT);
+      }
     }
   }
 
@@ -294,6 +308,13 @@ public class XmlStatusTable {
       addTextElement(refElement, XmlStatusConstants.KEY, refVal.getKey());
     }
     Properties refProps = refVal.getProperties();
+    if (refVal.getPeerId() != null) {
+      refElement.setAttribute(XmlStatusConstants.PEERID,
+			      refVal.getPeerId().getIdString());
+      // XXX 8081 shouldn't be hardwired
+      refElement.setAttribute(XmlStatusConstants.URL_STEM,
+			      refVal.getPeerId().getUiUrlStem(8081/*reqURL.getPort()*/));
+    }
     if (refProps != null) {
       for (Iterator iter = refProps.entrySet().iterator(); iter.hasNext(); ) {
 	Map.Entry ent = (Map.Entry)iter.next();
@@ -364,7 +385,7 @@ public class XmlStatusTable {
     switch (outputVersion) {
     case 1:
     default:
-      str = null;
+      str = getDisplayConverter().convertDisplayString(object, type);
       break;
     case 2:
       if (object instanceof Date) {
@@ -380,4 +401,20 @@ public class XmlStatusTable {
 //     }
     return str;
   }
+
+  DisplayConverter dispConverter;
+
+  private DisplayConverter getDisplayConverter() {
+    if (dispConverter == null) {
+      dispConverter = new XmlDisplayConverter();
+    }
+    return dispConverter;
+  }
+
+  class XmlDisplayConverter extends DisplayConverter {
+    protected Format getTableDateFormat() {
+      return dateFmt;
+    }
+  }
+
 }

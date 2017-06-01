@@ -1,4 +1,8 @@
 /*
+ * $Id$
+ */
+
+/*
 
 Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
@@ -31,6 +35,7 @@ package org.lockss.plugin.definable;
 import java.util.*;
 import java.io.*;
 import java.net.*;
+
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.*;
 import org.lockss.rewriter.*;
@@ -143,9 +148,11 @@ public class DefinablePlugin extends BasePlugin {
   
   public static final String KEY_PLUGIN_STORE_PROBE_PERMISSION =
       "plugin_store_probe_permission";
-  
   public static final boolean DEFAULT_PLUGIN_STORE_PROBE_PERMISSION =
       true;
+
+  public static final String KEY_PLUGIN_SEND_REFERRER = "plugin_send_referrer";
+  public static final boolean DEFAULT_PLUGIN_SEND_REFERRER = true;
 
   public static final String DEFAULT_PLUGIN_VERSION = "1";
   public static final String DEFAULT_REQUIRED_DAEMON_VERSION = "0.0.0";
@@ -506,9 +513,16 @@ public class DefinablePlugin extends BasePlugin {
     return definitionMap.getString(KEY_PUBLISHING_PLATFORM, null);
   }
   
-  public boolean shouldStoreProbePermission() {
+  @Override
+  public boolean storeProbePermission() {
     return definitionMap.getBoolean(KEY_PLUGIN_STORE_PROBE_PERMISSION,
                                     DEFAULT_PLUGIN_STORE_PROBE_PERMISSION);
+  }
+
+  @Override
+  public boolean sendReferrer() {
+    return definitionMap.getBoolean(KEY_PLUGIN_SEND_REFERRER,
+                                    DEFAULT_PLUGIN_SEND_REFERRER);
   }
 
   public String getPluginNotes() {
@@ -793,7 +807,7 @@ public class DefinablePlugin extends BasePlugin {
 				       val);
 	    } else {
 	      try {
-		Class eClass = Class.forName(first);
+ 		Class eClass = loadPluginClass(first, Exception.class);
 		// If a class name, it should be an exception class
 		if (Exception.class.isAssignableFrom(eClass)) {
 		  hResultMap.storeMapEntry(eClass, val);
@@ -1072,6 +1086,31 @@ public class DefinablePlugin extends BasePlugin {
     }
     
     return urlConsumerFactory;
+  }
+
+  protected CrawlUrlComparatorFactory crawlUrlComparatorFactory = null;
+
+  protected CrawlUrlComparatorFactory getCrawlUrlComparatorFactory() {
+    if (crawlUrlComparatorFactory == null) {
+      String factClass =
+	definitionMap.getString(DefinablePlugin.KEY_PLUGIN_CRAWL_URL_COMPARATOR_FACTORY,
+				null);
+      if (factClass != null) {
+	crawlUrlComparatorFactory =
+	  (CrawlUrlComparatorFactory)newAuxClass(factClass,
+						 CrawlUrlComparatorFactory.class);
+      }
+    }
+    return crawlUrlComparatorFactory;
+  }
+
+  protected Comparator<CrawlUrl> getCrawlUrlComparator(ArchivalUnit au)
+      throws PluginException.LinkageError {
+    CrawlUrlComparatorFactory fact = getCrawlUrlComparatorFactory();
+    if (fact == null) {
+      return null;
+    }
+    return fact.createCrawlUrlComparator(au);
   }
 
   protected FilterRule constructFilterRule(String contentType) {

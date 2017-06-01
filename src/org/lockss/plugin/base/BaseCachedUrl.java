@@ -25,6 +25,7 @@ be used in advertising or otherwise to promote the sale, use or other dealings
 in this Software without prior written authorization from Stanford University.
 
 */
+
 package org.lockss.plugin.base;
 
 import java.io.*;
@@ -35,6 +36,7 @@ import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
+import org.lockss.plugin.definable.*;
 import org.lockss.truezip.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
@@ -55,6 +57,10 @@ public class BaseCachedUrl implements CachedUrl {
   private RepositoryNode leaf = null;
   protected RepositoryNode.RepositoryNodeContents rnc = null;
   protected Properties options;
+
+  // Cached here as might be used several times in quick succession
+  // (esp. by archive members).  Don't want to store in AU.
+  PatternStringMap urlMimeMap = null;
 
   public static final String PREFIX = Configuration.PREFIX + "baseCachedUrl.";
 
@@ -96,7 +102,10 @@ public class BaseCachedUrl implements CachedUrl {
     this.au = owner;
     this.url = url;
 
-    isAuContentFromWs = getDaemon().getPluginManager().isAuContentFromWs();
+    if (au != null && au.getPlugin() != null) {
+      isAuContentFromWs = getDaemon().getPluginManager().isAuContentFromWs();
+    }
+
     if (logger.isDebug3())
       logger.debug3(DEBUG_HEADER + "isAuContentFromWs = " + isAuContentFromWs);
   }
@@ -454,11 +463,15 @@ public class BaseCachedUrl implements CachedUrl {
     // Check whether the content type should be coming from the repository.
     if (!isAuContentFromWs) {
       // Yes.
+      String res = null;
       CIProperties props = getProperties();
       if (props != null) {
-	return props.getProperty(PROPERTY_CONTENT_TYPE);
+        res = props.getProperty(PROPERTY_CONTENT_TYPE);
       }
-      return null;
+      if (res != null) {
+        return res;
+      }
+      return matchUrlMimeMap(getUrl());
     }
 
     // No: Get the properties via web services.
@@ -479,6 +492,23 @@ public class BaseCachedUrl implements CachedUrl {
     if (logger.isDebug2())
       logger.debug2(DEBUG_HEADER + "contentType = " + contentType);
     return contentType;
+  }
+
+  PatternStringMap getUrlMimeTypeMap() {
+    if (urlMimeMap == null) {
+      urlMimeMap = au.makeUrlMimeTypeMap();
+    }
+    return urlMimeMap;
+  }
+
+  String matchUrlMimeMap(String url) {
+    PatternStringMap map = getUrlMimeTypeMap();;
+    String mime = map.getMatch(url);
+    if (mime != null) {
+      logger.debug("Inferred mime type: " + mime + " for " + getUrl());
+      return mime;
+    }
+    return null;
   }
 
   public String getEncoding() {

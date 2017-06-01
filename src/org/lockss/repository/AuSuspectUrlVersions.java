@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,6 +35,7 @@ package org.lockss.repository;
 import java.util.*;
 import org.lockss.util.*;
 import org.lockss.plugin.ArchivalUnit;
+import org.lockss.hasher.HashResult;
 
 /**
  * Instances represent the set of versions of urls in an AU that
@@ -46,11 +51,15 @@ public class AuSuspectUrlVersions implements LockssSerializable {
     private final String url;
     private final int version;
     private final long created;
+    private final HashResult computedHash;
+    private final HashResult storedHash;
 
     protected SuspectUrlVersion(String url, int version) {
       this.url = url;
       this.version = version;
       this.created = TimeBase.nowMs();
+      this.computedHash = null;
+      this.storedHash = null;
     }
 
     protected SuspectUrlVersion(String url, int version, String algorithm,
@@ -58,6 +67,18 @@ public class AuSuspectUrlVersions implements LockssSerializable {
       this.url = url;
       this.version = version;
       this.created = TimeBase.nowMs();
+      this.computedHash = HashResult.make(computedHash, algorithm);
+      this.storedHash = HashResult.make(storedHash, algorithm);
+    }
+
+    protected SuspectUrlVersion(String url, int version,
+				HashResult computedHash,
+				HashResult storedHash) {
+      this.url = url;
+      this.version = version;
+      this.created = TimeBase.nowMs();
+      this.computedHash = computedHash;
+      this.storedHash = storedHash;
     }
 
     public String getUrl() {
@@ -68,6 +89,12 @@ public class AuSuspectUrlVersions implements LockssSerializable {
     }
     public long getCreated() {
       return created;
+    }
+    public HashResult getComputedHash() {
+      return computedHash;
+    }
+    public HashResult getStoredHash() {
+      return storedHash;
     }
     public int hashCode() {
       return url.hashCode() + version;
@@ -81,7 +108,8 @@ public class AuSuspectUrlVersions implements LockssSerializable {
     }
 
     public String toString() {
-      return "[SuspectUrl: " + url + ":" + version + "]";
+      return "[SuspectUrl: " + url + ":" + version +
+	", comp: " + computedHash + ", stored: " + storedHash + "]";
     }
   }
 
@@ -120,6 +148,19 @@ public class AuSuspectUrlVersions implements LockssSerializable {
       throw new UnsupportedOperationException("Re-marking as suspect");
     }
     suspectVersions.add(new SuspectUrlVersion(url, version, algorithm,
+					      computedHash, storedHash));
+  }
+
+  /**
+   * Mark the version of the url as suspect
+   */
+  public synchronized void markAsSuspect(String url, int version,
+					 HashResult computedHash,
+					 HashResult storedHash) {
+    if (isSuspect(url, version)) {
+      throw new UnsupportedOperationException("Re-marking as suspect");
+    }
+    suspectVersions.add(new SuspectUrlVersion(url, version,
 					      computedHash, storedHash));
   }
 

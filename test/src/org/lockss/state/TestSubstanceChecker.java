@@ -1,4 +1,8 @@
 /*
+ * $Id$
+ */
+
+/*
 
 Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
@@ -30,9 +34,12 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.state;
 
 import java.util.*;
+
 import org.apache.oro.text.regex.*;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.daemon.*;
+import org.lockss.crawler.*;
 import org.lockss.plugin.*;
 
 import static org.lockss.state.SubstanceChecker.State;

@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,6 +42,7 @@ import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.base.*;
 import org.lockss.plugin.definable.*;
+import org.lockss.poller.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
 import org.lockss.test.*;
@@ -868,6 +873,12 @@ public class TestPluginManager extends LockssTestCase {
       processOneRegistryJarThrowIf = url;
     }
 
+    protected void possiblyStartRegistryAuCrawl(ArchivalUnit au,
+						String url,
+						PluginManager.InitialRegistryCallback cb) {
+      cb.crawlCompleted(url);
+    }
+
     Map<String,SimpleQueue> findUrlQueues = new HashMap<String,SimpleQueue>();
 
     SimpleQueue ensureFindUrlQueue(String url) {
@@ -966,21 +977,52 @@ public class TestPluginManager extends LockssTestCase {
     // make a PollSpec with info from a manually created CUS, which should
     // match one of the registered AUs
     CachedUrlSet protoCus = makeCus(mpi, mauauid1, url, lower, upper);
+    PollSpec ps1 = new PollSpec(protoCus, Poll.V1_CONTENT_POLL);
 
+    // verify PluginManager can make a CUS for the PollSpec
+    CachedUrlSet cus = mgr.findCachedUrlSet(ps1);
+    assertNotNull(cus);
+    // verify the CUS's CUSS
+    CachedUrlSetSpec cuss = cus.getSpec();
+    assertEquals(url, cuss.getUrl());
+    RangeCachedUrlSetSpec rcuss = (RangeCachedUrlSetSpec)cuss;
+    assertEquals(lower, rcuss.getLowerBound());
+    assertEquals(upper, rcuss.getUpperBound());
+
+    assertEquals(mauauid1, cus.getArchivalUnit().getAuId());
     // can't test protoCus.getArchivalUnit() .equals( cus.getArchivalUnit() )
     // as we made a fake mock one to build PollSpec, and PluginManager will
     // have created & configured a real mock one.
 
     CachedUrlSet protoAuCus = makeAuCus(mpi, mauauid1);
+    PollSpec ps2 = new PollSpec(protoAuCus, Poll.V1_CONTENT_POLL);
 
+    CachedUrlSet aucus = mgr.findCachedUrlSet(ps2);
+    assertNotNull(aucus);
+    CachedUrlSetSpec aucuss = aucus.getSpec();
+    assertTrue(aucuss instanceof AuCachedUrlSetSpec);
   }
 
   public void testFindSingleNodeCus() throws Exception {
     mgr.startService();
     String url = "http://foo.bar/";
+    String lower = PollSpec.SINGLE_NODE_LWRBOUND;
 
     doConfig();
     MockPlugin mpi = (MockPlugin)mgr.getPlugin(mockPlugKey);
+
+    // make a PollSpec with info from a manually created CUS, which should
+    // match one of the registered AUs
+    CachedUrlSet protoCus = makeCus(mpi, mauauid1, url, lower, null);
+    PollSpec ps1 = new PollSpec(protoCus, Poll.V1_CONTENT_POLL);
+
+    // verify PluginManager can make a CUS for the PollSpec
+    CachedUrlSet cus = mgr.findCachedUrlSet(ps1);
+    assertNotNull(cus);
+    // verify the CUS's CUSS
+    CachedUrlSetSpec cuss = cus.getSpec();
+    assertTrue(cuss instanceof SingleNodeCachedUrlSetSpec);
+    assertEquals(url, cuss.getUrl());
   }
 
   public void testGetCandidateAus() throws Exception {
@@ -1245,6 +1287,7 @@ public class TestPluginManager extends LockssTestCase {
     doConfig();
     ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_PROJECT,
 				  "clockss");
+    assertTrue(theDaemon.isClockss());
 
     // get the two archival units
     MockArchivalUnit au1 = (MockArchivalUnit)mgr.getAuFromId(mauauid1);
@@ -1482,13 +1525,23 @@ public class TestPluginManager extends LockssTestCase {
   public void testEmptyInitialRegistryCallback() throws Exception {
     mgr.startService();
     BinarySemaphore bs = new BinarySemaphore();
+    PluginManager.InitialRegistryCallback cb =
+      new PluginManager.InitialRegistryCallback(Collections.EMPTY_LIST, bs);
     assertTrue(bs.take(Deadline.in(0)));
   }
 
   public void testInitialRegistryCallback() throws Exception {
     mgr.startService();
     BinarySemaphore bs = new BinarySemaphore();
+    PluginManager.InitialRegistryCallback cb =
+      new PluginManager.InitialRegistryCallback(ListUtil.list("foo", "bar"),
+						bs);
     assertFalse(bs.take(Deadline.in(0)));
+    cb.crawlCompleted("foo");
+    cb.crawlCompleted("bletch");
+    assertFalse(bs.take(Deadline.in(0)));
+    cb.crawlCompleted("bar");
+    assertTrue(bs.take(Deadline.in(0)));
   }
 
   private void prepareLoadablePluginTests(Properties p) throws Exception {
@@ -1526,6 +1579,47 @@ public class TestPluginManager extends LockssTestCase {
 		 SetUtil.theSet(mgr.getAllRegistryAus()));
     assertEquals(3, mgr.getAllRegistryAus().size());
   }
+
+  public void testCrawlRegistriesOnce() throws Exception {
+    mgr.startService();
+    MockCrawlManager mcm = new MockCrawlManager();
+    theDaemon.setCrawlManager(mcm);
+
+    Properties p = new Properties();
+    prepareLoadablePluginTests(p);
+    List urls = ListUtil.list("http://plug1.example.com/blueplugs/",
+			      "http://plug1.example.com/redplugs/");
+    List urls2 = ListUtil.list("http://plug2.example.com/blueplugs/");
+    assertEmpty(mgr.getAllRegistryAus());
+    assertEmpty(mgr.getAllAus());
+    mgr.initLoadablePluginRegistries(urls);
+    assertEquals(SetUtil.theSet(mgr.getAllAus()),
+		 SetUtil.theSet(mgr.getAllRegistryAus()));
+    assertEquals(2, mgr.getAllRegistryAus().size());
+
+    assertEmpty(mcm.scheduledCrawls);
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_CRAWL_PLUGINS_ONCE,
+				  "true");
+    assertEquals(SetUtil.theSet(mgr.getAllRegistryAus()),
+		 mcm.scheduledCrawls.keySet());
+    mcm.scheduledCrawls.clear();
+    assertEmpty(mcm.scheduledCrawls);
+    // Set another param that causes PluginManager.setConfig() to run
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_CRAWL_PLUGINS_ONCE + "xx",
+				  "1234");
+    assertEmpty(mcm.scheduledCrawls);
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_CRAWL_PLUGINS_ONCE,
+				  "true");
+    assertEmpty(mcm.scheduledCrawls);
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_CRAWL_PLUGINS_ONCE,
+				  "false");
+    assertEmpty(mcm.scheduledCrawls);
+    ConfigurationUtil.addFromArgs(PluginManager.PARAM_CRAWL_PLUGINS_ONCE,
+				  "true");
+    assertEquals(SetUtil.theSet(mgr.getAllRegistryAus()),
+		 mcm.scheduledCrawls.keySet());
+  }
+
 
   /** Test loading a loadable plugin. */
   public void testLoadLoadablePlugin(boolean preferLoadable) throws Exception {

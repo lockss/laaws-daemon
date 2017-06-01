@@ -223,9 +223,9 @@ public class JobDbManager extends DbManager implements ConfigurableManager {
    * 
    * @return a String with the manager key.
    */
-  public static String getManagerKey() {
-    return "JobDbManager";
-  }
+//  public static String getManagerKey() {
+//    return "JobDbManager";
+//  }
 
   @Override
   protected String getDataSourceRootName() {

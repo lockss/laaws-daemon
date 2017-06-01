@@ -188,7 +188,7 @@ public class TestMassachusettsMedicalSocietyPlugin extends LockssPluginTestCase 
 
 	  public void testGetUrlStems() throws Exception {
 	    ArchivalUnit au = createAu();
-	    assertEquals(ListUtil.list(BASE_URL2, BASE_URL), au.getUrlStems());
+	    assertEquals(ListUtil.list(BASE_URL, BASE_URL2), au.getUrlStems());
 	  }
 
 	  public void testShouldDoNewContentCrawlTooEarly() throws Exception {

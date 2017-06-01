@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -40,13 +36,13 @@ import java.sql.PreparedStatement;
 import org.mortbay.html.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.poller.*;
 import org.lockss.crawler.*;
 import org.lockss.state.*;
 import org.lockss.config.*;
 import org.lockss.db.DbException;
-import org.lockss.db.DbManager;
 import org.lockss.remote.*;
 import org.lockss.plugin.*;
 import org.lockss.account.*;
@@ -115,7 +111,7 @@ public class DebugPanel extends LockssServlet {
   private PollManager pollManager;
   private CrawlManager crawlMgr;
   private ConfigManager cfgMgr;
-  private DbManager dbMgr;
+  private MetadataDbManager dbMgr;
   private MetadataManager metadataMgr;
   private RemoteApi rmtApi;
 
@@ -149,10 +145,10 @@ public class DebugPanel extends LockssServlet {
     crawlMgr = daemon.getCrawlManager();
     cfgMgr = daemon.getConfigManager();
     rmtApi = daemon.getRemoteApi();
-//    try {
-//      dbMgr = daemon.getDbManager();
-//      metadataMgr = daemon.getMetadataManager();
-//    } catch (IllegalArgumentException ex) {}
+    try {
+      dbMgr = daemon.getMetadataDbManager();
+      metadataMgr = daemon.getMetadataManager();
+    } catch (IllegalArgumentException ex) {}
   }
 
   public void lockssHandleRequest() throws IOException {
@@ -451,8 +447,8 @@ public class DebugPanel extends LockssServlet {
     } catch (DbException dbe) {
       log.error("Cannot reindex metadata for " + au.getName(), dbe);
     } finally {
-      DbManager.safeCloseStatement(insertPendingAuBatchStatement);
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeCloseStatement(insertPendingAuBatchStatement);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     if (force) {

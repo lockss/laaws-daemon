@@ -1,4 +1,8 @@
 /*
+ * $Id$
+ */
+
+/*
 
 Copyright (c) 2013-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
@@ -46,29 +50,65 @@ public class TestAdminServletManager extends LockssTestCase {
   }
 
   ServletDescr readOnlyDescrs[] = {
+    SERVLET_HOME,
+    SERVLET_PROXY_INFO,
+    SERVLET_DAEMON_STATUS,
+    SERVLET_LIST_OBJECTS,
+    SERVLET_LIST_HOLDINGS,   
+    SERVLET_THREAD_DUMP,
     LINK_CONTACT,
     LINK_HELP,
-//    SERVLET_CXF_WEB_SERVICES,
+    LOGIN_FORM,
+    LINK_LOGOUT,
+    SERVLET_EDIT_ACCOUNT,
+    SERVLET_COUNTER_REPORTS,
+    SERVLET_CXF_WEB_SERVICES,
+    SERVLET_MD_MONITOR,
     SERVLET_OIOSAML
   };
 
   ServletDescr userAdminDescrs[] = {
+    SERVLET_ADMIN_ACCESS_CONTROL,
     LINK_ISOS,
+    SERVLET_RAISE_ALERT,
+    SERVLET_EDIT_ACCOUNTS,
+    SERVLET_EXPERT_CONFIG,
   };
 
   ServletDescr auAdminDescrs[] = {
+    SERVLET_BATCH_AU_CONFIG,
+    SERVLET_AU_CONFIG,
+    SERVLET_PLUGIN_CONFIG,
+    SERVLET_DEBUG_PANEL,
+    SERVLET_SUB_MANAGEMENT,
+    SERVLET_MD_CONTROL
 };
 
   ServletDescr contentAdminDescrs[] = {
+    SERVLET_PROXY_ACCESS_CONTROL,
+    SERVLET_PROXY_AND_CONTENT,
   };
 
   ServletDescr contentAccessDescrs[] = {
+    SERVLET_SERVE_CONTENT,
+    SERVLET_EXPORT_CONTENT,
+    SERVLET_DISPLAY_CONTENT,
+    SERVLET_ADD_CONTENT,
+    SERVLET_ADD_CONTENT_TAB,
+    SERVLET_HASH_CUS,
+    SERVLET_TIME_GATE,
+    SERVLET_TIME_MAP,
     LINK_EXPORTS,
     LINK_LOGS,
   };
 
   ServletDescr debugDescrs[] = {
+    SERVLET_HASH_CUS,
+    SERVLET_DEBUG_PANEL,
     LINK_LOGS,
+    SERVLET_THREAD_DUMP,
+    SERVLET_RAISE_ALERT,
+    SERVLET_MD_MONITOR
   };
 
 

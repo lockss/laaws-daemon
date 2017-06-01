@@ -36,6 +36,7 @@ import java.io.*;
 import java.util.*;
 import java.nio.file.*;
 import java.nio.file.attribute.*;
+import org.apache.commons.lang3.*;
 import org.apache.commons.collections.*;
 import org.lockss.test.*;
 
@@ -310,6 +311,53 @@ public class TestFileUtil extends LockssTestCase {
     File f2 = new File(dir, "missingFile");
     assertFalse(f2.exists());
     assertFalse(FileUtil.safeDeleteFile(f2));
+  }
+
+  public void testNewFileOutputStream() throws IOException {
+    File dir = getTempDir("longtest");
+    File shortName = new File(dir, "shortpath");
+    StringUtil.toOutputStream(FileUtil.newFileOutputStream(shortName),
+			       "a content");
+    assertInputStreamMatchesString("a content",
+				   FileUtil.newFileInputStream(shortName));
+    // Ensure can overwrite existing file
+    StringUtil.toOutputStream(FileUtil.newFileOutputStream(shortName),
+			       "bee content season");
+    assertInputStreamMatchesString("bee content season",
+				   FileUtil.newFileInputStream(shortName));
+
+    File noFile = new File(dir, "nosuchfile");
+    try {
+      FileUtil.newFileInputStream(noFile);
+      fail("FileUtil.newFileInputStream() non-existent file should throw");
+    } catch (FileNotFoundException e) {
+      assertEquals(noFile.getPath(), e.getMessage());
+    }
+  }
+
+  // These tests ensure correct behavior of long file and path names.  Skip
+  // them on less capable filesystems.
+  public void testNewFileOutputStreamLongPath() throws IOException {
+    File dir = getTempDir("longtest");
+    int pad = dir.getPath().length();
+    PlatformUtil pi = PlatformUtil.getInstance();
+    if (pi.maxFilename() < 251 ||
+	pi.maxPathname() < (2510 + pad)) {
+      log.debug("Skipping long path tests");
+      return;
+    }
+
+    String s250 = StringUtils.repeat("1234567890", 25);
+    assertEquals(250, s250.length());
+    String longStr = StringUtils.repeat(s250 + "/", 10);
+    assertEquals(2510, longStr.length());
+    File longDir = new File(dir, longStr);
+    assertTrue(longDir.mkdirs());
+    File longName = new File(longDir, "longpath");
+    StringUtil.toOutputStream(FileUtil.newFileOutputStream(longName),
+			      "b content");
+    assertInputStreamMatchesString("b content",
+				   FileUtil.newFileInputStream(longName));
   }
 
   public void testSetOwnerRWX() throws IOException {

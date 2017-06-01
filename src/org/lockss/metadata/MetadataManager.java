@@ -45,7 +45,6 @@ import java.util.Set;
 import java.util.TreeMap;
 import org.lockss.app.BaseLockssDaemonManager;
 import org.lockss.app.ConfigurableManager;
-import org.lockss.app.LockssApp;
 //import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 //import org.lockss.config.TdbAu;
@@ -355,9 +354,7 @@ public class MetadataManager extends BaseLockssDaemonManager implements
     log.debug(DEBUG_HEADER + "Starting MetadataManager");
 
     pluginMgr = getDaemon().getPluginManager();
-    //dbManager = getDaemon().getDbManager();
-    dbManager = (MetadataDbManager)LockssApp
-	.getManager(MetadataDbManager.getManagerKey());
+    dbManager = getDaemon().getMetadataDbManager();
 
     try {
       mdManagerSql = new MetadataManagerSql(dbManager, this);
@@ -480,9 +477,9 @@ public class MetadataManager extends BaseLockssDaemonManager implements
    * 
    * @return a String with the manager key.
    */
-  public static String getManagerKey() {
-    return "MetadataManager";
-  }
+//  public static String getManagerKey() {
+//    return "MetadataManager";
+//  }
 
   /**
    * Sets the indexing enabled state of this manager.
@@ -5099,8 +5096,8 @@ public class MetadataManager extends BaseLockssDaemonManager implements
       String auId = item.getScalarMap().get("au_id");
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "auId = " + auId);
 
-      MetadataManager mdManager =
-  	(MetadataManager)LockssApp.getManager(MetadataManager.getManagerKey());
+//      MetadataManager mdManager =
+//  	(MetadataManager)LockssApp.getManager(MetadataManager.getManagerKey());
 
       ArticleMetadataBuffer articleMetadataInfoBuffer =
 	  new ArticleMetadataBuffer(new File(PlatformUtil.getSystemTempDir()));
@@ -5117,12 +5114,12 @@ public class MetadataManager extends BaseLockssDaemonManager implements
       conn = dbManager.getConnection();
 
       // Get the mandatory metadata fields.
-      List<String> mandatoryFields = mdManager.getMandatoryMetadataFields();
+      List<String> mandatoryFields = getMandatoryMetadataFields();
       if (log.isDebug3())
         log.debug3(DEBUG_HEADER + "mandatoryFields = " + mandatoryFields);
 
       // Write the AU metadata to the database.
-      mdItemSeq = new AuMetadataRecorder(mdManager,
+      mdItemSeq = new AuMetadataRecorder(this,
 	  pluginMgr.getPluginFromAuId(auId), auId).recordMetadataItem(conn,
 	      mandatoryFields, mditr);
 
@@ -5345,7 +5342,7 @@ public class MetadataManager extends BaseLockssDaemonManager implements
    * @return a JobManager with the job manager.
    */
   private JobManager getJobManager() {
-    return (JobManager)LockssApp.getManager(JobManager.getManagerKey());
+    return getDaemon().getJobManager();
   }
 
   /**

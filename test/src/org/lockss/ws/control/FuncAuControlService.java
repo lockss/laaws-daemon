@@ -52,7 +52,7 @@ import org.lockss.daemon.ConfigParamAssignment;
 import org.lockss.daemon.ConfigParamDescr;
 import org.lockss.daemon.TitleConfig;
 import org.lockss.db.DbException;
-import org.lockss.db.DbManager;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.metadata.TestMetadataManager.MySimulatedPlugin0;
 import org.lockss.metadata.TestMetadataManager.MySimulatedPlugin1;
@@ -100,7 +100,7 @@ public class FuncAuControlService extends LockssTestCase {
   private MockPlugin plugin;
   private AccountManager accountManager;
   private RemoteApi remoteApi;
-  private DbManager dbManager;
+  private MetadataDbManager dbManager;
   private MetadataManager metadataManager;
 
   /** set of AuIds of AUs reindexed by the MetadataManager */
@@ -183,7 +183,7 @@ public class FuncAuControlService extends LockssTestCase {
        * @param au
        */
       protected void notifyFinishReindexingAu(ArchivalUnit au,
-	  ReindexingStatus status) {
+	  ReindexingStatus status, Exception exception) {
         log.info("Finished reindexing au (" + status + ") " + au);
         if (status != ReindexingStatus.Rescheduled) {
           synchronized (ausReindexed) {
@@ -823,7 +823,7 @@ public class FuncAuControlService extends LockssTestCase {
 
       assertEquals(0, countDisabledAus(conn));
     } finally {
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     result = proxy.requestMdIndexingById(sau0.getAuId(), false);
@@ -952,7 +952,7 @@ public class FuncAuControlService extends LockssTestCase {
 
       assertEquals(0, countDisabledAus(conn));
     } finally {
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     results = proxy.requestMdIndexingByIdList(auIds, true);

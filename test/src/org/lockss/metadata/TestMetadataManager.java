@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2013-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -80,6 +80,7 @@ public class TestMetadataManager extends LockssTestCase {
     pluginManager = theDaemon.getPluginManager();
     pluginManager.setLoadablePluginsReady(true);
     theDaemon.setDaemonInited(true);
+    theDaemon.getCrawlManager();
 
     sau0 = PluginTestUtil.createAndStartSimAu(MySimulatedPlugin0.class,
                                               simAuConfig(tempDirPath + "/0"));
@@ -130,7 +131,7 @@ public class TestMetadataManager extends LockssTestCase {
        * @param au
        */
       protected void notifyFinishReindexingAu(ArchivalUnit au,
-	  ReindexingStatus status) {
+	  ReindexingStatus status, Exception exception) {
         log.info("Finished reindexing au (" + status + ") " + au);
         if (status != ReindexingStatus.Rescheduled) {
           synchronized (ausReindexed) {

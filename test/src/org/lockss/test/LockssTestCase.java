@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -2097,7 +2097,7 @@ public class LockssTestCase extends TestCase {
 
     // Create the database manager skipping the asynchronous updates.
     MetadataDbManager dbManager = new MetadataDbManager(true);
-    mockDaemon.setDbManager(dbManager);
+    mockDaemon.setMetadataDbManager(dbManager);
     dbManager.initService(mockDaemon);
     dbManager.startService();
 

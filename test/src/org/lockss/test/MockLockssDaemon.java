@@ -41,6 +41,7 @@ import org.lockss.db.DbManager;
 import org.lockss.exporter.counter.CounterReportsManager;
 import org.lockss.hasher.HashService;
 import org.lockss.mail.MailService;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.plugin.*;
 import org.lockss.truezip.*;
@@ -92,6 +93,7 @@ public class MockLockssDaemon extends LockssDaemon {
   IcpManager icpManager = null;
   ClockssParams clockssParams = null;
   DbManager dbManager = null;
+  MetadataDbManager metadataDbManager = null;
   CounterReportsManager counterReportsManager = null;
   SubscriptionManager subscriptionManager = null;
   Cron cron = null;
@@ -147,6 +149,7 @@ public class MockLockssDaemon extends LockssDaemon {
     statusService = null;
     icpManager = null;
     dbManager = null;
+    metadataDbManager = null;
     counterReportsManager = null;
     subscriptionManager = null;
     cron = null;
@@ -485,8 +488,9 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public MetadataManager getMetadataManager() {
     if (metadataManager == null) {
-      metadataManager = (MetadataManager)newManager(MetadataManager.getManagerKey());
-      managerMap.put(MetadataManager.getManagerKey(), metadataManager);
+      metadataManager =
+	  (MetadataManager)newManager(LockssDaemon.METADATA_MANAGER);
+      managerMap.put(LockssDaemon.METADATA_MANAGER, metadataManager);
     }
     return metadataManager;
   }
@@ -514,10 +518,23 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public DbManager getDbManager() {
     if (dbManager == null) {
-      dbManager = (DbManager)newManager(DbManager.getManagerKey());
-      managerMap.put(DbManager.getManagerKey(), dbManager);
+      dbManager = (DbManager)newManager(LockssDaemon.DB_MANAGER);
+      managerMap.put(LockssDaemon.DB_MANAGER, dbManager);
     }
     return dbManager;
+  }
+
+  /**
+   * return the metadata database manager instance
+   * @return the MetadataDbManager
+   */
+  public MetadataDbManager getMetadataDbManager() {
+    if (metadataDbManager == null) {
+      metadataDbManager =
+	  (MetadataDbManager)newManager(LockssDaemon.METADATA_DB_MANAGER);
+      managerMap.put(LockssDaemon.METADATA_DB_MANAGER, metadataDbManager);
+    }
+    return metadataDbManager;
   }
 
   /**
@@ -749,7 +766,7 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public void setMetadataManager(MetadataManager metadataMan) {
     metadataManager = metadataMan;
-    managerMap.put(MetadataManager.getManagerKey(), metadataManager);
+    managerMap.put(LockssDaemon.METADATA_MANAGER, metadataManager);
   }
 
   /**
@@ -803,7 +820,16 @@ public class MockLockssDaemon extends LockssDaemon {
    */
   public void setDbManager(DbManager dbMan) {
     dbManager = dbMan;
-    managerMap.put(DbManager.getManagerKey(), dbManager);
+    managerMap.put(LockssDaemon.DB_MANAGER, dbManager);
+  }
+
+  /**
+   * Set the MetadataDbManager
+   * @param mdDbMan the new manager
+   */
+  public void setMetadataDbManager(MetadataDbManager mdDbMan) {
+    metadataDbManager = mdDbMan;
+    managerMap.put(LockssDaemon.METADATA_DB_MANAGER, metadataDbManager);
   }
 
   /**

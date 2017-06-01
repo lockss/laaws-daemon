@@ -417,6 +417,7 @@ Args:
   <property name="FastInfoset.jar" value="${lib}/FastInfoset-1.2.9.jar" />
   <!-- property name="jaxb-impl.jar" value="${lib}/jaxb-impl-2.2.5.jar" / -->
   <property name="jaxb-runtime.jar" value="${lib}/jaxb-runtime-2.2.11.jar" />
+  <property name="jaxb-core.jar" value="${lib}/jaxb-core-2.2.11.jar" />
   <!-- property name="jaxb-xjc.jar" value="${lib}/jaxb-xjc-2.2.5.jar" / -->
   <property name="jaxb-xjc.jar" value="${lib}/jaxb-xjc-2.2.11.jar" />
   <property name="mimepull.jar" value="${lib}/mimepull-1.7.jar" />
@@ -432,6 +433,7 @@ Args:
   <property name="wsdl4j.jar" value="${lib}/wsdl4j-1.6.2.jar" />
   <property name="xmlschema-core.jar" value="${lib}/xmlschema-core-2.0.3.jar" />
   <property name="JoSQL.jar" value="${lib}/JoSQL-2.2.jar" />
+  <property name="JoSQL-contrib.jar" value="${lib}/JoSQL-contrib-1.5_5.jar" />
   <property name="gentlyWEB-utils.jar" value="${lib}/gentlyWEB-utils-1.1.jar" />
 
   <!-- Needed by OIOSAML -->
@@ -573,6 +575,7 @@ Args:
 	<pathelement path="${FastInfoset.jar}" />
 	<!-- pathelement path="${jaxb-impl.jar}" / -->
 	<pathelement path="${jaxb-runtime.jar}" />
+	<pathelement path="${jaxb-core.jar}" />
 	<pathelement path="${jaxb-xjc.jar}" />
 	<pathelement path="${mimepull.jar}" />
 	<pathelement path="${neethi.jar}" />
@@ -587,6 +590,7 @@ Args:
 	<pathelement path="${wsdl4j.jar}" />
 	<pathelement path="${xmlschema-core.jar}" />
     <pathelement path="${JoSQL.jar}" />
+    <pathelement path="${JoSQL-contrib.jar}" />
     <pathelement path="${gentlyWEB-utils.jar}" />
 	<!-- Needed for DB migration-->
 	<pathelement path="${getopt.jar}" />

@@ -37,13 +37,12 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.Configuration;
 import org.lockss.config.CurrentConfig;
 import org.lockss.daemon.Cron;
 import org.lockss.db.DbException;
-import org.lockss.db.DbManager;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.util.Logger;
 
 /**
@@ -329,7 +328,7 @@ public class CounterReportsRequestAggregator {
       + " and " + REQUEST_MONTH_COLUMN + " = ? "
       + " and " + IN_AGGREGATION_COLUMN + " = true";
 
-  private final DbManager dbManager;
+  private final MetadataDbManager dbManager;
   private final CounterReportsManager crManager;
 
   /**
@@ -339,7 +338,7 @@ public class CounterReportsRequestAggregator {
    *          A LockssDaemon with the application daemon.
    */
   public CounterReportsRequestAggregator(LockssDaemon daemon) {
-    dbManager = (DbManager)(LockssApp.getManager(DbManager.getManagerKey()));
+    dbManager = daemon.getMetadataDbManager();
     crManager = daemon.getCounterReportsManager();
   }
 
@@ -435,12 +434,12 @@ public class CounterReportsRequestAggregator {
       log.error("Cannot mark requests to aggregate", sqle);
       log.error("SQL = '" + sql + "'.");
     } finally {
-      DbManager.safeCloseStatement(markRequests);
+      MetadataDbManager.safeCloseStatement(markRequests);
       if (success) {
-	DbManager.commitOrRollback(conn, log);
-	DbManager.safeCloseConnection(conn);
+	MetadataDbManager.commitOrRollback(conn, log);
+	MetadataDbManager.safeCloseConnection(conn);
       } else {
-	DbManager.safeRollbackAndClose(conn);
+	MetadataDbManager.safeRollbackAndClose(conn);
       }
     }
 
@@ -506,9 +505,9 @@ public class CounterReportsRequestAggregator {
       throw new DbException("Cannot get the year/month pairs with requests",
 	  sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -654,7 +653,7 @@ public class CounterReportsRequestAggregator {
 					allBooksSectionCount, conn);
 
 	  // Commit the changes so far.
-	  DbManager.commitOrRollback(conn, log);
+	  MetadataDbManager.commitOrRollback(conn, log);
 
 	  // Reset the accumulators.
 	  allBooksFullCount = 0;
@@ -671,10 +670,10 @@ public class CounterReportsRequestAggregator {
       success = true;
     } finally {
       if (success) {
-	DbManager.commitOrRollback(conn, log);
-	DbManager.safeCloseConnection(conn);
+	MetadataDbManager.commitOrRollback(conn, log);
+	MetadataDbManager.safeCloseConnection(conn);
       } else {
-	DbManager.safeRollbackAndClose(conn);
+	MetadataDbManager.safeRollbackAndClose(conn);
       }
     }
 
@@ -747,9 +746,9 @@ public class CounterReportsRequestAggregator {
       log.error("SQL = '" + sql + "'.");
       throw new DbException("Cannot get the books to aggregate", sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -866,8 +865,8 @@ public class CounterReportsRequestAggregator {
       throw new DbException("Cannot get the month full book request count",
 	  sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -941,8 +940,8 @@ public class CounterReportsRequestAggregator {
       throw new DbException("Cannot get the month section book request count",
 	  sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1168,7 +1167,7 @@ public class CounterReportsRequestAggregator {
 					   allJournalsPdfCount, conn);
 
 	  // Commit the changes so far.
-	  DbManager.commitOrRollback(conn, log);
+	  MetadataDbManager.commitOrRollback(conn, log);
 
 	  allJournalsTotalCount = 0;
 	  allJournalsHtmlCount = 0;
@@ -1192,10 +1191,10 @@ public class CounterReportsRequestAggregator {
       success = true;
     } finally {
       if (success) {
-	DbManager.commitOrRollback(conn, log);
-	DbManager.safeCloseConnection(conn);
+	MetadataDbManager.commitOrRollback(conn, log);
+	MetadataDbManager.safeCloseConnection(conn);
       } else {
-	DbManager.safeRollbackAndClose(conn);
+	MetadataDbManager.safeRollbackAndClose(conn);
       }
     }
 
@@ -1266,9 +1265,9 @@ public class CounterReportsRequestAggregator {
       log.error("SQL = '" + sql + "'.");
       throw new DbException("Cannot get the journals to aggregate", sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1346,8 +1345,8 @@ public class CounterReportsRequestAggregator {
       throw new DbException("Cannot get the month total journal request count",
 	  sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     sql = SQL_QUERY_MONTH_JOURNAL_HTML_REQUEST_COUNT;
@@ -1387,8 +1386,8 @@ public class CounterReportsRequestAggregator {
       throw new DbException("Cannot get the month HTML journal request count",
 	  sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     sql = SQL_QUERY_MONTH_JOURNAL_PDF_REQUEST_COUNT;
@@ -1428,8 +1427,8 @@ public class CounterReportsRequestAggregator {
       throw new DbException("Cannot get the month PDF journal request count",
 	  sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     aggregates.put(TOTAL_REQUESTS_COLUMN, totalCount);
@@ -1518,8 +1517,8 @@ public class CounterReportsRequestAggregator {
       throw new DbException(
 	  "Cannot get the month publication year journal request count", sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1659,7 +1658,7 @@ public class CounterReportsRequestAggregator {
       log.error("SQL = '" + sql + "'.");
       throw new DbException("Cannot delete the book month requests", sqle);
     } finally {
-      DbManager.safeCloseStatement(deleteAggregate);
+      MetadataDbManager.safeCloseStatement(deleteAggregate);
     }
   }
 
@@ -1722,7 +1721,7 @@ public class CounterReportsRequestAggregator {
       log.error("SQL = '" + sql + "'.");
       throw new DbException("Cannot delete the journal month requests", sqle);
     } finally {
-      DbManager.safeCloseStatement(deleteAggregate);
+      MetadataDbManager.safeCloseStatement(deleteAggregate);
     }
   }
 

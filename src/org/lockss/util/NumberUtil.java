@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,9 +33,12 @@ package org.lockss.util;
 
 import java.util.*;
 import java.math.BigDecimal;
+
 import org.apache.commons.lang3.math.NumberUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.oro.text.regex.Pattern;
+import org.lockss.exporter.biblio.BibliographicOrderScorer;
+import org.lockss.exporter.biblio.BibliographicUtil;
 
 
 /**
@@ -449,6 +456,27 @@ public class NumberUtil {
    * @return <tt>true</tt> if the ranges parsed from the string have no intervening gaps
    */
   public static boolean isContiguousRange(String rangeStr) {
+    if (rangeStr.isEmpty()) return false;
+    BibliographicUtil.RangeIterator ranges = new BibliographicUtil.RangeIterator(rangeStr);
+    if (!ranges.hasNext()) return false;
+    // Get the end of the first range
+    String range = ranges.next();
+    String lastEnd = BibliographicUtil.isRange(range) ? getRangeEnd(range) : range;
+    while (ranges.hasNext()) {
+      range = ranges.next();
+      String thisStart, thisEnd;
+      // Make sure the token appears to be a range before splitting it
+      if (BibliographicUtil.isRange(range)) {
+        thisStart = getRangeStart(range);
+        thisEnd = getRangeEnd(range);
+      } else {
+        thisStart = range;
+        thisEnd = range;
+      }
+      if (!BibliographicOrderScorer.areVolumesConsecutive(lastEnd, thisStart))
+        return false;
+      lastEnd = thisEnd;
+    }
     return true;
   }
 

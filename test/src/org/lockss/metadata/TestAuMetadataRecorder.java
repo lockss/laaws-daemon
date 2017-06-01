@@ -1,4 +1,8 @@
 /*
+ * $Id$
+ */
+
+/*
 
  Copyright (c) 2013-2016 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
@@ -43,11 +47,14 @@ import org.lockss.config.Configuration;
 import org.lockss.daemon.Cron;
 import org.lockss.daemon.PluginException;
 import org.lockss.db.DbException;
+import org.lockss.exporter.counter.CounterReportsManager;
+import org.lockss.exporter.counter.CounterReportsRequestAggregator;
 import org.lockss.extractor.ArticleMetadata;
 import org.lockss.extractor.ArticleMetadataExtractor;
 import org.lockss.extractor.MetadataField;
 import org.lockss.extractor.MetadataTarget;
 import org.lockss.metadata.ArticleMetadataBuffer.ArticleMetadataInfo;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.TestMetadataManager.MySubTreeArticleIteratorFactory;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.ArticleFiles;
@@ -80,6 +87,12 @@ public class TestAuMetadataRecorder extends LockssTestCase {
 
     ConfigurationUtil.addFromArgs(MetadataManager.PARAM_INDEXING_ENABLED,
 	"true");
+    ConfigurationUtil.addFromArgs(CounterReportsManager.PARAM_COUNTER_ENABLED,
+	"true");
+    ConfigurationUtil.addFromArgs(CounterReportsManager
+	.PARAM_REPORT_BASEDIR_PATH, tempDirPath);
+    ConfigurationUtil.addFromArgs(CounterReportsRequestAggregator
+	.PARAM_COUNTER_REQUEST_AGGREGATION_TASK_FREQUENCY, "hourly");
 
     MockLockssDaemon theDaemon = getMockLockssDaemon();
     theDaemon.getAlertManager();
@@ -88,6 +101,7 @@ public class TestAuMetadataRecorder extends LockssTestCase {
     pluginManager.setLoadablePluginsReady(true);
     theDaemon.setDaemonInited(true);
     pluginManager.startService();
+    theDaemon.getCrawlManager();
 
     sau0 = PluginTestUtil.createAndStartSimAu(MySimulatedPlugin0.class,
                                               simAuConfig(tempDirPath + "/0"));
@@ -103,6 +117,11 @@ public class TestAuMetadataRecorder extends LockssTestCase {
     theDaemon.setCron(cron);
     cron.initService(theDaemon);
     cron.startService();
+
+    CounterReportsManager counterReportsManager = new CounterReportsManager();
+    theDaemon.setCounterReportsManager(counterReportsManager);
+    counterReportsManager.initService(theDaemon);
+    counterReportsManager.startService();
 
     theDaemon.setAusStarted(true);
   }

@@ -69,9 +69,7 @@ public class DbVersion14To15Migrator extends LockssRunnable {
     }
 
     try {
-      //DbManager dbManager = LockssDaemon.getLockssDaemon().getDbManager();
-      MetadataDbManager metadataDbManager = (MetadataDbManager)
-	  LockssApp.getManager(MetadataDbManager.getManagerKey());
+      MetadataDbManager metadataDbManager = daemon.getMetadataDbManager();
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "Obtained MetadataDbManager.");
 

@@ -28,7 +28,6 @@
 package org.lockss.ws.metadata;
 
 import javax.jws.WebService;
-
 import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.metadata.MetadataManager;
@@ -143,7 +142,7 @@ public class MetadataControlServiceImpl implements MetadataControlService {
    * @return a MetadataManager with the metadata manager.
    */
   private MetadataManager getMetadataManager() {
-    return (MetadataManager)LockssApp.getManager(MetadataManager
-	.getManagerKey());
+    return (MetadataManager) LockssDaemon
+	.getManager(LockssDaemon.METADATA_MANAGER);
   }
 }

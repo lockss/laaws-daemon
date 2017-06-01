@@ -38,11 +38,10 @@ import java.util.Map;
 import java.util.Properties;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
-import org.lockss.app.LockssApp;
 import org.lockss.db.DbException;
-import org.lockss.db.DbManager;
 import org.lockss.metadata.Isbn;
 import org.lockss.metadata.Issn;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.metadata.PkNamePair;
 import org.lockss.plugin.ArchivalUnit;
@@ -198,7 +197,7 @@ public class MetadataMonitor extends LockssServlet {
 
   private static final String BACK_LINK_PREFIX = "Back to ";
 
-  private DbManager dbManager;
+  private MetadataDbManager dbManager;
   private MetadataManager mdManager;
   private PluginManager pluginManager;
 
@@ -212,9 +211,8 @@ public class MetadataMonitor extends LockssServlet {
   @Override
   public void init(ServletConfig config) throws ServletException {
     super.init(config);
-    dbManager = (DbManager)LockssApp.getManager(DbManager.getManagerKey());
-    mdManager =
-	(MetadataManager)LockssApp.getManager(MetadataManager.getManagerKey());
+    dbManager = getLockssDaemon().getMetadataDbManager();
+    mdManager = getLockssDaemon().getMetadataManager();
     pluginManager = getLockssDaemon().getPluginManager();
   }
 

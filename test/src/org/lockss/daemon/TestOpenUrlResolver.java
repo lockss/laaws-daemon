@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2013-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -55,7 +55,7 @@ import org.lockss.util.*;
 import org.lockss.test.*;
 
 /**
- * Test class for org.lockss.daemon.MetadataManager
+ * Test class for org.lockss.daemon.OpenUrlResolver
  *
  * @author  Philip Gust
  * @version 1.0 
@@ -94,6 +94,7 @@ public abstract class TestOpenUrlResolver extends LockssTestCase {
     pluginManager.setLoadablePluginsReady(true);
     theDaemon.setDaemonInited(true);
     pluginManager.startService();
+    theDaemon.getCrawlManager();
     
     // Make a copy of current config so can add tdb
     Configuration config = ConfigManager.getCurrentConfig().copy();
@@ -215,11 +216,12 @@ public abstract class TestOpenUrlResolver extends LockssTestCase {
       }
       
       /**
-       * Notify listeners that an AU is finshed being reindexed.
+       * Notify listeners that an AU is finished being reindexed.
        * 
        * @param au
        */
-      protected void notifyFinishReindexingAu(ArchivalUnit au, ReindexingStatus status) {
+      protected void notifyFinishReindexingAu(ArchivalUnit au,
+	  ReindexingStatus status, Exception exception) {
         log.debug("Finished reindexing au (" + status + ") " + au);
         if (status != ReindexingStatus.Rescheduled) {
           synchronized (ausReindexed) {

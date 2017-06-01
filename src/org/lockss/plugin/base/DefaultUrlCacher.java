@@ -1,4 +1,8 @@
 /*
+ * $Id$
+ */
+
+/*
 
 Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
@@ -33,13 +37,16 @@ import java.util.*;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import org.apache.commons.lang3.tuple.*;
+
 import org.lockss.state.*;
+import org.lockss.alert.*;
 import org.lockss.config.*;
 import org.lockss.plugin.*;
 import org.lockss.repository.*;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 import org.lockss.daemon.*;
+
 import org.lockss.rewriter.*;
 import org.lockss.extractor.*;
 
@@ -170,7 +177,12 @@ public class DefaultUrlCacher implements UrlCacher {
         markLastContentChanged = false;
       }
       if (logger.isDebug2()) logger.debug2("Storing url '"+ origUrl +"'");
-      storeContentIn(origUrl, input, headers);
+      storeContentIn(origUrl, input, headers, true, redirectUrls);
+      if (infoException != null &&
+	  infoException.isAttributeSet(CacheException.ATTRIBUTE_NO_STORE)) {
+        logger.debug3("Validator said no store, short-circuiting storeContent");
+	return;
+      }
       if (logger.isDebug3()) {
         logger.debug3("redirectUrls: " + redirectUrls);
       }
@@ -204,7 +216,7 @@ public class DefaultUrlCacher implements UrlCacher {
               headerCopy.remove(CachedUrl.PROPERTY_REDIRECTED_TO);
               headerCopy.remove(CachedUrl.PROPERTY_CONTENT_URL);
             }
-            storeContentIn(name, is, headerCopy);
+            storeContentIn(name, is, headerCopy, false, null);
           } finally {
             IOUtil.safeClose(is);
           }
@@ -252,7 +264,8 @@ public class DefaultUrlCacher implements UrlCacher {
   }
 
   protected void storeContentIn(String url, InputStream input,
-				CIProperties headers)
+				CIProperties headers,
+				boolean doValidate, List<String> redirUrls)
       throws IOException {
     RepositoryNode leaf = null;
     OutputStream os = null;
@@ -293,36 +306,54 @@ public class DefaultUrlCacher implements UrlCacher {
         }
       }
       os.close();
-      if (!fetchFlags.get(SUPPRESS_CONTENT_VALIDATION)) {
+      boolean doStore = true;
+      if (doValidate && !fetchFlags.get(SUPPRESS_CONTENT_VALIDATION)) {
+	// Don't modify passed-in headers
+	headers = CIProperties.fromProperties(headers);
+	if (redirUrls != null && !redirUrls.isEmpty()) {
+	  headers.put(CachedUrl.PROPERTY_VALIDATOR_REDIRECT_URLS, redirUrls);
+	}
 	CacheException vExp = validate(headers, leaf, bytes);
+	headers.remove(CachedUrl.PROPERTY_VALIDATOR_REDIRECT_URLS);
 	if (vExp != null) {
 	  if (vExp.isAttributeSet(CacheException.ATTRIBUTE_FAIL) ||
 	      vExp.isAttributeSet(CacheException.ATTRIBUTE_FATAL)) {
 	    abandonNewVersion(leaf);
 	    throw vExp;
+	  } else if (vExp.isAttributeSet(CacheException.ATTRIBUTE_NO_STORE)) {
+	    abandonNewVersion(leaf);
+	    infoException = vExp;
+	    doStore = false;
 	  } else {
 	    infoException = vExp;
 	  }
 	}
       }
-      headers.setProperty(CachedUrl.PROPERTY_NODE_URL, url);
-      if (checksumProducer != null) {
-        byte bdigest[] = checksumProducer.digest();
-        String sdigest = ByteArray.toHexString(bdigest);
-        headers.setProperty(CachedUrl.PROPERTY_CHECKSUM,
-		    String.format("%s:%s", checksumAlgorithm, sdigest));
-      }
-      leaf.setNewProperties(headers);
-      leaf.sealNewVersion();
-      AuState aus = AuUtil.getAuState(au);
-      if (aus != null && currentWasSuspect) {
-	aus.incrementNumCurrentSuspectVersions(-1);
-      }
-      if (aus != null && markLastContentChanged) {
-        aus.contentChanged();
-      }
-      if (alreadyHasContent) {
-	logger.warning("Collected an additional version: " + getFetchUrl());
+      if (doStore) {
+	headers.setProperty(CachedUrl.PROPERTY_NODE_URL, url);
+	if (checksumProducer != null) {
+	  byte bdigest[] = checksumProducer.digest();
+	  String sdigest = ByteArray.toHexString(bdigest);
+	  headers.setProperty(CachedUrl.PROPERTY_CHECKSUM,
+			      String.format("%s:%s",
+					    checksumAlgorithm, sdigest));
+	}
+	leaf.setNewProperties(headers);
+	leaf.sealNewVersion();
+	AuState aus = AuUtil.getAuState(au);
+	if (aus != null && currentWasSuspect) {
+	  aus.incrementNumCurrentSuspectVersions(-1);
+	}
+	if (aus != null && markLastContentChanged) {
+	  aus.contentChanged();
+	}
+	if (alreadyHasContent && !leaf.isIdenticalVersion()) {
+	  Alert alert = Alert.auAlert(Alert.NEW_FILE_VERSION, au);
+	  alert.setAttribute(Alert.ATTR_URL, getFetchUrl());
+	  String msg = "Collected an additional version: " + getFetchUrl();
+	  alert.setAttribute(Alert.ATTR_TEXT, msg);
+	  raiseAlert(alert);
+	}
       }
     } catch (StreamUtil.OutputException ex) {
       abandonNewVersion(leaf);
@@ -374,10 +405,13 @@ public class DefaultUrlCacher implements UrlCacher {
     // First check actual length = Content-Length header if any
     long contLen = getContentLength();
     if (contLen >= 0 && contLen != size) {
+      Alert alert = Alert.auAlert(Alert.FILE_VERIFICATION, au);
+      alert.setAttribute(Alert.ATTR_URL, getFetchUrl());
       String msg = "File size (" + size +
 	") differs from Content-Length header (" + contLen + "): "
 	+ getFetchUrl();
-      logger.warning(msg);
+      alert.setAttribute(Alert.ATTR_TEXT, msg);
+      raiseAlert(alert);
       validationFailures.add(new ImmutablePair(getUrl(),
 				      new ContentValidationException.WrongLength(msg)));
     }
@@ -444,7 +478,16 @@ public class DefaultUrlCacher implements UrlCacher {
     return resultMap.mapException(au, first.getLeft(), first.getRight(), null);
   }
 
-  public long getContentLength() {
+
+  private void raiseAlert(Alert alert) {
+    try {
+      au.getPlugin().getDaemon().getAlertManager().raiseAlert(alert);
+    } catch (RuntimeException e) {
+      logger.error("Couldn't raise alert", e);
+    }
+  }
+
+  private long getContentLength() {
     try {
       return Long.parseLong(headers.getProperty("content-length"));
     } catch (Exception e) {

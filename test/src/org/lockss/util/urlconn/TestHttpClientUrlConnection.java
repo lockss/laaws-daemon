@@ -44,6 +44,7 @@ import org.apache.http.client.config.CookieSpecs;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.conn.HttpHostConnectException;
 import org.apache.http.conn.socket.LayeredConnectionSocketFactory;
 import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.message.BasicHeader;
@@ -143,8 +144,7 @@ public class TestHttpClientUrlConnection extends LockssTestCase {
     Header hdr;
 
     assertEquals(urlString, conn.getURL());
-//HC3     conn.setUserAgent("irving");
-    conn.setRequestProperty("user-agent", "irving");
+    conn.setUserAgent("irving");
 //HC3     hdr = method.getRequestHeader("user-agent");
     hdr = conn.getRequestHeader("user-agent");
     assertEquals("irving", hdr.getValue());
@@ -529,10 +529,9 @@ public class TestHttpClientUrlConnection extends LockssTestCase {
     }
   }
 
-//HC3   public void testConnectTimeoutException() throws Exception {
-  public void testClientProtocolException() throws Exception {
+  public void testConnectTimeoutException() throws Exception {
 //HC3     client.setExecuteException(new org.apache.commons.httpclient.ConnectTimeoutException("Test"));
-    client.setExecuteException(new ClientProtocolException("Test"));
+    client.setExecuteException(new HttpHostConnectException(null, null));
     try {
       conn.execute();
       fail("execute should have thrown HttpClientUrlConnection.ConnectionTimeoutException");

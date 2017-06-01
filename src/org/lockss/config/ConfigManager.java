@@ -958,6 +958,7 @@ public class ConfigManager implements LockssManager {
       return gen;
     } catch (IOException e) {
       String url = cf.getFileUrl();
+      if (log.isDebug3()) log.debug3("IOException caught", e);
       if (e instanceof FileNotFoundException &&
 	  StringUtil.endsWithIgnoreCase(url, ".opt")) {
 	log.debug2("Not loading props from nonexistent optional file: " + url);

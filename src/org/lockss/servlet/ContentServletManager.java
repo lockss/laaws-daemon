@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2000-2011 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,11 +32,15 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.servlet;
 
+import java.io.*;
 import java.net.*;
 import java.util.*;
+
+import org.lockss.app.*;
 import org.lockss.config.*;
 import org.lockss.util.*;
 import org.lockss.jetty.*;
+import org.lockss.proxy.*;
 import org.mortbay.http.*;
 import org.mortbay.http.handler.*;
 import org.mortbay.jetty.servlet.*;
@@ -66,6 +74,11 @@ public class ContentServletManager
   public static final String PARAM_START = PREFIX + SUFFIX_START;
   public static final boolean DEFAULT_START = false;
 
+  public static final String ACCESS_PREFIX = ProxyManager.IP_ACCESS_PREFIX;
+
+  public static final boolean DEFAULT_LOG_FORBIDDEN =
+    ProxyManager.DEFAULT_LOG_FORBIDDEN;
+
   public static final String PARAM_403_MSG = PREFIX + SUFFIX_403_MSG;
   public static final String DEFAULT_403_MSG =
     "Access to the content on this LOCKSS box is not allowed from your IP address (%IP%)";
@@ -76,11 +89,13 @@ public class ContentServletManager
   protected ManagerInfo getManagerInfo() {
     ManagerInfo mi = new ManagerInfo();
     mi.prefix = PREFIX;
+    mi.accessPrefix = ACCESS_PREFIX;
     mi.serverName = SERVER_NAME;
     mi.defaultStart = DEFAULT_START;
     mi.defaultPort = DEFAULT_PORT;
     mi.default403Msg = DEFAULT_403_MSG;
     mi.doAuth = DO_USER_AUTH;
+    mi.defaultLogForbidden = DEFAULT_LOG_FORBIDDEN;
     return mi;
   }
 
@@ -116,12 +131,41 @@ public class ContentServletManager
   }
 
   // Descriptors for all content servlets.
+
+  // ServeContent with no nav table
+  public static final ServletDescr SERVLET_SERVE_CONTENT_NO_NAV =
+    new ServletDescr("ServeContent",
+		     ServeContent.class,
+                     "Serve Content",
+                     ServletDescr.NO_NAV_TABLE);
+
+  public static final ServletDescr SERVLET_SERVE_CONTENT =
+    new ServletDescr("ServeContent",
+		     ServeContent.class,
+                     "Serve Content",
+                     ServletDescr.IN_NAV);
+  public static final ServletDescr SERVLET_LIST_OBJECTS =
+    new ServletDescr("ListObjects",
+		     ListObjects.class,
+                     "List Objects");
   protected static final ServletDescr LINK_HELP =
     new ServletDescr(null,
 		     null,
                      "Help", DEFAULT_HELP_URL,
                      ServletDescr.PATH_IS_URL | ServletDescr.IN_NAV | ServletDescr.IN_UIHOME,
                      "Online help, FAQs, credits");
+
+  protected static final ServletDescr SERVLET_LIST_HOLDINGS =
+    new ServletDescr("TitleList",
+                     ListHoldings.class,
+                     "Title List",
+                     "Titles",
+                     (ServletDescr.IN_NAV | ServletDescr.IN_UIHOME),
+                     "List title metadata") {
+      public boolean isEnabled(LockssDaemon daemon) {
+	return CurrentConfig.getBooleanParam(ListHoldings.PARAM_ENABLE_HOLDINGS,
+					     ListHoldings.DEFAULT_ENABLE_HOLDINGS);
+      }};
 
   /*protected static final ServletDescr SERVLET_OPENURL_QUERY =
     new ServletDescr("OpenUrlQuery",
@@ -143,14 +187,28 @@ public class ContentServletManager
     return "mailto:" + addr;
   }
 
+  // 
+  static final ServletDescr servletDescrsNoNav[] = {
+    SERVLET_SERVE_CONTENT_NO_NAV,
+  };
+
   // All servlets must be listed here (even if not in nav table).
   // Order of descrs determines order in nav table.
   static final ServletDescr servletDescrs[] = {
+      SERVLET_SERVE_CONTENT,
+      SERVLET_LIST_HOLDINGS,
+      //SERVLET_OPENURL_QUERY,
+      SERVLET_LIST_OBJECTS,
       LINK_HELP,
   };
 
   public ServletDescr[] getServletDescrs() {
+    if (CurrentConfig.getBooleanParam(PARAM_CONTENT_ONLY,
+				      DEFAULT_CONTENT_ONLY)) {
+      return servletDescrsNoNav;
+    } else {
       return servletDescrs;
+    }
   }
 
   private String redirectRootTo = DEFAULT_REDIRECT_ROOT;

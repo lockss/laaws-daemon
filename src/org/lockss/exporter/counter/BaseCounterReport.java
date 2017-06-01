@@ -38,10 +38,9 @@ import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.db.DbException;
-import org.lockss.db.DbManager;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.util.IOUtil;
 import org.lockss.util.Logger;
 import org.lockss.util.TimeBase;
@@ -98,7 +97,7 @@ public abstract class BaseCounterReport implements CounterReport {
   protected int endYear;
 
   protected final LockssDaemon daemon;
-  protected final DbManager dbManager;
+  protected final MetadataDbManager dbManager;
 
   // The report header.
   protected Header header = new Header();
@@ -117,7 +116,7 @@ public abstract class BaseCounterReport implements CounterReport {
    */
   protected BaseCounterReport(LockssDaemon daemon) {
     this.daemon = daemon;
-    dbManager = (DbManager)(LockssApp.getManager(DbManager.getManagerKey()));
+    dbManager = daemon.getMetadataDbManager();
 
     Calendar calendar = Calendar.getInstance();
     calendar.setTime(TimeBase.nowDate());
@@ -176,7 +175,7 @@ public abstract class BaseCounterReport implements CounterReport {
     }
 
     this.daemon = daemon;
-    dbManager = (DbManager)(LockssApp.getManager(DbManager.getManagerKey()));
+    dbManager = daemon.getMetadataDbManager();
     this.startMonth = startMonth;
     this.startYear = startYear;
     this.endMonth = endMonth;
@@ -327,7 +326,7 @@ public abstract class BaseCounterReport implements CounterReport {
 
       ready = true;
     } finally {
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
   }
 

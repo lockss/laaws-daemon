@@ -132,9 +132,9 @@ public class TestPortlandPressMetadataExtractor extends LockssTestCase {
   public void testExtractFromGoodContent() throws Exception {
     goodAuthors.add("Author A");
     goodAuthors.add("Author2 B");
-    goodKeywords.add("collagen");
     goodKeywords.add("cell biology");
-    
+    goodKeywords.add("collagen");
+
     String url = "http://www.example.com/bj/vol/";
     MockCachedUrl cu = new MockCachedUrl(url, bau);
     cu.setContent(goodContent);

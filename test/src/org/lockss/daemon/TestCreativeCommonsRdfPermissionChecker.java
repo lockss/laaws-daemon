@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2000-2013 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,8 +32,10 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.daemon;
 
-import java.io.StringReader;
 import org.lockss.daemon.CreativeCommonsRdfPermissionChecker;
+import org.lockss.state.*;
+
+import java.io.StringReader;
 
 public class TestCreativeCommonsRdfPermissionChecker
   extends LockssPermissionCheckerTestCase {
@@ -207,4 +213,96 @@ public class TestCreativeCommonsRdfPermissionChecker
   private CreativeCommonsRdfPermissionChecker cc =
     new CreativeCommonsRdfPermissionChecker();
   private StringReader reader;
+
+  public void testNullReader() {
+    try {
+      cc.checkPermission(mcf, null, "http://www.example.com/");
+      fail("Calling checkPermission(pHelper, null, url) should throw");
+    } catch (NullPointerException npe) {
+    }
+  }
+
+  public void testNoRdf() throws Exception {
+    reader = new StringReader("This sentence no RDF");
+    assertFalse(cc.checkPermission(mcf, reader, pageURI));
+    reader.close();
+    assertNotEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
+  }
+
+  public void testCheckGrantedPermissionRDFOnly() throws Exception {
+    reader = new StringReader(grantedRDF);
+    assertTrue(cc.checkPermission(mcf, reader, pageURI));
+    reader.close();
+    assertEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
+  }
+
+  public void testCheckGrantedPermissionRDFOnlyWithURI() throws Exception {
+    reader = new StringReader(grantedRDFWithURI);
+    assertTrue(cc.checkPermission(mcf, reader, pageURI));
+    reader.close();
+    assertEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
+  }
+
+  public void testCheckDeniedPermissionRDFOnly() throws Exception {
+    reader = new StringReader(deniedRDF);
+    assertFalse(cc.checkPermission(mcf, reader, pageURI));
+    reader.close();
+    assertNotEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
+  }
+
+  public void testCheckGrantedPermissionHTMLAndRDF() throws Exception {
+    reader = new StringReader(htmlPlusGrantedRDF);
+    assertTrue(cc.checkPermission(mcf, reader, pageURI));
+    reader.close();
+    assertEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
+  }
+
+  public void testCheckDeniedPermissionHTMLAndRDF() throws Exception {
+    reader = new StringReader(htmlPlusDeniedRDF);
+    assertFalse(cc.checkPermission(mcf, reader, pageURI));
+    reader.close();
+    assertNotEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
+  }
+
+  public void testCheckDeniedPermissionInvalidRDF() throws Exception {
+    reader = new StringReader(malformedRDF);
+    assertFalse(cc.checkPermission(mcf, reader, pageURI));
+    reader.close();
+    assertNotEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
+  }
+
+  public void testCheckDeniedPermissionNoRDF() throws Exception {
+    reader = new StringReader(noRDF);
+    assertFalse(cc.checkPermission(mcf, reader, pageURI));
+    reader.close();
+    assertNotEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
+  }
+
+  public void testCheckJMIR() throws Exception {
+    reader = new StringReader(jmirRDF);
+    assertTrue(cc.checkPermission(mcf, reader, pageURI));
+    reader.close();
+    assertEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
+  }
+  
+  public void testCheckBonefolder() throws Exception {
+    reader = new StringReader(boneFolderRDF);
+    assertTrue(cc.checkPermission(mcf, reader, pageURI));
+    reader.close();
+    assertEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
+  }
+
+  public void testCheckEntelequia() throws Exception {
+    reader = new StringReader(entelequiaRDF);
+    assertTrue(cc.checkPermission(mcf, reader, pageURI));
+    reader.close();
+    assertEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
+  }
+  
+  public void testCheckBadStartTag() throws Exception {
+    reader = new StringReader(badStartTag);
+    assertFalse(cc.checkPermission(mcf, reader, pageURI));
+    reader.close();
+    assertNotEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
+  }
 }

@@ -1,4 +1,8 @@
 /*
+ * $Id$
+ */
+
+/*
 
 Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
@@ -29,10 +33,15 @@ package org.lockss.plugin.definable;
 
 import java.util.*;
 import java.io.*;
+
+import org.lockss.config.*;
 import org.lockss.plugin.*;
+import org.lockss.plugin.base.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.Crawler.CrawlerFacade;
+import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.crawler.*;
 import org.lockss.extractor.*;
 import org.lockss.rewriter.*;
 import org.lockss.servlet.*;
@@ -136,6 +145,23 @@ public class MockFactories {
                                          FetchedUrlData fud) {
       return null;
     }
+  }
+  
+  public static class UrlFetFact implements UrlFetcherFactory {
+
+    @Override
+    public UrlFetcher createUrlFetcher(CrawlerFacade crawlFacade, String url) {
+      return new MockUrlFetcher(crawlFacade, url);
+    }
+  }
+  
+  public static class CrawlSeedFact implements CrawlSeedFactory {
+
+    @Override
+    public CrawlSeed createCrawlSeed(CrawlerFacade crawlFacade) {
+      return null;
+    }
+
   }
 
   private static final Set SUBSTANCE_TYPES = SetUtil.set("application/pdf",

@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
- Copyright (c) 2013-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+ Copyright (c) 2013 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -105,17 +109,14 @@ public class TestDaemonStatusServiceClient extends LockssTestCase {
   }
 
   /**
-   * Runs the tests that get an archival unit URLs.
+   * Runs the tests that verify whether the daemon is ready.
    * 
    * @throws Exception
    */
-  public void testGetAuUrls() throws Exception {
+  public void testIsDaemonReady() throws Exception {
     theDaemon.setAusStarted(true);
-
-    try{
-      proxy.getAuUrls(null, null);
-      fail("Exception not thrown");
-    } catch(Exception e) {
-    }
+    assertTrue(proxy.isDaemonReady());
+    theDaemon.setAusStarted(false);
+    assertFalse(proxy.isDaemonReady());
   }
 }

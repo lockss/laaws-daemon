@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,6 +35,7 @@ package org.lockss.plugin.base;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.*;
 import org.lockss.crawler.*;
@@ -71,6 +76,13 @@ public class BaseUrlFetcher implements UrlFetcher {
   private static final String SHOULD_REFETCH_ON_SET_COOKIE =
     "refetch_on_set_cookie";
   private static final boolean DEFAULT_SHOULD_REFETCH_ON_SET_COOKIE = true;
+  
+  /** If true, any Referer sent with the request will be recorded in the
+   * {@value CachedUrl.PROPERTY_REQ_REFERRER property.  Used by repair
+   * crawler */
+  public static final String PARAM_RECORD_REFERRER =
+    Configuration.PREFIX + "baseuc.recordReferrer";
+  public static final boolean DEFAULT_RECORD_REFERRER = true;
   
   /** If true, X-Lockss-Auid: header will be included in proxy requests.
    * Use in order to get an accurate copy of an AU from the audit proxy. */
@@ -499,11 +511,16 @@ public class BaseUrlFetcher implements UrlFetcher {
         }
       }
       String userPass = getUserPass();
-      if (userPass != null) {
-        List<String> lst = StringUtil.breakAt(userPass, ':');
-        if (lst.size() == 2) {
-          conn.setCredentials(lst.get(0), lst.get(1));
-        }
+      if (!StringUtil.isNullString(userPass)) {
+	try {
+	  List<String> lst =
+	    (List<String>)(AuParamType.UserPasswd.parse(userPass));
+	  if (lst.size() == 2) {
+	    conn.setCredentials(lst.get(0), lst.get(1));
+	  }
+	} catch (AuParamType.InvalidFormatException e) {
+	  log.warning("Invalid user:pass for AU, not used: " +  au);
+	}
       }
       // Add global request headers first so plugin can override
       addRequestHeaders();
@@ -634,15 +651,17 @@ public class BaseUrlFetcher implements UrlFetcher {
       throws IOException {
     return UrlUtil.openConnection(url, pool);
   }
-  
+
   protected String getUserPass() {
     Configuration auConfig = au.getConfiguration();
     if (auConfig != null) {		// can be null in unit tests
-      return auConfig.get(ConfigParamDescr.USER_CREDENTIALS.getKey());
+      String val = auConfig.get(ConfigParamDescr.USER_CREDENTIALS.getKey());
+      val = CurrentConfig.getIndirect(val, null);
+      return val;
     }
     return null;
   }
-  
+
   protected void pauseBeforeFetch() {
     if (crl != null) {
       long wDogInterval = 0;
@@ -681,6 +700,14 @@ public class BaseUrlFetcher implements UrlFetcher {
   }
   
   protected void addRequestHeaders() {
+    List<String> hdrs =
+      CurrentConfig.getList(CrawlManagerImpl.PARAM_REQUEST_HEADERS,
+			    CrawlManagerImpl.DEFAULT_REQUEST_HEADERS);
+    if (hdrs != null) {
+      for (String hdr : hdrs) {
+	addHdr(hdr);
+      }
+    }
   }
   
   protected void addPluginRequestHeaders() {
@@ -808,6 +835,15 @@ public class BaseUrlFetcher implements UrlFetcher {
 	// set to the first url in a chain of redirects that led to content,
 	// which could be different depending on fetch order.
 	props.setProperty(CachedUrl.PROPERTY_ORIG_URL, origUrl);
+      }
+      if (reqProps != null) {
+	String referrer = reqProps.getProperty(Constants.HTTP_REFERER);
+	if (CurrentConfig.getBooleanParam(PARAM_RECORD_REFERRER,
+					  DEFAULT_RECORD_REFERRER) &&
+	    !StringUtil.isNullString(referrer)) {
+	  props.setProperty(CachedUrl.PROPERTY_REQ_REFERRER,
+			    referrer);
+	}
       }
       conn.storeResponseHeaderInto(props, CachedUrl.HEADER_PREFIX);
       String actualURL = conn.getActualUrl();

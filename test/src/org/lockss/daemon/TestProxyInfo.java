@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,9 +33,13 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.daemon;
 
 import java.util.*;
+
+// import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.daemon.ProxyInfo.*;
 import org.lockss.plugin.*;
+import org.lockss.protocol.IdentityManager;
+import org.lockss.proxy.icp.IcpManager;
 import org.lockss.test.*;
 import org.lockss.util.*;
 
@@ -55,6 +63,7 @@ public class TestProxyInfo extends LockssTestCase {
   public void testGetProxyHost() {
     String h = "1.3.4.22";
     Properties p = new Properties();
+    p.put(IdentityManager.PARAM_LOCAL_IP, h);
     ConfigurationUtil.addFromProps(p);
     assertEquals(h, new ProxyInfo().getProxyHost());
     assertEquals("foo", new ProxyInfo("foo").getProxyHost());
@@ -65,6 +74,7 @@ public class TestProxyInfo extends LockssTestCase {
     String h = "fq.dn.org";
     Properties p = new Properties();
     p.put(ConfigManager.PARAM_PLATFORM_FQDN, h);
+    p.put(IdentityManager.PARAM_LOCAL_IP, "superseded.by.platform");
     ConfigurationUtil.addFromProps(p);
     assertEquals(h, new ProxyInfo().getProxyHost());
     assertEquals("foo", new ProxyInfo("foo").getProxyHost());
@@ -259,7 +269,14 @@ public class TestProxyInfo extends LockssTestCase {
 
   public void testSquidFragmentBuilder() {
     MockLockssDaemon mockLockssDaemon = getMockLockssDaemon();
+    IcpManager testableIcpManager = new IcpManager() {
+      public boolean isIcpServerAllowed() { return true; }
+      public synchronized boolean isIcpServerRunning() { return true; }
+    };
+    mockLockssDaemon.setIcpManager(testableIcpManager);
+    testableIcpManager.initService(mockLockssDaemon);
     mockLockssDaemon.setDaemonInited(true);
+    testableIcpManager.startService();
     
     SquidFragmentBuilder builder = pi.new SquidFragmentBuilder("http://www.foobar.com/test") {
       protected void generateEntry(StringBuffer buffer, String urlStem, String comment) {}

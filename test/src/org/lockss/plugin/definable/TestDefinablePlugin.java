@@ -1,4 +1,8 @@
 /*
+ * $Id$
+ */
+
+/*
 
 Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
@@ -30,6 +34,8 @@ package org.lockss.plugin.definable;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+
+import org.lockss.app.LockssDaemon;
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
@@ -37,6 +43,7 @@ import org.lockss.plugin.wrapper.*;
 import org.lockss.plugin.base.*;
 import org.lockss.test.*;
 import org.lockss.extractor.*;
+import org.lockss.crawler.*;
 import org.lockss.rewriter.*;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
@@ -613,6 +620,28 @@ public class TestDefinablePlugin extends LockssTestCase {
     }
   }
 
+  public void testCreateCrawlUrlComparator() throws Exception {
+    defMap.putString(DefinablePlugin.KEY_PLUGIN_CRAWL_URL_COMPARATOR_FACTORY,
+		     "org.lockss.plugin.definable.TestDefinablePlugin$MyCrawlUrlComparatorFactory");
+    MockArchivalUnit mau = new MockArchivalUnit();
+    Comparator<CrawlUrl> comparator = definablePlugin.getCrawlUrlComparator(mau);
+    assertClass(MyCrawlUrlComparator.class, comparator);
+    assertSame(mau, ((MyCrawlUrlComparator)comparator).getAu());
+  }
+
+  public void testCreateCrawlUrlComparatorThrowsOnBadClass()
+      throws PluginException.LinkageError {
+    defMap.putString(DefinablePlugin.KEY_PLUGIN_CRAWL_URL_COMPARATOR_FACTORY,
+		     "org.lockss.bogus.NoSuchUrlComparatorFactory");
+
+    try {
+      Comparator<CrawlUrl> c =
+	definablePlugin.getCrawlUrlComparator(new MockArchivalUnit());
+      fail("Should have thrown on a non-existant class");
+    } catch (PluginException.InvalidDefinition e){
+    }
+  }
+
   String[] badPlugins = {
     "BadPluginIllArg1",
     "BadPluginIllArg2",
@@ -673,6 +702,29 @@ public class TestDefinablePlugin extends LockssTestCase {
   public static class MyNormalizer implements UrlNormalizer {
     public String normalizeUrl (String url, ArchivalUnit au) {
       return "blah";
+    }
+  }
+
+  public static class MyCrawlUrlComparatorFactory
+    implements CrawlUrlComparatorFactory {
+    public Comparator<CrawlUrl> createCrawlUrlComparator(ArchivalUnit au) {
+      return new MyCrawlUrlComparator(au);
+    }
+  }
+
+  public static class MyCrawlUrlComparator implements Comparator<CrawlUrl> {
+    private ArchivalUnit au;
+
+    public MyCrawlUrlComparator(ArchivalUnit au) {
+      this.au = au;
+    }
+
+    public int compare(CrawlUrl curl1, CrawlUrl curl2) {
+      return -1;
+    }
+
+    ArchivalUnit getAu() {
+      return au;
     }
   }
 

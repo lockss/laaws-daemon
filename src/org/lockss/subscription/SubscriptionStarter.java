@@ -37,7 +37,6 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
 import java.util.Set;
-import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
@@ -46,7 +45,7 @@ import org.lockss.config.TdbPublisher;
 import org.lockss.config.TdbTitle;
 import org.lockss.daemon.LockssRunnable;
 import org.lockss.db.DbException;
-import org.lockss.db.DbManager;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.PluginManager;
@@ -90,7 +89,7 @@ public class SubscriptionStarter extends LockssRunnable {
   private RateLimiter configureAuRateLimiter;
 
   // The database manager.
-  private DbManager dbManager = null;
+  private MetadataDbManager dbManager = null;
 
   // The metadata manager.
   private MetadataManager mdManager = null;
@@ -165,9 +164,8 @@ public class SubscriptionStarter extends LockssRunnable {
     final String DEBUG_HEADER = "lockssRun(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
     LockssDaemon daemon = LockssDaemon.getLockssDaemon();
-    dbManager = (DbManager)LockssApp.getManager(DbManager.getManagerKey());
-    mdManager =
-	(MetadataManager)LockssApp.getManager(MetadataManager.getManagerKey());
+    dbManager = daemon.getMetadataDbManager();
+    mdManager = daemon.getMetadataManager();
     pluginManager = daemon.getPluginManager();
 
     // Wait until the archival units have been started.
@@ -281,7 +279,7 @@ public class SubscriptionStarter extends LockssRunnable {
 	  }
 
 	  // Clean up and exit.
-	  DbManager.safeRollbackAndClose(conn);
+	  MetadataDbManager.safeRollbackAndClose(conn);
 
 	  if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
 	  return;
@@ -443,7 +441,7 @@ public class SubscriptionStarter extends LockssRunnable {
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "toBeConfigured = " + toBeConfigured);
 
-	  DbManager.commitOrRollback(conn, log);
+	  MetadataDbManager.commitOrRollback(conn, log);
 
 	  // Check whether this archival unit needs to be configured.
 	  if (toBeConfigured) {

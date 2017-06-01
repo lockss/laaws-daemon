@@ -41,9 +41,11 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.CurrentConfig;
 import org.lockss.db.DbException;
+import org.lockss.exporter.counter.CounterReportsManager;
 import org.lockss.extractor.MetadataField;
 import org.lockss.laaws.mdq.model.ItemMetadata;
 import org.lockss.metadata.ArticleMetadataBuffer.ArticleMetadataInfo;
@@ -351,8 +353,6 @@ public class AuMetadataRecorder {
 
       recordMetadataItem(conn, mandatoryFields, mditr);
 
-      // Count the processed article.
-      task.incrementUpdatedArticleCount();
       log.debug3(DEBUG_HEADER + "updatedArticleCount = "
 	  + task.getUpdatedArticleCount());
     }
@@ -425,6 +425,8 @@ public class AuMetadataRecorder {
     // Normalize all the metadata fields.
     ArticleMetadataInfo normalizedMdInfo = normalizeMetadata(mdInfo);
 
+    boolean addedNewItem = false;
+
     // Check whether the metadata should be posted to a REST web service.
     if (CurrentConfig.getParam(MetadataManager.PARAM_MD_REST_SERVICE_LOCATION)
 	!= null) {
@@ -442,7 +444,7 @@ public class AuMetadataRecorder {
       mdItemSeq = storeMetadata(conn, normalizedMdInfo);
     }
 
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "mdItemSeq = " + mdItemSeq);
+    if (log.isDebug2()) log.debug3(DEBUG_HEADER + "mdItemSeq = " + mdItemSeq);
     return mdItemSeq;
   }
 
@@ -1597,6 +1599,8 @@ public class AuMetadataRecorder {
     final String DEBUG_HEADER = "replaceOrCreateMdItem(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
 
+    boolean addedNewItem = false;
+
     // Get the publication date received in the metadata.
     String date = mdinfo.pubDate;
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "date = " + date);
@@ -1691,7 +1695,17 @@ public class AuMetadataRecorder {
 	    mdManagerSql.removeAuChildMetadataItem(conn, auMdSeq, mdItemSeq);
 	if (log.isDebug3())
 	  log.debug3(DEBUG_HEADER + "deletedCount = " + deletedCount);
+      } else {
+	// No: Remember that the item was added to the database.
+	addedNewItem = true;
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "New item: addedNewItem = " + addedNewItem);
       }
+    } else {
+      // No: Remember that the item was added to the database.
+      addedNewItem = true;
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "New AU: addedNewItem = " + addedNewItem);
     }
 
     // Create the new metadata item in the database.
@@ -1734,6 +1748,16 @@ public class AuMetadataRecorder {
     // Add the item DOI.
     mdManager.addMdItemDoi(conn, mdItemSeq, doi);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "added AUItem DOI.");
+
+    if (log.isDebug3())
+      log.debug3(DEBUG_HEADER + "addedNewItem = " + addedNewItem);
+    // Check whether the item was added.
+    if (addedNewItem) {
+      // Yes: Count the added article.
+      if (task != null) {
+	task.incrementUpdatedArticleCount();
+      }
+    }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "mdItemSeq = " + mdItemSeq);
     return mdItemSeq;
@@ -2479,6 +2503,34 @@ public class AuMetadataRecorder {
 	"fixUnknownPublisherPublicationCounterReportsData(): ";
     log.debug3(DEBUG_HEADER + "unknownPublicationSeq = "
 	+ unknownPublicationSeq);
+
+    CounterReportsManager crManager =
+	LockssDaemon.getLockssDaemon().getCounterReportsManager();
+
+    // Merge the book type aggregate counts.
+    crManager.mergeBookTypeAggregates(conn, unknownPublicationSeq,
+	publicationSeq);
+
+    // Delete the book type aggregate counts for the unknown publisher
+    // publication.
+    crManager.deleteBookTypeAggregates(conn, unknownPublicationSeq);
+
+    // Merge the journal type aggregate counts.
+    crManager.mergeJournalTypeAggregates(conn, unknownPublicationSeq,
+	publicationSeq);
+
+    // Delete the journal type aggregate counts for the unknown publisher
+    // publication.
+    crManager.deleteJournalTypeAggregates(conn, unknownPublicationSeq);
+
+    // Merge the journal publication year aggregate counts.
+    crManager.mergeJournalPubYearAggregates(conn, unknownPublicationSeq,
+	publicationSeq);
+
+    // Delete the journal publication year aggregate counts for the unknown
+    // publisher
+    // publication.
+    crManager.deleteJournalPubYearAggregates(conn, unknownPublicationSeq);
 
     log.debug3(DEBUG_HEADER + "Done.");
   }

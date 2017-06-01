@@ -33,10 +33,9 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.db.DbException;
-import org.lockss.db.DbManager;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.util.Logger;
 import org.mortbay.http.HttpResponse;
 
@@ -155,8 +154,8 @@ public class CounterReportsRequestRecorder {
     PreparedStatement getUrlMdItemId = null;
     ResultSet results = null;
     Long mdItemId = null;
-    DbManager dbManager =
-	(DbManager)(LockssApp.getManager(DbManager.getManagerKey()));
+    MetadataDbManager dbManager =
+	LockssDaemon.getLockssDaemon().getMetadataDbManager();
 
     try {
       // Get the database connection.
@@ -178,9 +177,9 @@ public class CounterReportsRequestRecorder {
       throw new DbException(
 	  "Cannot find full-text URL metadata item identifier", sqle);
     } finally {
-      DbManager.safeCloseResultSet(results);
-      DbManager.safeCloseStatement(getUrlMdItemId);
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeCloseResultSet(results);
+      MetadataDbManager.safeCloseStatement(getUrlMdItemId);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     log.debug2(DEBUG_HEADER + "mdItemId = '" + mdItemId + "'.");

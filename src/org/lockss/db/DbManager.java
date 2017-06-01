@@ -441,9 +441,9 @@ public class DbManager extends BaseLockssDaemonManager
    * 
    * @return a String with the manager key.
    */
-  public static String getManagerKey() {
-    return "DbManager";
-  }
+//  public static String getManagerKey() {
+//    return "DbManager";
+//  }
 
   /**
    * Provides an indication of whether this object is ready to be used.

@@ -146,7 +146,7 @@ public class TestCuUrl extends LockssTestCase {
     assertNotNull(uobj);
 
     assertEquals(testTypes[n], uconn.getContentType());
-    assertEquals(testContents[n].length(), uconn.getContentLength());
+    assertEquals(testContents[n].length(), uconn.getContentLengthLong());
     InputStream in = uconn.getInputStream();
     Reader r = new InputStreamReader(in);
     assertEquals(testContents[n], StringUtil.fromReader(r));

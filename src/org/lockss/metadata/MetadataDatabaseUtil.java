@@ -443,8 +443,8 @@ where
     List<BibliographicItem> items = Collections.<BibliographicItem>emptyList();
     Connection conn = null;
     try {
-      MetadataDbManager dbManager = (MetadataDbManager)LockssApp
-		.getManager(MetadataDbManager.getManagerKey());
+      MetadataDbManager dbManager =
+	  LockssDaemon.getLockssDaemon().getMetadataDbManager();
       conn = dbManager.getConnection();
       items = getBibliographicItems(dbManager, conn);
     } catch (DbException ex) {

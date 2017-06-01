@@ -164,12 +164,8 @@ public class JobManager extends BaseLockssDaemonManager implements
 
     pluginManager = getDaemon().getPluginManager();
 
-    //dbManager = getDaemon().getDbManager();
-    dbManager =
-	(JobDbManager)LockssApp.getManager(JobDbManager.getManagerKey());
-    //mdManager = getDaemon().getMetadataManager();
-    mdManager =
-	(MetadataManager)LockssApp.getManager(MetadataManager.getManagerKey());
+    dbManager = getDaemon().getJobDbManager();
+    mdManager = getDaemon().getMetadataManager();
 
     try {
       jobManagerSql = new JobManagerSql(dbManager);
@@ -209,9 +205,9 @@ public class JobManager extends BaseLockssDaemonManager implements
    * 
    * @return a String with the manager key.
    */
-  public static String getManagerKey() {
-    return "JobManager";
-  }
+//  public static String getManagerKey() {
+//    return "JobManager";
+//  }
 
   /**
    * Schedules the extraction and storage of all of the metadata for an Archival

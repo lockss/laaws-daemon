@@ -260,7 +260,7 @@ public class FetchTimeExporter {
    */
   public FetchTimeExporter(LockssDaemon daemon) {
     //dbManager = daemon.getDbManager();
-    dbManager = (MetadataDbManager)LockssApp.getManager(MetadataDbManager.getManagerKey());
+    dbManager = daemon.getMetadataDbManager();
     exportManager = daemon.getFetchTimeExportManager();
   }
 

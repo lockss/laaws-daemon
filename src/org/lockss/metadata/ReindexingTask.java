@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,7 +31,6 @@ import java.io.*;
 import java.lang.management.*;
 import java.sql.*;
 import java.util.*;
-import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.TdbAu;
 import org.lockss.daemon.*;
@@ -169,12 +168,9 @@ public class ReindexingTask extends StepTask {
       this.auNoSubstance = AuUtil.getAuState(au).hasNoSubstance();
     }
 
-    //dbManager = LockssDaemon.getLockssDaemon().getDbManager();
-    dbManager = (MetadataDbManager)LockssApp
-	.getManager(MetadataDbManager.getManagerKey());
-    //mdManager = LockssDaemon.getLockssDaemon().getMetadataManager();
-    mdManager =
-	(MetadataManager)LockssApp.getManager(MetadataManager.getManagerKey());
+    dbManager = LockssDaemon.getLockssDaemon().getMetadataDbManager();
+    mdManager = LockssDaemon.getLockssDaemon().getMetadataManager();
+    mdManager.notifyStartReindexingAu(theAu);
     mdManagerSql = mdManager.getMetadataManagerSql();
 
     // The accumulator of article metadata.

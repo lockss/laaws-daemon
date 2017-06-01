@@ -1,6 +1,10 @@
 /*
+* $Id$
+ */
 
-Copyright (c) 2003-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2003 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -28,8 +32,11 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.test;
 
 import java.util.*;
+
 import org.lockss.util.*;
+import org.lockss.protocol.*;
 import org.lockss.plugin.*;
+import org.lockss.poller.*;
 import org.lockss.daemon.ActivityRegulator;
 
 /**
@@ -38,7 +45,8 @@ import org.lockss.daemon.ActivityRegulator;
  * @version 1.0
  */
 
-public class MockTallier {
+public class MockTallier implements Tallier {
+  PollSpec m_pollspec;
   String m_pollKey;
   boolean m_isMyPoll;
   CachedUrlSet m_cus;
@@ -54,6 +62,18 @@ public class MockTallier {
   ActivityRegulator.Lock m_lock;
 
   public MockTallier() {
+  }
+
+  /**
+   * Return the poll spec used by this poll
+   * @return the PollSpec
+   */
+  public PollSpec getPollSpec() {
+    return m_pollspec;
+  }
+
+  void setPollSpec(PollSpec pollspec) {
+    m_pollspec = pollspec;
   }
 
   /**

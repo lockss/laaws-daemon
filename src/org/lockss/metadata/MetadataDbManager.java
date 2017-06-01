@@ -226,9 +226,9 @@ public class MetadataDbManager extends DbManager
    * 
    * @return a String with the manager key.
    */
-  public static String getManagerKey() {
-    return "MetadataDbManager";
-  }
+//  public static String getManagerKey() {
+//    return "MetadataDbManager";
+//  }
 
   @Override
   protected String getDataSourceRootName() {

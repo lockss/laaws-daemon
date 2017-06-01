@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -31,11 +35,16 @@ package org.lockss.config;
 import java.io.*;
 import java.net.*;
 import java.util.*;
+
 import org.lockss.test.*;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
+import org.lockss.protocol.*;
+import org.lockss.clockss.*;
 import org.lockss.config.Configuration;
 import org.lockss.config.Tdb;
+import org.lockss.config.TdbTitle;
+import org.lockss.plugin.*;
 import org.lockss.servlet.*;
 import static org.lockss.config.ConfigManager.*;
 
@@ -116,6 +125,13 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals("yyy", config.get("prop4"));
     assertEquals("def", config.get("noprop", "def"));
     assertEquals("def", CurrentConfig.getParam("noprop", "def"));
+  }
+
+  public void testHaveConfig() throws IOException {
+    assertFalse(mgr.haveConfig());
+    String u1 = FileTestUtil.urlOfString(c1);
+    assertTrue(mgr.updateConfig(ListUtil.list(u1)));
+    assertTrue(mgr.haveConfig());
   }
 
   volatile Configuration.Differences cbDiffs = null;
@@ -319,13 +335,22 @@ public class TestConfigManager extends LockssTestCase {
     Properties props = new Properties();
     ConfigurationUtil.setCurrentConfigFromProps(props);
     Configuration config = ConfigManager.getCurrentConfig();
+    assertNull(config.get(ClockssParams.PARAM_CLOCKSS_SUBSCRIPTION_ADDR));
+    assertNull(config.get(ClockssParams.PARAM_INSTITUTION_SUBSCRIPTION_ADDR));
     props.put("org.lockss.platform.localIPAddress", "1.1.1.1");
     ConfigurationUtil.setCurrentConfigFromProps(props);
     config = ConfigManager.getCurrentConfig();
+    assertEquals("1.1.1.1",
+		 config.get(ClockssParams.PARAM_INSTITUTION_SUBSCRIPTION_ADDR));
+    assertNull(config.get(ClockssParams.PARAM_CLOCKSS_SUBSCRIPTION_ADDR));
 
     props.put("org.lockss.platform.secondIP", "2.2.2.2");
     ConfigurationUtil.setCurrentConfigFromProps(props);
     config = ConfigManager.getCurrentConfig();
+    assertEquals("1.1.1.1",
+		 config.get(ClockssParams.PARAM_INSTITUTION_SUBSCRIPTION_ADDR));
+    assertEquals("2.2.2.2",
+		 config.get(ClockssParams.PARAM_CLOCKSS_SUBSCRIPTION_ADDR));
   }
 
   public void testInitSocketFactoryNoKeystore() throws Exception {
@@ -712,6 +737,8 @@ public class TestConfigManager extends LockssTestCase {
 		   SetUtil.theSet(pairs));
     }
     mgr.setGroups("grouper");
+    ConfigurationUtil.addFromArgs(IdentityManager.PARAM_LOCAL_V3_IDENTITY,
+				  "tcp:[111.32.14.5]:9876");
     pairs = StringUtil.breakAt(mgr.getVersionString(), ',');
     if (release != null) {
       assertEquals(SetUtil.set("groups=grouper",
@@ -1440,6 +1467,89 @@ public class TestConfigManager extends LockssTestCase {
     assertEquals(2, config.keySet().size());
     assertEquals("23", config.get("foo"));
     assertEquals("false", config.get("bar"));
+  }
+
+  public void testRemoteConfigFailoverDisabled() throws Exception {
+    String url1 = "http://one/xxx.xml";
+
+    assertFalse(mgr.hasLocalCacheConfig());
+    // set up local config dir
+    String tmpdir = getTempDir().toString();
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
+				  tmpdir,
+				  ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+				  "false");
+    mgr.setUpRemoteConfigFailover();
+
+    String relConfigPath =
+      CurrentConfig.getParam(ConfigManager.PARAM_CONFIG_PATH,
+                             ConfigManager.DEFAULT_CONFIG_PATH);
+    assertNull(mgr.getRemoteConfigFailoverTempFile(url1));
+    assertNull(mgr.getRemoteConfigFailoverFile(url1));
+  }
+
+  public void testRemoteConfigFailoverNotExist() throws Exception {
+    String url1 = "http://one/xxx.xml";
+
+    assertFalse(mgr.hasLocalCacheConfig());
+    // set up local config dir
+    String tmpdir = getTempDir().toString();
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
+				  tmpdir,
+				  ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+				  "true");
+    mgr.setUpRemoteConfigFailover();
+
+    String relConfigPath =
+      CurrentConfig.getParam(ConfigManager.PARAM_CONFIG_PATH,
+                             ConfigManager.DEFAULT_CONFIG_PATH);
+    assertEquals(null, mgr.getRemoteConfigFailoverFile(url1));
+
+    File tf1 = mgr.getRemoteConfigFailoverTempFile(url1);
+    assertMatchesRE("^" + tmpdir + ".*\\.tmp$", tf1.getPath());
+
+    assertEquals(null, mgr.getRemoteConfigFailoverFile(url1));
+  }
+
+  public void testRemoteConfigFailoverMap() throws Exception {
+    String url1 = "http://one/xxx.xml";
+    String url2 = "http://one/yyy.txt";
+
+    assertFalse(mgr.hasLocalCacheConfig());
+    // set up local config dir
+    String tmpdir = getTempDir().toString();
+    Properties props = new Properties();
+    props.put(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST, tmpdir);
+    ConfigurationUtil.addFromArgs(ConfigManager.PARAM_PLATFORM_DISK_SPACE_LIST,
+				  tmpdir,
+				  ConfigManager.PARAM_REMOTE_CONFIG_FAILOVER,
+				  "true");
+    mgr.setUpRemoteConfigFailover();
+    String relConfigPath =
+      CurrentConfig.getParam(ConfigManager.PARAM_CONFIG_PATH,
+                             ConfigManager.DEFAULT_CONFIG_PATH);
+    File tf1 = mgr.getRemoteConfigFailoverTempFile(url1);
+    assertMatchesRE("^" + tmpdir + ".*\\.tmp$", tf1.getPath());
+    String sss = "sasdflkajsdlfj content dfljasdfl;ajsdf";
+    StringUtil.toFile(tf1, sss);
+    assertTrue(tf1.exists());
+    mgr.updateRemoteConfigFailover();
+    File pf1 = mgr.getRemoteConfigFailoverFile(url1);
+    assertTrue(pf1.exists());
+    assertFalse(tf1.exists());
+    assertMatchesRE("^" + tmpdir + ".*\\.xml\\.gz", pf1.getPath());
+    assertReaderMatchesString(sss, new FileReader(pf1));
+
+    RemoteConfigFailoverMap rccm = mgr.loadRemoteConfigFailoverMap();
+    RemoteConfigFailoverInfo rcci = rccm.get(url1);
+    assertEquals(url1, rcci.getUrl());
+    assertEquals(pf1.getName(), rcci.getFilename());
+    assertEquals("01-xxx.xml.gz", rcci.getFilename());
+
+    File tf2 = mgr.getRemoteConfigFailoverTempFile(url2);
+    mgr.updateRemoteConfigFailover();
+    File pf2 = mgr.getRemoteConfigFailoverFile(url2);
+    assertMatchesRE("02-yyy.txt.gz$", pf2.getPath());
   }
 
   private Configuration newConfiguration() {

@@ -1,4 +1,8 @@
 /*
+ * $Id$
+ */
+
+/*
 
 Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
@@ -29,13 +33,18 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.repository;
 
 import java.io.*;
+import java.nio.channels.*;
+import java.nio.file.*;
 import java.net.*;
 import java.util.*;
+import org.apache.commons.lang3.StringUtils;
+
 import org.lockss.test.*;
 import org.lockss.app.*;
 import org.lockss.util.*;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
+import org.lockss.protocol.*;
 
 /**
  * This is the test class for org.lockss.repository.RepositoryNodeImpl
@@ -50,6 +59,8 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
   private MyLockssRepositoryImpl repo;
   private String tempDirPath;
   MockArchivalUnit mau;
+
+  private MockIdentityManager idmgr;
   
   Properties props;
 
@@ -63,6 +74,11 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     mau = new MockArchivalUnit();
 
     theDaemon = getMockLockssDaemon();
+    
+    // Create the identity manager...
+    idmgr = new MockIdentityManager();
+    theDaemon.setIdentityManager(idmgr);
+    idmgr.initService(theDaemon);
     
     repo = (MyLockssRepositoryImpl)MyLockssRepositoryImpl.createNewLockssRepository(mau);
     theDaemon.setAuManager(LockssDaemon.LOCKSS_REPOSITORY, mau, repo);
@@ -203,6 +219,68 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     return -1;
   }
 
+  void findMaxDirPath(File root) {
+    int maxName = findMaxDirname(root) - 10;
+    String one = mkstr("onedir", maxName) + "/";
+    for (int rpt = 1; rpt < 1000; rpt++) {
+      String path = StringUtils.repeat(one, rpt);
+      File dir = new File(root, path);
+      String dirstr = dir.getPath();
+      boolean res = dir.mkdirs();
+      if (!res) {
+	log.info("mkdirs failed at " + dirstr.length() + " chars");
+	break;
+      }
+      log.info("mkdirs ok: " + dirstr.length());
+      File f = new File(dir, "foobbb");
+      try {
+	OutputStream os = new FileOutputStream(f);
+	os.close();
+	log.info("file ok at " + f.getPath().length() + " chars");
+      } catch (FileNotFoundException fnfe) {
+	log.info("FNF: " + f.getPath().length(), fnfe);
+      } catch (IOException ioe) {
+	log.error("IOE: " + f.getPath().length() + ", " + ioe.getMessage());
+      }
+    }
+  }
+
+  void findMaxDirPathNio(File root) {
+    int maxName = findMaxDirname(root) - 10;
+    String one = mkstr("onedir", maxName) + "/";
+    for (int rpt = 1; rpt < 1000; rpt++) {
+      String path = StringUtils.repeat(one, rpt);
+      File dir = new File(root, path);
+      String dirstr = dir.getPath();
+      boolean res = dir.mkdirs();
+      if (!res) {
+	log.info("mkdirs failed at " + dirstr.length() + " chars");
+	break;
+      }
+      log.info("mkdirs ok: " + dirstr.length());
+      File f = new File(dir, "foobbb");
+      try {
+	Path npath = Paths.get(f.getPath());
+	Files.createFile(npath);
+	FileChannel ochan = FileChannel.open(npath, StandardOpenOption.WRITE);
+	OutputStream os = Channels.newOutputStream(ochan);
+	os.write((byte)44);
+	os.close();
+
+	FileChannel ichan = FileChannel.open(npath, StandardOpenOption.READ);
+	InputStream is = Channels.newInputStream(ichan);
+	int bb = is.read();
+	is.close();
+	assertEquals(44, bb);
+	log.info("file ok at " + npath.toString().length() + " chars");
+      } catch (FileNotFoundException fnfe) {
+	log.error("FNF: " + f.getPath().length(), fnfe);
+      } catch (IOException ioe) {
+	log.error("IOE: " + f.getPath().length() + ", " + ioe.getMessage());
+      }
+    }
+  }
+
   boolean canMkdir(File root, int len) {
     return canMkdir(root, mkstr(len));
   }
@@ -241,7 +319,10 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
   }
 
   String mkstr(int len) {
-    String al = "abcdefghijklmnopqrstuvwxyz0123456789";
+    return mkstr("abcdefghijklmnopqrstuvwxyz0123456789", len);
+  }
+
+  String mkstr(String al, int len) {
     StringBuilder sb = new StringBuilder(len);
     for (int ix = 1; ix <= len / al.length(); ix++) {
       sb.append(al);
@@ -289,6 +370,15 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
         "http://www.example.com/testDir/branch1/leaf1");
     File testFile = new File(tempDirPath, "#agreement");
     assertFalse(testFile.exists());
+    
+    // Agreeing IDs.
+    PeerIdentity[] agreeingPeers =
+      { new MockPeerIdentity("TCP:[192.168.0.1]:9723"),
+        new MockPeerIdentity("TCP:[192.168.0.2]:9723")
+      };
+    
+    leaf.signalAgreement(ListUtil.fromArray(agreeingPeers));
+    assertTrue(testFile.exists());
   }
 
   public void testUpdateAndLoadAgreement() throws Exception {
@@ -298,6 +388,33 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     tempDirPath = LockssRepositoryImpl.mapAuToFileLocation(tempDirPath, mau);
     tempDirPath = LockssRepositoryImpl.mapUrlToFileLocation(tempDirPath,
         "http://www.example.com/testDir/branch1/leaf1");
+    PeerIdentity testid_1 = new MockPeerIdentity("TCP:[192.168.0.1]:9723");
+    PeerIdentity testid_2 = new MockPeerIdentity("TCP:[192.168.0.2]:9723");
+    PeerIdentity testid_3 = new MockPeerIdentity("TCP:[192.168.0.3]:9723");
+    PeerIdentity testid_4 = new MockPeerIdentity("TCP:[192.168.0.4]:9723");
+    
+    idmgr.addPeerIdentity(testid_1.getIdString(), testid_1);
+    idmgr.addPeerIdentity(testid_2.getIdString(), testid_2);
+    idmgr.addPeerIdentity(testid_3.getIdString(), testid_3);
+    idmgr.addPeerIdentity(testid_4.getIdString(), testid_4);
+    
+    leaf.signalAgreement(ListUtil.list(testid_1, testid_3));
+
+    assertEquals(2, ((RepositoryNodeImpl)leaf).loadAgreementHistory().size());
+
+    assertTrue(leaf.hasAgreement(testid_1));
+    assertFalse(leaf.hasAgreement(testid_2));
+    assertTrue(leaf.hasAgreement(testid_3));
+    assertFalse(leaf.hasAgreement(testid_4));
+
+    leaf.signalAgreement(ListUtil.list(testid_1, testid_2, testid_3, testid_4));
+    
+    assertEquals(4, ((RepositoryNodeImpl)leaf).loadAgreementHistory().size());
+
+    assertTrue(leaf.hasAgreement(testid_1));
+    assertTrue(leaf.hasAgreement(testid_2));
+    assertTrue(leaf.hasAgreement(testid_3));
+    assertTrue(leaf.hasAgreement(testid_4));
   }
   
   public void testVersionFileLocation() throws Exception {
@@ -320,6 +437,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     os.close();
     leaf.setNewProperties(new Properties());
     leaf.sealNewVersion();
+    assertFalse(leaf.isIdenticalVersion());
     testFile = new File(tempDirPath + "/#content/1");
     assertTrue(testFile.exists());
     testFile = new File(tempDirPath + "/#content/1.props");
@@ -374,6 +492,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     assertTrue(curPropsFile.exists());
     assertFalse(inactFile.exists());
     assertFalse(inactPropsFile.exists());
+    assertFalse(leaf.isIdenticalVersion());
   }
 
   public void testDeleteFileLocation() throws Exception {
@@ -424,6 +543,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     assertTrue(curPropsFile.exists());
     assertFalse(inactFile.exists());
     assertFalse(inactPropsFile.exists());
+    assertFalse(leaf.isIdenticalVersion());
   }
 
   public void testListEntriesNonexistentDir() throws Exception {
@@ -861,6 +981,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     leaf.sealNewVersion();
     assertEquals(1, leaf.getCurrentVersion());
     assertTrue(leaf.hasContent());
+    assertFalse(leaf.isIdenticalVersion());
   }
 
   public void testVersionTimeout() throws Exception {
@@ -899,6 +1020,53 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     assertEquals(1, leaf.getCurrentVersion());
   }
 
+  static String LONG_URL = "http://ijs.macroeconomicsresearch.org/articles/renderlist.action/fmt=ahah&items=http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY585,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY592,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY591,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY593,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY594,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY601,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY602,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY603,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY604,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY611,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY614,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY619,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY618,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY620,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY621,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY626,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY629,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY630,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY635,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY633,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY637,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY639,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY643,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY649,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY650,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY652,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY655,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY656,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY659,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY666,http:s/sgm.metawrite.magenta.com/content/journal/ijsem/42.867-5309/ijsem.0.XXXYYY673";
+
+  public void testLongPath() throws Exception {
+//     findMaxDirPath(getTempDir());
+//     findMaxDirPathNio(getTempDir());
+    
+    String longUrl = trimUrlForOs(LONG_URL);
+
+    RepositoryNode leaf =
+      repo.createNewNode(longUrl);
+    assertFalse(leaf.hasContent());
+    try {
+      leaf.getCurrentVersion();
+      fail("Cannot get current version if no content.");
+    } catch (UnsupportedOperationException uoe) { }
+    leaf.makeNewVersion();
+    writeToLeaf(leaf, "test stream");
+    leaf.setNewProperties(new Properties());
+    leaf.sealNewVersion();
+    assertTrue(leaf.hasContent());
+    assertEquals(1, leaf.getCurrentVersion());
+    assertEquals(longUrl, leaf.getNodeUrl());
+    RepositoryNode.RepositoryNodeContents rnc = leaf.getNodeContents();
+    assertInputStreamMatchesString("test stream", rnc.getInputStream());
+  }
+
+  String trimUrlForOs(String url) {
+    int pad = 10 + tempDirPath.length() + "/cache/xxx".length() +
+      RepositoryNodeImpl.CONTENT_DIR.length() +
+      Math.max(RepositoryNodeImpl.CURRENT_FILENAME.length(),
+	       RepositoryNodeImpl.CURRENT_PROPS_FILENAME.length());
+
+    PlatformUtil pi = PlatformUtil.getInstance();
+    log.info("pi: " + pi);
+    int max = pi.maxPathname() - pad;
+    if (url.length() <= max) {
+      return url;
+    }
+    url = trimTo(url, max);
+    if (url.endsWith("/")) {
+      url += "a";
+    }
+    log.info("Trimmed long URL to (" + url.length() + "): " + url);
+    return url;
+  }
+
+
   public void testMakeNodeLocation() throws Exception {
     RepositoryNodeImpl leaf = (RepositoryNodeImpl)
         repo.createNewNode("http://www.example.com/testDir");
@@ -928,6 +1096,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     writeToLeaf(leaf, "test stream 2");
     leaf.sealNewVersion();
     assertEquals(2, leaf.getCurrentVersion());
+    assertFalse(leaf.isIdenticalVersion());
 
     String resultStr = getLeafContent(leaf);
     assertEquals("test stream 2", resultStr);
@@ -1001,6 +1170,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     writeToLeaf(leaf, "test content 22222");
     leaf.setNewProperties(props2);
     leaf.sealNewVersion();
+    assertFalse(leaf.isIdenticalVersion());
 
     assertTrue(testFile.exists());
     int expver = 2;
@@ -1067,6 +1237,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     assertEquals(2, leaf.getCurrentVersion());
     String resultStr = getLeafContent(leaf);
     assertEquals("test stream 2", resultStr);
+    assertFalse(leaf.isIdenticalVersion());
   }
 
   public void testMakeNewIdenticalVersionDefault() throws Exception {
@@ -1086,6 +1257,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     writeToLeaf(leaf, "test stream");
     leaf.sealNewVersion();
     assertEquals(1, leaf.getCurrentVersion());
+    assertTrue(leaf.isIdenticalVersion());
 
     String resultStr = getLeafContent(leaf);
     assertEquals("test stream", resultStr);
@@ -1106,6 +1278,14 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     assertTrue(testFile.exists());
 //    testFile = new File(testFileDir, "1.props-123321");
 //    assertFalse(testFile.exists());
+
+    // ensure non-identical version clears isIdenticalVersion()
+    leaf.makeNewVersion();
+    leaf.setNewProperties(props);
+    writeToLeaf(leaf, "test stream not the same");
+    leaf.sealNewVersion();
+    assertEquals(2, leaf.getCurrentVersion());
+    assertFalse(leaf.isIdenticalVersion());
   }
 
   public void testMakeNewIdenticalVersionOldWay() throws Exception {
@@ -1129,6 +1309,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     writeToLeaf(leaf, "test stream");
     leaf.sealNewVersion();
     assertEquals(1, leaf.getCurrentVersion());
+    assertTrue(leaf.isIdenticalVersion());
 
     String resultStr = getLeafContent(leaf);
     assertEquals("test stream", resultStr);
@@ -1172,6 +1353,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     writeToLeaf(leaf, "test stream");
     leaf.sealNewVersion();
     assertEquals(1, leaf.getCurrentVersion());
+    assertTrue(leaf.isIdenticalVersion());
 
     String resultStr = getLeafContent(leaf);
     assertEquals("test stream", resultStr);
@@ -1211,6 +1393,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     leaf.sealNewVersion();
     // fixes error state, even though identical
     assertEquals(1, leaf.getCurrentVersion());
+    assertTrue(leaf.isIdenticalVersion());
   }
 
   public void testMakeNewVersionFixesVersionError() throws Exception {
@@ -1229,6 +1412,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
     leaf.sealNewVersion();
     // fixes error state
     assertEquals(1, leaf.getCurrentVersion());
+    assertFalse(leaf.isIdenticalVersion());
   }
 
   public void testUnsealedRnc() throws Exception {
@@ -1262,6 +1446,7 @@ public class TestRepositoryNodeImpl extends LockssTestCase {
 
     leaf.setNewProperties(props);
     leaf.sealNewVersion();
+    assertFalse(leaf.isIdenticalVersion());
     try {
       rnc.getInputStream();
       fail("Should throw");

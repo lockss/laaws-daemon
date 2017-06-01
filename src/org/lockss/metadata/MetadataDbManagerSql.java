@@ -6476,7 +6476,6 @@ public class MetadataDbManagerSql extends DbManagerSql {
    * @return a DbManager with the database manager.
    */
   private MetadataDbManager getDbManager() {
-    return (MetadataDbManager)LockssApp.getManager(MetadataDbManager.getManagerKey());
-//    return LaawsApp.getLaawsApp().getMgr(DbManager.class);
+    return LockssDaemon.getLockssDaemon().getMetadataDbManager();
   }
 }

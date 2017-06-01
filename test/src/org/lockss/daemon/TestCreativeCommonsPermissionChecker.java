@@ -1,4 +1,8 @@
 /*
+ * $Id$
+ */
+
+/*
 
 Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
@@ -27,7 +31,11 @@ in this Software without prior written authorization from Stanford University.
 */
 package org.lockss.daemon;
 
+import java.io.*;
+import java.util.*;
+
 import org.lockss.test.*;
+import org.lockss.util.*;
 import org.lockss.daemon.CreativeCommonsPermissionChecker;
 import org.lockss.state.*;
 
@@ -76,6 +84,9 @@ public class TestCreativeCommonsPermissionChecker
     String text = htext(tag);
     CreativeCommonsPermissionChecker checker =
       new CreativeCommonsPermissionChecker();
+    assertTrue(tag + " expected permission, wasn't",
+	       checker.checkPermission(mcf,
+				       new StringReader(text), TEST_URL));
     assertEquals(AuState.AccessType.OpenAccess, aus.getAccessType());
   }
 
@@ -83,6 +94,9 @@ public class TestCreativeCommonsPermissionChecker
     String text = htext(tag);
     CreativeCommonsPermissionChecker checker =
       new CreativeCommonsPermissionChecker();
+    assertFalse(tag + " expected no permission, but was",
+	       checker.checkPermission(mcf,
+				       new StringReader(text), TEST_URL));
   }
 
 
@@ -157,6 +171,27 @@ public class TestCreativeCommonsPermissionChecker
     assertNoPerm("<a href=\"http://example.com\" rel=\"license\" />");
     assertNoPerm("<a href=\"" + lu("", "3.0") + "\" rel=\"license\" />");
     assertNoPerm("<a href=\"" + lu("by", "") + "\" rel=\"license\" />");
+  }
+
+  String cssTemplate = "<html>/n<head>/n<title>FOO</title>\n</head>\n" +
+    "<style>\n" +
+    "  .box-metrics label.checked {\n" +
+    "    background-image: url('http://not.cc//foo');\n" +
+    "  }\n" +
+    "  .box-related-articles h2.open, .box-metrics h2.open {\n" +
+    "    background: url('" + lu("by", "3.0") + "') top right no-repeat;\n" +
+    "  }\n" +
+    "</style>\n" +
+    "some text more text\n" +
+    "</body>\n</html>\n";
+
+
+  public void testCss() {
+    CreativeCommonsPermissionChecker checker =
+      new CreativeCommonsPermissionChecker();
+    assertFalse(checker.checkPermission(mcf,
+					new StringReader(cssTemplate),
+					TEST_URL));
   }
 
 }

@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,7 +32,6 @@ import java.io.*;
 import java.util.*;
 import java.net.MalformedURLException;
 import java.security.MessageDigest;
-
 import de.schlichtherle.truezip.file.*;
 import org.lockss.plugin.*;
 import org.lockss.app.*;

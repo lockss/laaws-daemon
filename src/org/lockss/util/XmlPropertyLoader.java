@@ -431,8 +431,7 @@ public class XmlPropertyLoader {
 	} else if ((m_tdb != null) && (titlePropName == null)) {
           String propName = getPropname();
           if (propName.startsWith(ConfigManager.PREFIX_TITLE_DB)) {
-            if (propName.indexOf(".", ConfigManager.PREFIX_TITLE_DB.length())
-        	< 0) {
+            if (propName.indexOf(".", ConfigManager.PREFIX_TITLE_DB.length()) < 0) {
               // create Properties for new title.
               titlePropName = propName;
               titleProps = new Properties();

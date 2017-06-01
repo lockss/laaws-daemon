@@ -1,4 +1,8 @@
 /*
+ * $Id$
+ */
+
+/*
 
 Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
@@ -28,9 +32,11 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.state;
 
+import java.io.*;
 import java.util.*;
 import java.text.*;
 import java.net.MalformedURLException;
+
 import org.lockss.config.*;
 import org.lockss.daemon.*;
 import org.lockss.daemon.status.*;
@@ -38,6 +44,10 @@ import org.lockss.plugin.*;
 import org.lockss.plugin.definable.*;
 import org.lockss.util.*;
 import org.lockss.app.*;
+import org.lockss.crawler.*;
+import org.lockss.poller.*;
+import org.lockss.poller.v3.*;
+import org.lockss.protocol.*;
 import org.lockss.repository.*;
 import org.lockss.servlet.*;
 
@@ -174,6 +184,13 @@ public class ArchivalUnitStatus
 			DEFAULT_PEER_ARGEEMENTS_USE_REPUTATION_TRANSFERS);
   }
 
+  static CrawlManagerStatus getCMStatus(LockssDaemon daemon) {
+    CrawlManager crawlMgr = daemon.getCrawlManager();
+    CrawlManager.StatusSource source = crawlMgr.getStatusSource();
+    return source.getStatus();
+  }
+
+
   /** By default the AuSummary table omits the size columns.  Specify
    * columns=* to include them */
   static final String DEFAULT_AU_SUMMARY_COLUMNS = "-AuSize;DiskUsage";
@@ -216,10 +233,12 @@ public class ArchivalUnitStatus
 
     private LockssDaemon theDaemon;
     private RepositoryManager repoMgr;
+    private CrawlManagerStatus cmStatus;
 
     AuSummary(LockssDaemon theDaemon) {
       this.theDaemon = theDaemon;
       repoMgr = theDaemon.getRepositoryManager();
+      cmStatus = getCMStatus(theDaemon);
     }
 
     public String getDisplayName() {
@@ -233,6 +252,12 @@ public class ArchivalUnitStatus
     public void populateTable(StatusTable table)
         throws StatusService.NoSuchTableException {
       List cols = columnDescriptors;
+      if (theDaemon.isDetectClockssSubscription()) {
+	cols = new ArrayList(cols);
+	cols.remove(cols.size() - 1);
+	cols.add(new ColumnDescriptor("Subscribed", "Subscribed",
+				      ColumnDescriptor.TYPE_STRING));
+      }
       table.setColumnDescriptors(cols, DEFAULT_AU_SUMMARY_COLUMNS);
       table.setDefaultSortRules(sortRules);
       Set<String> inclCols = new HashSet<String>();
@@ -296,10 +321,12 @@ public class ArchivalUnitStatus
     private Map makeRow(ArchivalUnit au, NodeManager nodeMan, Set inclCols) {
       AuState auState = nodeMan.getAuState();
       HashMap rowMap = new HashMap();
+      PollManager.V3PollStatusAccessor v3status =
+        theDaemon.getPollManager().getV3Status();
       // If this is a v3 AU, we cannot access some of the poll 
       // status through the nodestate.  Eventually, this will be totally
       // refactored.
-      boolean isV3 = AuUtil.getProtocolVersion(au) == 1;
+      boolean isV3 = AuUtil.getProtocolVersion(au) == Poll.V3_PROTOCOL;
       //"AuID"
       rowMap.put("AuName", AuStatus.makeAuRef(au.getName(), au.getAuId()));
 //       rowMap.put("AuNodeCount", new Integer(-1));
@@ -333,6 +360,11 @@ public class ArchivalUnitStatus
       Object lastCrawlStatus =
 	lastCrawlStatus(au, lastCrawl, lastResultCode, lastResult);
       if (lastCrawlStatus != null) {
+	if (lastResultCode == Crawler.STATUS_SUCCESSFUL &&
+	    auState.hasNoSubstance()) {
+	  lastCrawlStatus =
+	    new StatusTable.DisplayedValue(lastCrawlStatus).setFootnote(SingleCrawlStatusAccessor.FOOT_NO_SUBSTANCE_CRAWL_STATUS);
+	}
 	rowMap.put("AuLastCrawlResultMsg", lastCrawlStatus);
       }
 
@@ -341,22 +373,32 @@ public class ArchivalUnitStatus
       
       Object stat;
       if (isV3) {
+	int numPolls = v3status.getNumPolls(au.getAuId());
+	rowMap.put("AuPolls", pollsRef(new Integer(numPolls), au));
         // Percent damaged.  It's scary to see '0% Agreement' if there's no
         // history, so we just show a friendlier message.
         //
         if (auState.getHighestV3Agreement() < 0 ||
-            auState.getLastTimePollCompleted() <= 0) {
-          if (auState.lastCrawlTime > 0 || AuUtil.isPubDown(au)) {
-            stat = new OrderedObject("Waiting for Poll",
-        	STATUS_ORDER_WAIT_POLL);
-          } else {
-            stat = new OrderedObject("Waiting for Crawl",
-        	STATUS_ORDER_WAIT_CRAWL);
+	    auState.getLastTimePollCompleted() <= 0) {
+	  if (cmStatus.isRunningNCCrawl(au)) {
+	    stat = new OrderedObject("Crawling", STATUS_ORDER_CRAWLING);
+	  } else {
+	    if (auState.lastCrawlTime > 0 || AuUtil.isPubDown(au)) {
+	      stat = new OrderedObject("Waiting for Poll",
+				       STATUS_ORDER_WAIT_POLL);
+	    } else {
+	      stat = new OrderedObject("Waiting for Crawl",
+				       STATUS_ORDER_WAIT_CRAWL);
+	    }
           }
         } else {
           stat = agreeStatus(auState.getHighestV3Agreement());
         }
       } else {
+        rowMap.put("AuPolls",
+                   theDaemon.getStatusService().
+                   getReference(PollerStatus.MANAGER_STATUS_TABLE_NAME,
+                                au));
 	CachedUrlSet auCus = au.getAuCachedUrlSet();
 	NodeState topNodeState = nodeMan.getNodeState(auCus);
 	stat = topNodeState.hasDamage()
@@ -384,6 +426,11 @@ public class ArchivalUnitStatus
 
       rowMap.put("Damaged", stat);
 
+      if (theDaemon.isDetectClockssSubscription()) {
+	rowMap.put("Subscribed",
+		   AuUtil.getAuState(au).getClockssSubscriptionStatusString());
+      }
+
       return rowMap;
     }
 
@@ -401,6 +448,12 @@ public class ArchivalUnitStatus
 	}
       }
       return null;
+    }
+
+    Object pollsRef(Object val, ArchivalUnit au) {
+      return new StatusTable.Reference(val,
+				       V3PollStatus.POLLER_STATUS_TABLE_NAME,
+				       au.getAuId());
     }
 
     private List getSummaryInfo(StatusTable table, Set<String> inclCols,
@@ -626,6 +679,14 @@ public class ArchivalUnitStatus
 	rowMap.put("AuName", AuStatus.makeAuRef(au.getName(), au.getAuId()));
 
 
+	long size = cu.getContentSize();
+	Object val =
+	  new StatusTable.SrvLink(cu.getContentSize(),
+				  AdminServletManager.SERVLET_DISPLAY_CONTENT,
+				  PropUtil.fromArgs("auid", au.getAuId(),
+						    "url", cu.getUrl()));
+	rowMap.put("Size", val);
+
 	int version = cu.getVersion();
 	Object versionObj = new Long(version);
 	if (version > 1) {
@@ -675,9 +736,11 @@ public class ArchivalUnitStatus
   abstract static class PerAuTable implements StatusAccessor {
 
     protected LockssDaemon theDaemon;
+    protected CrawlManagerStatus cmStatus;
 
     PerAuTable(LockssDaemon theDaemon) {
       this.theDaemon = theDaemon;
+      cmStatus = getCMStatus(theDaemon);
     }
 
     public boolean requiresKey() {
@@ -839,6 +902,10 @@ public class ArchivalUnitStatus
 	Properties args = new Properties();
 	args.setProperty("auid", au.getAuId());
 	args.setProperty("url", url);
+	val =
+	  new StatusTable.SrvLink(val,
+				  AdminServletManager.SERVLET_DISPLAY_CONTENT,
+				  args);
       } else {
 	val = url;
       }
@@ -916,7 +983,7 @@ public class ArchivalUnitStatus
       // Make the status string.
       Object stat = null;
       Object recentPollStat = null;
-      if (AuUtil.getProtocolVersion(au) == 1) {
+      if (AuUtil.getProtocolVersion(au) == Poll.V3_PROTOCOL) {
         if (state.getV3Agreement() < 0) {
           if (state.lastCrawlTime < 0  && !AuUtil.isPubDown(au)) {
             stat = "Waiting for Crawl";
@@ -1025,7 +1092,12 @@ public class ArchivalUnitStatus
 					  new Long(state.getAuCreationTime())));
 
       AuUtil.AuProxyInfo aupinfo = AuUtil.getAuProxyInfo(au);
-      if (aupinfo.isAuOverride()) {
+      if (aupinfo.isInvalidAuOverride()) {
+	String disp = "Error: Invalid AU proxy spec: " + aupinfo.getAuSpec();
+	res.add(new StatusTable.SummaryInfo("Crawl proxy",
+					    ColumnDescriptor.TYPE_STRING,
+					    disp));
+      } else if (aupinfo.isAuOverride()) {
 	String disp = (aupinfo.getHost() == null
 		       ? "Direct connection"
 		       : aupinfo.getHost() + ":" + aupinfo.getPort());
@@ -1055,6 +1127,21 @@ public class ArchivalUnitStatus
 	res.add(new StatusTable.SummaryInfo("Crawl Pool",
 					    ColumnDescriptor.TYPE_STRING,
 					    crawlPool));
+      }
+      CrawlManager crawlMgr = theDaemon.getCrawlManager();
+      int crawlPrio = crawlMgr.getAuPriority(au);
+      if (crawlPrio != 0) {
+	String val;
+	if (crawlPrio <= CrawlManagerImpl.ABORT_CRAWL_PRIORITY) {
+	  val = crawlPrio + ": DISABLED, ABORT";
+	} else if (crawlPrio <= CrawlManagerImpl.MIN_CRAWL_PRIORITY) {
+	  val = crawlPrio + ": DISABLED";
+	} else {
+	  val = Integer.toString(crawlPrio);
+	}
+	res.add(new StatusTable.SummaryInfo("Crawl Priority",
+					    ColumnDescriptor.TYPE_STRING,
+					    val));
       }
       long lastCrawlAttempt = state.getLastCrawlAttempt();
       res.add(new StatusTable.SummaryInfo("Last Completed Crawl",
@@ -1104,17 +1191,41 @@ public class ArchivalUnitStatus
 					    ColumnDescriptor.TYPE_DATE,
 					    new Long(lastIndex)));
       }
+      PollManager pm = theDaemon.getPollManager();
+      boolean isCrawling = cmStatus.isRunningNCCrawl(au);
+      boolean isPolling = pm.isPollRunning(au);
       List lst = new ArrayList();
+      if (isCrawling) {
+	lst.add(makeCrawlRef("Crawling", au));
+      }
+      if (isPolling) {
+	lst.add(makePollRef("Polling", au));
+      }
       if (!lst.isEmpty()) {
 	res.add(new StatusTable.SummaryInfo("Current Activity",
 					    ColumnDescriptor.TYPE_STRING,
 					    lst));
+      }
+      if (theDaemon.isDetectClockssSubscription()) {
+	String subStatus =
+	  AuUtil.getAuState(au).getClockssSubscriptionStatusString();
+	res.add(clockssPos,
+		new StatusTable.SummaryInfo("Subscribed",
+					    ColumnDescriptor.TYPE_STRING,
+					    subStatus));
       }
       Object audef = AuConfiguration.makeAuRef("AU configuration",
 					       au.getAuId());
       res.add(new StatusTable.SummaryInfo(null,
 					  ColumnDescriptor.TYPE_STRING,
 					  audef));
+      Object sclink =
+	new StatusTable.SrvLink("Serve AU",
+				AdminServletManager.SERVLET_SERVE_CONTENT,
+				PropUtil.fromArgs("auid", au.getAuId()));
+      res.add(new StatusTable.SummaryInfo(null,
+					  ColumnDescriptor.TYPE_STRING,
+					  sclink));
 
       List peerLinks = new ArrayList();
       peerLinks.add(PeerRepair.makeAuRef("Repair candidates", au.getAuId()));
@@ -1140,11 +1251,84 @@ public class ArchivalUnitStatus
 
       List urlLinks = new ArrayList();
 
+
+      addLink(urlLinks,
+	      new StatusTable
+	      .SrvLink("URLs",
+		       AdminServletManager.SERVLET_LIST_OBJECTS,
+		       PropUtil.fromArgs("type", "urls",
+					 "auid", au.getAuId())));
+
+      addLink(urlLinks,
+	      new StatusTable
+	      .SrvLink("Files",
+		       AdminServletManager.SERVLET_LIST_OBJECTS,
+		       PropUtil.fromArgs("type", "files",
+					 "auid", au.getAuId())));
+      if (au.getArchiveFileTypes() != null) {
+	addLink(urlLinks,
+		new StatusTable
+		.SrvLink("URLs*",
+			 AdminServletManager.SERVLET_LIST_OBJECTS,
+			 PropUtil.fromArgs("type", "urlsm",
+					   "auid", au.getAuId())));
+
+	addLink(urlLinks,
+		new StatusTable
+		.SrvLink("Files*",
+			 AdminServletManager.SERVLET_LIST_OBJECTS,
+			 PropUtil.fromArgs("type", "filesm",
+					   "auid", au.getAuId())));
+      }
+      if (AuUtil.hasSubstancePatterns(au)) {
+	addLink(urlLinks,
+		new StatusTable
+		.SrvLink("Substance URLs",
+			 AdminServletManager.SERVLET_LIST_OBJECTS,
+			 PropUtil.fromArgs("type", "suburls",
+					   "auid", au.getAuId())));
+
+	addLink(urlLinks,
+		new StatusTable
+		.SrvLink("(detail)",
+			 AdminServletManager.SERVLET_LIST_OBJECTS,
+			 PropUtil.fromArgs("type", "suburlsdetail",
+					   "auid", au.getAuId())));
+
+	addLink(urlLinks,
+		new StatusTable
+		.SrvLink("Substance Files",
+			 AdminServletManager.SERVLET_LIST_OBJECTS,
+			 PropUtil.fromArgs("type", "subfiles",
+					   "auid", au.getAuId())));
+      }
       res.add(new StatusTable.SummaryInfo(null,
 					  ColumnDescriptor.TYPE_STRING,
 					  urlLinks));
 
       List artLinks = new ArrayList();
+      if (ListObjects.hasArticleList(au)) {
+	addLink(artLinks,
+		new StatusTable
+		.SrvLink("Articles",
+			 AdminServletManager.SERVLET_LIST_OBJECTS,
+			 PropUtil.fromArgs("type", "articles",
+					   "auid", au.getAuId())));
+      }
+      if (ListObjects.hasArticleMetadata(au)) {
+	addLink(artLinks,
+		new StatusTable
+		.SrvLink("DOIs",
+			 AdminServletManager.SERVLET_LIST_OBJECTS,
+			 PropUtil.fromArgs("type", "dois",
+					   "auid", au.getAuId())));
+	addLink(artLinks,
+		new StatusTable
+		.SrvLink("Metadata",
+			 AdminServletManager.SERVLET_LIST_OBJECTS,
+			 PropUtil.fromArgs("type", "metadata",
+					   "auid", au.getAuId())));
+      }
       if (!artLinks.isEmpty()) {
         res.add(new StatusTable.SummaryInfo(null,
 					    ColumnDescriptor.TYPE_STRING,
@@ -1399,6 +1583,11 @@ public class ArchivalUnitStatus
       args.setProperty("auid", au.getAuId());
       args.setProperty("url", url);
       args.setProperty("version", Integer.toString(ver));
+      Object val =
+	new StatusTable.SrvLink(Integer.toString(ver),
+				AdminServletManager.SERVLET_DISPLAY_CONTENT,
+				args);
+      rowMap.put("Version", val);
       rowMap.put("Size", cu.getContentSize());
       Properties cuProps = cu.getProperties();
       long collected =
@@ -1464,6 +1653,8 @@ public class ArchivalUnitStatus
 	row.put("Url", suv.getUrl());
 	row.put("Version", suv.getVersion());
 	row.put("Discovered", suv.getCreated());
+	row.put("Computed", suv.getComputedHash().toString());
+	row.put("Stored", suv.getStoredHash().toString());
 	rowL.add(row);
 	}
       return rowL;
@@ -1486,6 +1677,50 @@ public class ArchivalUnitStatus
         throws StatusService.NoSuchTableException {
       HistoryRepository historyRepo = theDaemon.getHistoryRepository(au);
       table.setTitle("Peers not holding " + au.getName());
+      DatedPeerIdSet noAuSet = theDaemon.getPollManager().getNoAuPeerSet(au);
+      synchronized (noAuSet) {
+	try {
+	  noAuSet.load();
+	  table.setSummaryInfo(getSummaryInfo(au, noAuSet));
+	  table.setColumnDescriptors(columnDescriptors);
+	  table.setRows(getRows(table, au, noAuSet));
+	} catch (IOException e) {
+	  String msg = "Couldn't load NoAuSet";
+	  logger.warning(msg, e);
+	  throw new StatusService.NoSuchTableException(msg, e);
+	} finally {
+	  noAuSet.release();
+	}
+      }
+    }
+
+
+    private List getRows(StatusTable table, ArchivalUnit au,
+			 DatedPeerIdSet noAuSet) {
+      List rows = new ArrayList();
+      try {
+	logger.info("noAuSet.size(): " + noAuSet.size());
+      } catch (IOException e) {
+	logger.error("noAuSet.size()", e);
+      }
+      for (PeerIdentity pid : noAuSet) {
+	logger.info("pid: " + pid);
+	Map row = new HashMap();
+	row.put("Peer", pid.getIdString());
+        rows.add(row);
+      }
+      return rows;
+    }
+    private List getSummaryInfo(ArchivalUnit au, DatedPeerIdSet noAuSet) {
+      List res = new ArrayList();
+      try {
+	res.add(new StatusTable.SummaryInfo("Last cleared",
+					    ColumnDescriptor.TYPE_DATE,
+					    noAuSet.getDate()));
+      } catch (IOException e) {
+	logger.warning("Couldn't get date", e);
+      }
+      return res;
     }
   }
 
@@ -1497,10 +1732,31 @@ public class ArchivalUnitStatus
       super(theDaemon);
     }
 
+    protected Map makeRow(PeerIdentity peerId) {
+      Map rowMap = new HashMap();
+
+      Object str = peerId.getIdString();
+      if (peerId.isLocalIdentity()) {
+	StatusTable.DisplayedValue val =
+	  new StatusTable.DisplayedValue(str);
+	val.setBold(true);
+	str = val;
+      }
+      rowMap.put("Box", str);
+      return rowMap;
+    }
+
+    protected Map makeRow(CacheStats stats) {
+      return makeRow(stats.peer);
+    }
+
     class CacheStats {
+      PeerIdentity peer;
       int totalPolls = 0;
       int agreePolls = 0;
+      Vote lastAgree;
       long lastAgreeTime = 0;
+      Vote lastDisagree;
       long lastDisagreeTime = 0;
       float highestAgreement = 0.0f;
       long highestAgreementTime = 0;
@@ -1512,9 +1768,17 @@ public class ArchivalUnitStatus
       long highestAgreementHintTime = 0;
       long lastAgreementHintTime = 0;
 
+      CacheStats(PeerIdentity peer) {
+	this.peer = peer;
+      }
       boolean isLastAgree() {
 	return (lastAgreeTime != 0  &&
 		(lastDisagreeTime == 0 || lastAgreeTime >= lastDisagreeTime));
+      }
+
+      boolean isV3Agree() {
+	PollManager pollmgr = theDaemon.getPollManager();
+	return highestAgreement >= pollmgr.getMinPercentForRepair();
       }
     }
   }
@@ -1555,6 +1819,19 @@ public class ArchivalUnitStatus
 	table.setDefaultSortRules(sortRules);
 	Map statsMap = buildCacheStats(au, nodeMan);
 	List rowL = new ArrayList();
+	for (Iterator iter = statsMap.entrySet().iterator(); iter.hasNext();) {
+	  Map.Entry entry = (Map.Entry)iter.next();
+	  PeerIdentity peer = (PeerIdentity)entry.getKey();
+	  CacheStats stats = (CacheStats)entry.getValue();
+	  if (! peer.isLocalIdentity()) {
+	    totalPeers++;
+	    if (stats.isLastAgree()) {
+	      totalAgreement++;
+	    }
+	  }
+	  Map row = makeRow(stats);
+	  rowL.add(row);
+	}
 	table.setRows(rowL);
       }
       table.setSummaryInfo(getSummaryInfo(au, totalPeers, totalAgreement));
@@ -1562,7 +1839,48 @@ public class ArchivalUnitStatus
 
     public Map buildCacheStats(ArchivalUnit au, NodeManager nodeMan) {
       Map statsMap = new HashMap();
+      NodeState node = nodeMan.getNodeState(au.getAuCachedUrlSet());
+      for (Iterator history_it = node.getPollHistories();
+	   history_it.hasNext(); ) {
+	PollHistory history = (PollHistory)history_it.next();
+	long histTime = history.getStartTime();
+	for (Iterator votes_it = history.getVotes(); votes_it.hasNext(); ) {
+	  Vote vote = (Vote)votes_it.next();
+	  PeerIdentity peer = vote.getVoterIdentity();
+	  CacheStats stats = (CacheStats)statsMap.get(peer);
+	  if (stats == null) {
+	    stats = new CacheStats(peer);
+	    statsMap.put(peer, stats);
+	  }
+	  stats.totalPolls++;
+	  if (vote.isAgreeVote()) {
+	    stats.agreePolls++;
+	    if (stats.lastAgree == null ||
+		histTime > stats.lastAgreeTime) {
+	      stats.lastAgree = vote;
+	      stats.lastAgreeTime = histTime;
+	    }
+	  } else {
+	    if (stats.lastDisagree == null ||
+		histTime > stats.lastDisagreeTime) {
+	      stats.lastDisagree = vote;
+	      stats.lastDisagreeTime = histTime;
+	    }
+	  }
+	}
+      }
       return statsMap;
+    }
+
+    protected Map makeRow(CacheStats stats) {
+      Map rowMap = super.makeRow(stats);
+      rowMap.put("Last",
+		 stats.isLastAgree() ? "Agree" : "Disagree");
+      rowMap.put("Polls", new Long(stats.totalPolls));
+      rowMap.put("Agree", new Long(stats.agreePolls));
+      rowMap.put("LastAgree", new Long(stats.lastAgreeTime));
+      rowMap.put("LastDisagree", new Long(stats.lastDisagreeTime));
+      return rowMap;
     }
 
     protected List getSummaryInfo(ArchivalUnit au,
@@ -1621,6 +1939,10 @@ public class ArchivalUnitStatus
 
     protected String getTitle(StatusTable table, ArchivalUnit au) {
       String polltype = getStringProp(table, POLL_TYPE);
+      AgreementType at = getAgreementType(polltype);
+      if (at != null) {
+	return at.toString() + " agreements for AU: " + au.getName();
+      }
       return "Repair candidates for AU: " + au.getName();
     }
     private static final String FOOT_TITLE =
@@ -1633,6 +1955,7 @@ public class ArchivalUnitStatus
 
     protected void populateTable(StatusTable table, ArchivalUnit au)
         throws StatusService.NoSuchTableException {
+      IdentityManager idMgr = theDaemon.getIdentityManager();
       table.setTitle(getTitle(table, au));
       table.setTitleFootnote(FOOT_TITLE);
       int totalPeers = 0;
@@ -1641,10 +1964,119 @@ public class ArchivalUnitStatus
 	table.setDefaultSortRules(sortRules);
 
 	String agmntName = getStringProp(table, POLL_TYPE);
+	AgreementType type = getAgreementType(agmntName);
+	AgreementType[] types;
+	if (type != null) {
+	  types = new AgreementType[] { type };
+	} else {
+	  types = AgreementType.primaryTypes();
+	}
+	Map statsMap = buildCacheStats(au, idMgr, types);
 	List rowL = new ArrayList();
+	for (Iterator iter = statsMap.entrySet().iterator(); iter.hasNext();) {
+	  Map.Entry entry = (Map.Entry)iter.next();
+	  PeerIdentity peer = (PeerIdentity)entry.getKey();
+	  CacheStats stats = (CacheStats)entry.getValue();
+	  if (! peer.isLocalIdentity()) {
+	    totalPeers++;
+	  }
+	  Map row = makeRow(stats);
+	  rowL.add(row);
+	}
 	table.setRows(rowL);
       }
       table.setSummaryInfo(getSummaryInfo(au, totalPeers));
+    }
+
+    AgreementType getAgreementType(String agmntName) {
+      if ("pop".equalsIgnoreCase(agmntName)) {
+	return AgreementType.POP;
+      } else if ("por".equalsIgnoreCase(agmntName)) {
+	return AgreementType.POR;
+      } else if ("symmetric_por".equalsIgnoreCase(agmntName)) {
+	return AgreementType.SYMMETRIC_POR;
+      } else if ("symmetric_pop".equalsIgnoreCase(agmntName)) {
+	return AgreementType.SYMMETRIC_POP;
+      } else {
+	return null;
+      }
+    }
+
+    public Map buildCacheStats(ArchivalUnit au, IdentityManager idMgr,
+			       AgreementType[] types) {
+      Map<PeerIdentity,CacheStats> statsMap =
+	new HashMap<PeerIdentity,CacheStats>();
+      for (AgreementType type : types) {
+	Map<PeerIdentity, PeerAgreement> amap =
+	  idMgr.getAgreements(au, type);
+	Map<PeerIdentity, PeerAgreement> ahintmap =
+	  idMgr.getAgreements(au, AgreementType.getHintType(type));
+
+	for (Map.Entry<PeerIdentity, PeerAgreement> ent : amap.entrySet()) {
+	  PeerIdentity pid = ent.getKey();
+	  CacheStats stats = statsMap.get(pid);
+	  if (stats == null) {
+	    stats = new CacheStats(pid);
+	    statsMap.put(pid, stats);
+	  }
+	  PeerAgreement pa = ent.getValue();
+	  if (pa.getHighestPercentAgreement() >= 0.0 &&
+	      pa.getHighestPercentAgreement() > stats.highestAgreement) {
+	    stats.highestAgreement = pa.getHighestPercentAgreement();
+	    stats.highestAgreementTime = pa.getHighestPercentAgreementTime();
+	  }
+	  if (pa.getPercentAgreement() >= 0.0 &&
+	      pa.getPercentAgreementTime() > stats.lastAgreementTime) {
+	    stats.lastAgreementTime = pa.getPercentAgreementTime();
+	    stats.lastAgreement = pa.getPercentAgreement();
+	  }
+	}	    
+	for (Map.Entry<PeerIdentity, PeerAgreement> ent : ahintmap.entrySet()) {
+	  PeerIdentity pid = ent.getKey();
+	  CacheStats stats = statsMap.get(pid);
+	  if (stats == null) {
+	    stats = new CacheStats(pid);
+	    statsMap.put(pid, stats);
+	  }
+	  PeerAgreement pa = ent.getValue();
+	  if (pa.getHighestPercentAgreement() >= 0.0 &&
+	      pa.getHighestPercentAgreement() > stats.highestAgreementHint) {
+	    stats.highestAgreementHint = pa.getHighestPercentAgreement();
+	    stats.highestAgreementHintTime = pa.getHighestPercentAgreementTime();
+	  }
+	  if (pa.getPercentAgreement() >= 0.0 &&
+	      pa.getPercentAgreementTime() > stats.lastAgreementHintTime) {
+	    stats.lastAgreementHintTime = pa.getPercentAgreementTime();
+	    stats.lastAgreementHint = pa.getPercentAgreement();
+	  }
+	}	    
+      }
+      return statsMap;
+    }
+
+    protected Map makeRow(CacheStats stats) {
+      Map rowMap = super.makeRow(stats);
+      if (stats.highestAgreement >= 0.0f) {
+	rowMap.put("LastPercentAgreement",
+		   new Float(stats.lastAgreement));
+	rowMap.put("LastPercentAgreementDate",
+		   new Long(stats.lastAgreementTime));
+	rowMap.put("HighestPercentAgreement",
+		   new Float(stats.highestAgreement));
+	rowMap.put("HighestPercentAgreementDate",
+		   new Long(stats.highestAgreementTime));
+      }
+      if (stats.highestAgreementHint >= 0.0f) {
+	rowMap.put("LastPercentAgreementHint",
+		   new Float(stats.lastAgreementHint));
+	rowMap.put("LastPercentAgreementHintDate",
+		   new Long(stats.lastAgreementHintTime));
+	rowMap.put("HighestPercentAgreementHint",
+		   new Float(stats.highestAgreementHint));
+	rowMap.put("HighestPercentAgreementHintDate",
+		   new Long(stats.highestAgreementHintTime));
+      }
+      return rowMap;
     }
 
     protected List getSummaryInfo(ArchivalUnit au,
@@ -1696,6 +2128,7 @@ public class ArchivalUnitStatus
 
     protected void populateTable(StatusTable table, ArchivalUnit au)
         throws StatusService.NoSuchTableException {
+      IdentityManager idMgr = theDaemon.getIdentityManager();
       table.setTitle(getTitle(au));
       int totalPeers = 0;
       if (!table.getOptions().get(StatusTable.OPTION_NO_ROWS)) {
@@ -1705,8 +2138,84 @@ public class ArchivalUnitStatus
 						new StatusTable.SortRule("Type",
 									 true)));
 	List rowL = new ArrayList();
+	for (Map.Entry<PeerIdentity,Map<AgreementType,PeerAgreement>> ent :
+	       buildCacheStats(au, idMgr).entrySet()) {
+	  PeerIdentity peer = ent.getKey();
+	  for (AgreementType type : AgreementType.primaryAndWeightedTypes()) {
+	    Map<AgreementType,PeerAgreement> typeMap = ent.getValue();
+	    PeerAgreement pa = typeMap.get(type);
+	    PeerAgreement pahint = typeMap.get(AgreementType.getHintType(type));
+	    if (pa != null || pahint != null) {
+	      rowL.add(makeRow(peer, type, pa, pahint));
+	    }
+	  }
+	}
 	table.setRows(rowL);
       }
+    }
+
+
+    public Map<PeerIdentity,Map<AgreementType,PeerAgreement>>
+	  buildCacheStats(ArchivalUnit au, IdentityManager idMgr) {
+
+      ReputationTransfers repXfer = null;
+      if (peerArgeementsUseReputationTransfers) {
+	repXfer = new ReputationTransfers(idMgr);
+      }
+
+      Map<PeerIdentity,Map<AgreementType,PeerAgreement>> res =
+	new HashMap<PeerIdentity,Map<AgreementType,PeerAgreement>>();
+      for (AgreementType type : AgreementType.allTypes()) {
+	Map<PeerIdentity, PeerAgreement> peerMap =
+	  idMgr.getAgreements(au, type);
+	if (peerMap != null) {
+	  for (Map.Entry<PeerIdentity,PeerAgreement> ent : peerMap.entrySet()) {
+	    PeerIdentity pid = ent.getKey();
+	    if (repXfer != null) {
+	      pid = repXfer.getPeerInheritingReputation(pid);
+	    }
+	    Map<AgreementType,PeerAgreement> typeMap = res.get(pid);
+	    if (typeMap == null) {
+	      typeMap =
+		new EnumMap<AgreementType,PeerAgreement>(AgreementType.class);
+	      res.put(pid, typeMap);
+	    }
+
+// 	    typeMap.put(type, ent.getValue());
+ 	    typeMap.put(type, ent.getValue().mergeWith(typeMap.get(type)));
+	  }
+	}
+      }
+      return res;
+    }
+
+    public Map makeRow(PeerIdentity peerId, AgreementType type,
+		       PeerAgreement pa, PeerAgreement pahint) {
+      Map row = super.makeRow(peerId);
+      row.put("Type", type.toString());
+      if (pa != null) {
+	if (pa.getPercentAgreement() >= 0.0) {
+	  row.put("Last", new Float(pa.getPercentAgreement()));
+	  row.put("LastDate", pa.getPercentAgreementTime());
+	}
+	if (pa.getHighestPercentAgreement() >= 0.0) {
+	  row.put("Highest", new Float(pa.getHighestPercentAgreement()));
+	  row.put("HighestDate", pa.getHighestPercentAgreementTime());
+	}
+      }
+      if (pahint != null) {
+	if (pahint.getPercentAgreement() >= 0.0) {
+	  row.put("LastHint", new Float(pahint.getPercentAgreement()));
+	  row.put("LastHintDate", pahint.getPercentAgreementTime());
+	}
+	if (pahint.getHighestPercentAgreement() >= 0.0) {
+	  row.put("HighestHint",
+		  new Float(pahint.getHighestPercentAgreement()));
+	  row.put("HighestHintDate",
+		  pahint.getHighestPercentAgreementTime());
+	}
+      }
+      return row;
     }
 
     // utility method for making a Reference
@@ -1798,6 +2307,21 @@ public class ArchivalUnitStatus
   static OrderedObject agreeStatus(double agreement) {
     return new OrderedObject(doubleToPercent(agreement) + "% Agreement",
 			     STATUS_ORDER_AGREE_BASE - agreement);
+  }
+
+
+  public static StatusTable.Reference makeCrawlRef(Object value,
+						   ArchivalUnit au) {
+    return new StatusTable.Reference(value,
+				     CrawlManagerImpl.CRAWL_STATUS_TABLE_NAME,
+				     au.getAuId());
+  }
+
+  public static StatusTable.Reference makePollRef(Object value,
+						   ArchivalUnit au) {
+    return new StatusTable.Reference(value,
+				     V3PollStatus.POLLER_STATUS_TABLE_NAME,
+				     au.getAuId());
   }
 
   static int getIntProp(StatusTable table, String name) {

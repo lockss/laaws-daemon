@@ -67,9 +67,7 @@ public class DbVersion21To22Migrator extends LockssRunnable {
     }
 
     try {
-      //DbManager dbManager = daemon.getDbManager();
-      MetadataDbManager metadataDbManager = (MetadataDbManager)
-	  LockssApp.getManager(MetadataDbManager.getManagerKey());
+      MetadataDbManager metadataDbManager = daemon.getMetadataDbManager();
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "Obtained MetadataDbManager.");
 

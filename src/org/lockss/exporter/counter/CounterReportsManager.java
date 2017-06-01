@@ -53,13 +53,12 @@ import java.util.Map;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 import org.lockss.app.BaseLockssDaemonManager;
-import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.Cron;
 import org.lockss.db.DbException;
-import org.lockss.db.DbManager;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.util.FileUtil;
 import org.lockss.util.Logger;
@@ -464,7 +463,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
   private Long allJournalsPublicationSeq = null;
 
   /** The database manager */
-  private DbManager dbManager = null;
+  private MetadataDbManager dbManager = null;
 
   /** The metadata manager */
   private MetadataManager metadataManager = null;
@@ -485,7 +484,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       return;
     }
 
-    dbManager = (DbManager)(LockssApp.getManager(DbManager.getManagerKey()));
+    dbManager = getDaemon().getMetadataDbManager();
     Connection conn;
 
     // Get a connection to the database.
@@ -496,8 +495,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       return;
     }
 
-    metadataManager = (MetadataManager)(LockssApp.getManager(MetadataManager
-	.getManagerKey()));
+    metadataManager = getDaemon().getMetadataManager();
     String errorMessage = null;
     boolean success = false;
 
@@ -553,14 +551,14 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       if (success) {
 	try {
 	  conn.commit();
-	  DbManager.safeCloseConnection(conn);
+	  MetadataDbManager.safeCloseConnection(conn);
 	} catch (SQLException sqle) {
 	  log.error("Exception caught committing the connection", sqle);
-	  DbManager.safeRollbackAndClose(conn);
+	  MetadataDbManager.safeRollbackAndClose(conn);
 	  success = false;
 	}
       } else {
-	DbManager.safeRollbackAndClose(conn);
+	MetadataDbManager.safeRollbackAndClose(conn);
       }
     }
 
@@ -802,17 +800,17 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
         log.error("SQL = '" + sql + "'.");
         throw new DbException("Cannot persist URL request", sqle);
       } finally {
-        DbManager.safeCloseStatement(insertRequest);
+	MetadataDbManager.safeCloseStatement(insertRequest);
       }
 
       success = true;
     } finally {
       if (success) {
-	DbManager.commitOrRollback(conn, log);
+	MetadataDbManager.commitOrRollback(conn, log);
 	log.debug2(DEBUG_HEADER + "Successful commit.");
-	DbManager.safeCloseConnection(conn);
+	MetadataDbManager.safeCloseConnection(conn);
       } else {
-	DbManager.safeRollbackAndClose(conn);
+	MetadataDbManager.safeRollbackAndClose(conn);
       }
     }
   }
@@ -896,8 +894,8 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       throw new DbException(
 	  "Cannot get the existing month book request aggregates", sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -981,7 +979,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       throw new DbException("Cannot update the month book request counts",
 	  sqle);
     } finally {
-      DbManager.safeCloseStatement(updateAggregate);
+      MetadataDbManager.safeCloseStatement(updateAggregate);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1064,7 +1062,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       throw new DbException("Cannot insert the month book request counts",
 	  sqle);
     } finally {
-      DbManager.safeCloseStatement(insertAggregate);
+      MetadataDbManager.safeCloseStatement(insertAggregate);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1155,8 +1153,8 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       throw new DbException(
 	  "Cannot get the existing month journal request aggregates", sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1248,7 +1246,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       throw new DbException("Cannot update the month journal request counts",
 	  sqle);
     } finally {
-      DbManager.safeCloseStatement(updateAggregate);
+      MetadataDbManager.safeCloseStatement(updateAggregate);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1339,7 +1337,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       throw new DbException("Cannot insert the month journal request counts",
 	  sqle);
     } finally {
-      DbManager.safeCloseStatement(insertAggregate);
+      MetadataDbManager.safeCloseStatement(insertAggregate);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1425,8 +1423,8 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       throw new DbException("Cannot get the existing month journal publication "
 	  + "year request aggregate", sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1508,7 +1506,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       throw new DbException("Cannot update the month journal request counts",
 	  sqle);
     } finally {
-      DbManager.safeCloseStatement(updateAggregate);
+      MetadataDbManager.safeCloseStatement(updateAggregate);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1589,7 +1587,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       throw new DbException("Cannot insert the month journal request counts",
 	  sqle);
     } finally {
-      DbManager.safeCloseStatement(insertAggregate);
+      MetadataDbManager.safeCloseStatement(insertAggregate);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1692,8 +1690,8 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       log.error("SQL = '" + sql + "'.");
       throw new DbException("Cannot merge book type aggregates", sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1741,7 +1739,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       log.error("SQL = '" + sql + "'.");
       throw new DbException("Cannot delete the book type aggregates", sqle);
     } finally {
-      DbManager.safeCloseStatement(deleteAggregate);
+      MetadataDbManager.safeCloseStatement(deleteAggregate);
     }
   }
 
@@ -1855,8 +1853,8 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       log.error("SQL = '" + sql + "'.");
       throw new DbException("Cannot merge journal type aggregates", sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -1904,7 +1902,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       log.error("SQL = '" + sql + "'.");
       throw new DbException("Cannot delete the journal type aggregates", sqle);
     } finally {
-      DbManager.safeCloseStatement(deleteAggregate);
+      MetadataDbManager.safeCloseStatement(deleteAggregate);
     }
   }
 
@@ -1996,8 +1994,8 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       throw new DbException("Cannot merge journal publication year aggregates",
 	  sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -2046,7 +2044,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
       throw new DbException(
 	  "Cannot delete the journal publication year aggregates", sqle);
     } finally {
-      DbManager.safeCloseStatement(deleteAggregate);
+      MetadataDbManager.safeCloseStatement(deleteAggregate);
     }
   }
 
@@ -2323,9 +2321,9 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
 	  + "'.");
       throw new DbException(message, sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -2425,8 +2423,8 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
 	  + "'.");
       throw new DbException(message, sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
@@ -2645,9 +2643,9 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
 	  + "'.");
       throw new DbException(message, sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -2850,9 +2848,9 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
 	  + "'.");
       throw new DbException(message, sqle);
     } finally {
-      DbManager.safeCloseResultSet(resultSet);
-      DbManager.safeCloseStatement(statement);
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeCloseResultSet(resultSet);
+      MetadataDbManager.safeCloseStatement(statement);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     log.debug2(DEBUG_HEADER + "Done.");
@@ -2961,12 +2959,12 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
 	    loadBookTypeAggregate(conn, bookTypeAggregate);
 	  }
 
-	  DbManager.commitOrRollback(conn, log);
+	  MetadataDbManager.commitOrRollback(conn, log);
 	} catch (DbException dbe) {
 	  log.error("Exception caught persisting book type aggregates", dbe);
 
 	  try {
-	    DbManager.rollback(conn, log);
+	    MetadataDbManager.rollback(conn, log);
 	  } catch (DbException dbe2) {
 	    log.error("Exception caught rolling back transaction", dbe);
 	  }
@@ -2998,12 +2996,12 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
 	    loadJournalTypeAggregate(conn, journalTypeAggregate);
 	  }
 
-	  DbManager.commitOrRollback(conn, log);
+	  MetadataDbManager.commitOrRollback(conn, log);
 	} catch (DbException dbe) {
 	  log.error("Exception caught persisting journal type aggregates", dbe);
 
 	  try {
-	    DbManager.rollback(conn, log);
+	    MetadataDbManager.rollback(conn, log);
 	  } catch (DbException dbe2) {
 	    log.error("Exception caught rolling back transaction", dbe);
 	  }
@@ -3038,13 +3036,13 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
 	    loadJournalPubYearAggregate(conn, journalPubYearAggregate);
 	  }
 
-	  DbManager.commitOrRollback(conn, log);
+	  MetadataDbManager.commitOrRollback(conn, log);
 	} catch (DbException dbe) {
 	  log.error("Exception caught persisting journal publication year "
 	      + "aggregates", dbe);
 
 	  try {
-	    DbManager.rollback(conn, log);
+	    MetadataDbManager.rollback(conn, log);
 	  } catch (DbException dbe2) {
 	    log.error("Exception caught rolling back transaction", dbe);
 	  }
@@ -3058,7 +3056,7 @@ public class CounterReportsManager extends BaseLockssDaemonManager {
 	    + "' found in directory '" + backupDir + "'.");
       }
     } finally {
-      DbManager.safeCloseConnection(conn);
+      MetadataDbManager.safeCloseConnection(conn);
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");

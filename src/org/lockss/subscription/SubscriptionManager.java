@@ -59,7 +59,6 @@ import java.util.TreeSet;
 import org.apache.commons.collections.map.MultiValueMap;
 import org.lockss.app.BaseLockssDaemonManager;
 import org.lockss.app.ConfigurableManager;
-import org.lockss.app.LockssApp;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.config.TdbAu;
@@ -68,8 +67,8 @@ import org.lockss.config.TdbPublisher;
 import org.lockss.config.TdbTitle;
 import org.lockss.config.TdbUtil;
 import org.lockss.db.DbException;
-import org.lockss.db.DbManager;
 import org.lockss.extractor.MetadataField;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuEvent;
@@ -196,7 +195,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
   static final String ALL_PUBLISHERS_NAME = "SUBSCRIPTIONS ALL PUBLISHERS";
 
   // The database manager.
-  private DbManager dbManager = null;
+  private MetadataDbManager dbManager = null;
 
   // The metadata manager.
   private MetadataManager mdManager = null;
@@ -301,10 +300,9 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
       return;
     }
 
-    dbManager = (DbManager)LockssApp.getManager(DbManager.getManagerKey());
+    dbManager = getDaemon().getMetadataDbManager();
     pluginManager = getDaemon().getPluginManager();
-    mdManager =
-	(MetadataManager)LockssApp.getManager(MetadataManager.getManagerKey());
+    mdManager = getDaemon().getMetadataManager();
     remoteApi = getDaemon().getRemoteApi();
     subManagerSql = new SubscriptionManagerSql(dbManager);
 
@@ -327,19 +325,19 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	  // Unsubscribe the Archival Unit, if necessary and possible.
 	  try {
 	    unsubscribeAu(conn, au);
-	    DbManager.commitOrRollback(conn, log);
+	    MetadataDbManager.commitOrRollback(conn, log);
 	  } catch (DbException dbe) {
 	    log.error("Error unsubscribing deleted AU " + au, dbe);
 	  } finally {
 	    try {
-	      DbManager.rollback(conn, log);
+	      MetadataDbManager.rollback(conn, log);
 	    } catch (DbException dbe2) {
 	      log.error("Error rolling back unsubscribing deleted AU " + au
 		  + " transaction", dbe2);
 	    }
 	  }
 	} finally {
-	  DbManager.safeRollbackAndClose(conn);
+	  MetadataDbManager.safeRollbackAndClose(conn);
 	}
       }
     };
@@ -369,14 +367,14 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	if (success) {
 	  try {
 	    conn.commit();
-	    DbManager.safeCloseConnection(conn);
+	    MetadataDbManager.safeCloseConnection(conn);
 	  } catch (SQLException sqle) {
 	    log.error("Exception caught committing the connection", sqle);
-	    DbManager.safeRollbackAndClose(conn);
+	    MetadataDbManager.safeRollbackAndClose(conn);
 	    success = false;
 	  }
 	} else {
-	  DbManager.safeRollbackAndClose(conn);
+	  MetadataDbManager.safeRollbackAndClose(conn);
 	}
       }
 
@@ -396,7 +394,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "deletedCount = " + deletedCount);
 
-	  DbManager.commitOrRollback(conn, log);
+	  MetadataDbManager.commitOrRollback(conn, log);
 	}
       } catch (DbException dbe) {
 	log.error(CANNOT_DELETE_TOTAL_SUBSCRIPTION_ERROR_MESSAGE, dbe);
@@ -985,7 +983,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	subscribePublicationConfiguredAus(title, conn, configuredAus, status);
       }
     } finally {
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "status = " + status);
@@ -1117,7 +1115,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
       }
 
       // Finalize all the subscription changes for this title.
-      DbManager.commitOrRollback(conn, log);
+      MetadataDbManager.commitOrRollback(conn, log);
 
       // Report the success back to the caller.
       status.addStatusEntry(publicationName, null);
@@ -1437,7 +1435,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 
       response = subManagerSql.hasSubscriptionRanges(conn);
     } finally {
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     return response;
@@ -1461,7 +1459,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 
       response = subManagerSql.hasPublisherSubscriptions(conn);
     } finally {
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     return response;
@@ -1785,7 +1783,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	    + publication.getProviderLid() + "' for title: '"
 	    + publication.getPublicationName() + "' publisher: "
 	    + publication.getPublisherName() + "'");
-	publication.setProviderLid(DbManager.truncateVarchar(
+	publication.setProviderLid(MetadataDbManager.truncateVarchar(
 	    publication.getProviderLid(), MAX_LID_COLUMN));
       }
     }
@@ -1796,7 +1794,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	log.warning("provider name too long '" + publication.getProviderName()
 	    + "' for title: '" + publication.getPublicationName()
 	    + "' publisher: " + publication.getPublisherName() + "'");
-	publication.setProviderName(DbManager.truncateVarchar(
+	publication.setProviderName(MetadataDbManager.truncateVarchar(
 	    publication.getProviderName(), MAX_NAME_COLUMN));
       }
     }
@@ -1810,7 +1808,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	log.warning("issn too long '" + publication.getPissn()
 	    + "' for title: '" + publication.getPublicationName()
 	    + "' publisher: " + publication.getPublisherName() + "'");
-	publication.setPissn(DbManager.truncateVarchar(issn, MAX_ISSN_COLUMN));
+	publication.setPissn(MetadataDbManager.truncateVarchar(issn, MAX_ISSN_COLUMN));
       } else {
 	publication.setPissn(issn);
       }
@@ -1825,7 +1823,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	log.warning("issn too long '" + publication.getEissn()
 	    + "' for title: '" + publication.getPublicationName()
 	    + "' publisher: " + publication.getPublisherName() + "'");
-	publication.setEissn(DbManager.truncateVarchar(issn, MAX_ISSN_COLUMN));
+	publication.setEissn(MetadataDbManager.truncateVarchar(issn, MAX_ISSN_COLUMN));
       } else {
 	publication.setEissn(issn);
       }
@@ -1846,7 +1844,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	    log.warning("proprietaryId too long '" + proprietaryId
 		+ "' for title: '" + publication.getPublicationName()
 		+ "' publisher: " + publication.getPublisherName() + "'");
-	    normalizedPropId = DbManager.truncateVarchar(proprietaryId,
+	    normalizedPropId = MetadataDbManager.truncateVarchar(proprietaryId,
 		MAX_PROPRIETARY_ID_COLUMN);
 	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "normalizedPropId = "
 		+ normalizedPropId);
@@ -1864,7 +1862,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
       if (publication.getPublisherName().length() > MAX_NAME_COLUMN) {
 	log.warning("publisher too long '" + publication.getPublisherName()
 	    + "' for title: '" + publication.getPublicationName() + "'");
-	publication.setPublisherName(DbManager.truncateVarchar(
+	publication.setPublisherName(MetadataDbManager.truncateVarchar(
 	    publication.getPublisherName(), MAX_NAME_COLUMN));
       }
     }
@@ -1874,7 +1872,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
       if (publication.getPublicationName().length() > MAX_NAME_COLUMN) {
 	log.warning("title too long '" + publication.getPublicationName()
 	    + "' for publisher: " + publication.getPublisherName() + "'");
-	publication.setPublicationName(DbManager.truncateVarchar(
+	publication.setPublicationName(MetadataDbManager.truncateVarchar(
 	    publication.getPublicationName(), MAX_NAME_COLUMN));
       }
     }
@@ -2099,7 +2097,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	try {
 	  // Persist the publisher subscription in the database.
 	  persistPublisherSubscription(conn, publisherSubscription);
-	  DbManager.commitOrRollback(conn, log);
+	  MetadataDbManager.commitOrRollback(conn, log);
 
 	  if (subscribed != null && subscribed.booleanValue()) {
 	    handleStartingPublisherSubscription(publisherSubscription);
@@ -2149,7 +2147,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	    bas = null;
 	  }
 
-	  DbManager.commitOrRollback(conn, log);
+	  MetadataDbManager.commitOrRollback(conn, log);
 	  status.addStatusEntry(subscription.getPublication()
 	      .getPublicationName(), bas);
 	} catch (IllegalStateException ise) {
@@ -2199,7 +2197,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	}
       }
     } finally {
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
@@ -2685,7 +2683,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	try {
 	  // Update the publisher subscription in the database.
 	  persistPublisherSubscription(conn, publisherSubscription);
-	  DbManager.commitOrRollback(conn, log);
+	  MetadataDbManager.commitOrRollback(conn, log);
 
 	  if (subscribed != null && subscribed.booleanValue()) {
 	    handleStartingPublisherSubscription(publisherSubscription);
@@ -2736,7 +2734,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	    bas = null;
 	  }
 
-	  DbManager.commitOrRollback(conn, log);
+	  MetadataDbManager.commitOrRollback(conn, log);
 	  status.addStatusEntry(subscription.getPublication()
 	      .getPublicationName(), bas);
 	} catch (IllegalStateException ise) {
@@ -2786,7 +2784,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
 	}
       }
     } finally {
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
@@ -3950,7 +3948,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
             totalSubscriptionSetting.booleanValue());
       }
 
-      DbManager.commitOrRollback(conn, log);
+      MetadataDbManager.commitOrRollback(conn, log);
 
       // Update the local cached value.
       isTotalSubscription = totalSubscriptionSetting;
@@ -4048,7 +4046,7 @@ public class SubscriptionManager extends BaseLockssDaemonManager implements
     try {
       updateTotalSubscription(conn, true, status);
     } finally {
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     for (Iterator<TdbAu> tdbAuIterator : getSubscribableTdbAuIterators()) {

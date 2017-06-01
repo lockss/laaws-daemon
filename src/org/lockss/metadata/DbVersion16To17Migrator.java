@@ -28,6 +28,7 @@
 package org.lockss.metadata;
 
 import org.lockss.app.LockssApp;
+import org.lockss.app.LockssDaemon;
 //import org.lockss.app.LockssDaemon;
 import org.lockss.daemon.LockssRunnable;
 import org.lockss.util.Logger;
@@ -54,9 +55,8 @@ public class DbVersion16To17Migrator extends LockssRunnable {
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
 
     try {
-      //DbManager dbManager = LockssDaemon.getLockssDaemon().getDbManager();
-      MetadataDbManager metadataDbManager = (MetadataDbManager)
-	  LockssApp.getManager(MetadataDbManager.getManagerKey());
+      MetadataDbManager metadataDbManager =
+	  LockssDaemon.getLockssDaemon().getMetadataDbManager();
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "Obtained MetadataDbManager.");
 

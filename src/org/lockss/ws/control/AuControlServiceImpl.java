@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2015 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2015-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,23 +28,19 @@
 package org.lockss.ws.control;
 
 import static org.lockss.servlet.DebugPanel.*;
-
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.jws.WebService;
-
 import org.apache.cxf.phase.PhaseInterceptorChain;
 import org.lockss.account.UserAccount;
-import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.crawler.CrawlManagerImpl;
 import org.lockss.crawler.CrawlReq;
-import org.lockss.db.DbManager;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.AuUtil;
@@ -484,8 +476,7 @@ public class AuControlServiceImpl implements AuControlService {
     RequestAuControlResult result = null;
 
     LockssDaemon daemon = LockssDaemon.getLockssDaemon();
-    MetadataManager metadataMgr =
-	(MetadataManager)LockssApp.getManager(MetadataManager.getManagerKey());
+    MetadataManager metadataMgr = daemon.getMetadataManager();
 
     if (metadataMgr == null || !metadataMgr.isIndexingEnabled()) {
       result = new RequestAuControlResult(auId, false,
@@ -554,8 +545,7 @@ public class AuControlServiceImpl implements AuControlService {
     PreparedStatement insertPendingAuBatchStatement = null;
 
     try {
-      DbManager dbMgr =
-	  (DbManager)LockssApp.getManager(DbManager.getManagerKey());
+      MetadataDbManager dbMgr = daemon.getMetadataDbManager();
       conn = dbMgr.getConnection();
       insertPendingAuBatchStatement =
 	  metadataMgr.getPrioritizedInsertPendingAuBatchStatement(conn);
@@ -571,8 +561,8 @@ public class AuControlServiceImpl implements AuControlService {
       errorMessage =
 	  "Cannot reindex metadata for " + au.getName() + ": " + e.getMessage();
     } finally {
-      DbManager.safeCloseStatement(insertPendingAuBatchStatement);
-      DbManager.safeRollbackAndClose(conn);
+      MetadataDbManager.safeCloseStatement(insertPendingAuBatchStatement);
+      MetadataDbManager.safeRollbackAndClose(conn);
     }
 
     result = new RequestAuControlResult(auId, false, errorMessage);
@@ -634,8 +624,7 @@ public class AuControlServiceImpl implements AuControlService {
     RequestAuControlResult result = null;
 
     LockssDaemon daemon = LockssDaemon.getLockssDaemon();
-    MetadataManager metadataMgr =
-	(MetadataManager)LockssApp.getManager(MetadataManager.getManagerKey());
+    MetadataManager metadataMgr = daemon.getMetadataManager();
 
     if (metadataMgr == null || !metadataMgr.isIndexingEnabled()) {
       result = new RequestAuControlResult(auId, false,
@@ -724,8 +713,7 @@ public class AuControlServiceImpl implements AuControlService {
     RequestAuControlResult result = null;
 
     LockssDaemon daemon = LockssDaemon.getLockssDaemon();
-    MetadataManager metadataMgr =
-	(MetadataManager)LockssApp.getManager(MetadataManager.getManagerKey());
+    MetadataManager metadataMgr = daemon.getMetadataManager();
 
     if (metadataMgr == null || !metadataMgr.isIndexingEnabled()) {
       result = new RequestAuControlResult(auId, false,

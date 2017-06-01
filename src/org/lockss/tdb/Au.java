@@ -1,39 +1,41 @@
 /*
- * $Id$
- */
 
-/*
+Copyright (c) 2000-2017, Board of Trustees of Leland Stanford Jr. University,
+All rights reserved.
 
-Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
-all rights reserved.
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+1. Redistributions of source code must retain the above copyright notice, this
+list of conditions and the following disclaimer.
 
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
+2. Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation and/or
+other materials provided with the distribution.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
-STANFORD UNIVERSITY BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
-WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR
-IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+3. Neither the name of the copyright holder nor the names of its contributors
+may be used to endorse or promote products derived from this software without
+specific prior written permission.
 
-Except as contained in this notice, the name of Stanford University shall not
-be used in advertising or otherwise to promote the sale, use or other dealings
-in this Software without prior written authorization from Stanford University.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 */
 
 package org.lockss.tdb;
 
+import java.io.Serializable;
 import java.util.*;
 
+import org.antlr.v4.runtime.Token;
 import org.lockss.plugin.PluginManager;
 import org.lockss.util.*;
 
@@ -45,17 +47,20 @@ import org.lockss.util.*;
  * @author Thib Guicherd-Callin
  * @since 1.67
  */
-public class Au {
+public class Au implements Serializable {
 
   /**
    * <p>
    * Make a new root AU instance.
    * </p>
    * 
-   * @since 1.67 
+   * @since 1.73 
    */
-  public Au() {
-    // Intentionally left blank
+  public Au(Token tok) {
+    if (tok != null) {
+      this.file = tok.getTokenSource().getSourceName();
+      this.line = tok.getLine();
+    }
   }
 
   /**
@@ -65,9 +70,10 @@ public class Au {
    * 
    * @param other
    *          An existing AU instance.
-   * @since 1.67
+   * @since 1.73
    */
-  public Au(Au other) {
+  public Au(Token tok, Au other) {
+    this(tok);
     this.computedPlugin = other.computedPlugin;
     this.eisbn = other.eisbn;
     this.implicit = other.implicit;
@@ -102,10 +108,10 @@ public class Au {
    *          A parent title.
    * @param other
    *          An existing AU instance.
-   * @since 1.67
+   * @since 1.73
    */
-  public Au(Title title, Au other) {
-    this(other);
+  public Au(Token tok, Title title, Au other) {
+    this(tok, other);
     this.title = title;
   }
   
@@ -116,9 +122,10 @@ public class Au {
    * 
    * @param title
    *          A parent title.
-   * @since 1.67
+   * @since 1.73
    */
-  protected Au(Title title) {
+  protected Au(Token tok, Title title) {
+    this(tok);
     this.title = title;
   }
   
@@ -538,6 +545,36 @@ public class Au {
   
   /**
    * <p>
+   * The AU's file (key).
+   * </p>
+   * 
+   * @since 1.73
+   */
+  protected static final String FILE = "file";
+  
+  /**
+   * <p>
+   * The AU's file (field).
+   * </p>
+   * 
+   * @since 1.73
+   */
+  protected String file = null;
+  
+  /**
+   * <p>
+   * Retrieves the AU's file.
+   * </p>
+   * 
+   * @return The AU's efile.
+   * @since 1.73
+   */
+  public String getFile() {
+    return file;
+  }
+  
+  /**
+   * <p>
    * The AU's ISBN (key).
    * </p>
    * 
@@ -564,6 +601,36 @@ public class Au {
    */
   public String getIsbn() {
     return isbn;
+  }
+  
+  /**
+   * <p>
+   * The AU's line (key).
+   * </p>
+   * 
+   * @since 1.73
+   */
+  protected static final String LINE = "line";
+  
+  /**
+   * <p>
+   * The AU's line (field).
+   * </p>
+   * 
+   * @since 1.73
+   */
+  protected int line = 0;
+  
+  /**
+   * <p>
+   * Retrieves the AU's line.
+   * </p>
+   * 
+   * @return The AU's line.
+   * @since 1.73
+   */
+  public int getLine() {
+    return line;
   }
   
   /**
@@ -1217,7 +1284,10 @@ public class Au {
     m.put("au:auidplus", new A() { @Override String a(Au a) { return a.getAuidPlus(); } });
     m.put("au:edition", new A() { @Override String a(Au a) { return a.getEdition(); } });
     m.put("au:eisbn", new A() { @Override String a(Au a) { return a.getEisbn(); } });
+    m.put("au:file", new A() { @Override String a(Au a) { return a.getFile(); } });
+    m.put("au:fileline", new A() { @Override String a(Au a) { return String.format("%s:%d", a.getFile(), a.getLine()); } });
     m.put("au:isbn", new A() { @Override String a(Au a) { return a.getIsbn(); } });
+    m.put("au:line", new A() { @Override String a(Au a) { return Integer.toString(a.getLine()); } });
     m.put("au:name", new A() { @Override String a(Au a) { return a.getName(); } });
     m.put("au:plugin", new A() { @Override String a(Au a) { return a.getComputedPlugin(); } });
     m.put("au:pluginPrefix", new A() { @Override String a(Au a) { return a.getPluginPrefix(); } });
@@ -1254,9 +1324,12 @@ public class Au {
     m.put("edition", m.get("au:edition"));
     m.put("eisbn", m.get("au:eisbn"));
     m.put("eissn", m.get("title:eissn"));
+    m.put("file", m.get("au:file"));
+    m.put("fileline", m.get("au:fileline"));
     m.put("isbn", m.get("au:isbn"));
     m.put("issn", m.get("title:issn"));
     m.put("issnl", m.get("title:issnl"));
+    m.put("line", m.get("au:line"));
     m.put("name", m.get("au:name"));
     m.put("plugin", m.get("au:plugin"));
     m.put("pluginPrefix", m.get("au:pluginPrefix"));

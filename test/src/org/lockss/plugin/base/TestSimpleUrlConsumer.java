@@ -1,4 +1,8 @@
 /*
+ * $Id$
+ */
+
+/*
 
  Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
@@ -29,13 +33,22 @@
 package org.lockss.plugin.base;
 
 import java.io.*;
+import java.net.*;
 import java.util.*;
+import java.text.*;
+
 import org.lockss.plugin.*;
+import org.lockss.plugin.UrlFetcher.FetchResult;
 import org.lockss.daemon.*;
 import org.lockss.state.*;
 import org.lockss.test.*;
+import org.lockss.app.*;
 import org.lockss.util.*;
+import org.lockss.util.urlconn.*;
 import org.lockss.repository.*;
+import org.lockss.crawler.*;
+import org.lockss.crawler.PermissionRecord.PermissionStatus;
+import org.lockss.config.*;
 
 public class TestSimpleUrlConsumer extends LockssTestCase {
 
@@ -75,8 +88,10 @@ public class TestSimpleUrlConsumer extends LockssTestCase {
   public void testUrlCacherCreation() throws IOException {
     mau.addUrl(TEST_URL);
     TestableBaseCrawler crawler = new TestableBaseCrawler(mau, aus);
-    Crawler.CrawlerFacade crawlFacade = null;
+    Crawler.CrawlerFacade crawlFacade =
+      new BaseCrawler.BaseCrawlerFacade(crawler);
     LockssWatchdog wdog = new MockLockssWatchdog();
+    crawler.setWatchdog(wdog);
     FetchedUrlData fud = 
       new FetchedUrlData(TEST_URL, TEST_URL,
 			 new StringInputStream("test stream"),
@@ -235,9 +250,24 @@ public class TestSimpleUrlConsumer extends LockssTestCase {
     junit.swingui.TestRunner.main(testCaseList);
   }
 
-  private class TestableBaseCrawler {
+  private static class MockPermissionMap extends PermissionMap {
+    public MockPermissionMap() {
+      super(new MockCrawler().new MockCrawlerFacade(),
+	    new ArrayList(), new ArrayList(), null);
+    }
+
+    protected void putStatus(String permissionUrl, PermissionStatus status)
+            throws MalformedURLException {
+      super.createRecord(permissionUrl).setStatus(status);
+    }
+
+  }
+
+  private class TestableBaseCrawler extends BaseCrawler {
 
     protected TestableBaseCrawler(ArchivalUnit au, AuState aus) {
+      super(au, aus);
+      crawlStatus = new MockCrawlStatus();
     }
 
     public Crawler.Type getType() {

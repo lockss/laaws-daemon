@@ -136,7 +136,7 @@ public class FuncMetadataControlService extends LockssTestCase {
        * @param au
        */
       protected void notifyFinishReindexingAu(ArchivalUnit au,
-	  ReindexingStatus status) {
+	  ReindexingStatus status, Exception exception) {
         log.info("Finished reindexing au (" + status + ") " + au);
         if (status != ReindexingStatus.Rescheduled) {
           synchronized (ausReindexed) {

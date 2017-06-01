@@ -965,10 +965,9 @@ public class ListHoldings extends LockssServlet {
         // use number of publications in the metadata database if greater
         // to account for file transfer content titles; this also handles
         // cases where indexing is disabled or is not yet complete
-        total = Math.max(total, ((MetadataManager)LockssApp
-    	.getManager(MetadataManager.getManagerKey()))
-//                         LockssDaemon.getLockssDaemon()
-//                                     .getMetadataManager()
+        total = Math.max(total,
+                         LockssDaemon.getLockssDaemon()
+                                     .getMetadataManager()
                                      .getPublicationCount());
       }
       /*log.debug(String.format("Title count %s took approximately %ss",

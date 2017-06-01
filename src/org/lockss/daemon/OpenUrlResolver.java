@@ -35,7 +35,6 @@ import java.sql.*;
 import java.text.ParseException;
 import java.util.*;
 import org.apache.commons.lang3.StringEscapeUtils;
-import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.*;
 import org.lockss.daemon.AuParamType.InvalidFormatException;
@@ -107,6 +106,8 @@ public class OpenUrlResolver {
   
   private static final Logger log = Logger.getLogger(OpenUrlResolver.class);
 
+  /** the LOCKSS daemon */
+  private final LockssDaemon daemon;
   /** the PluginManager */
   private final PluginManager pluginMgr;
   /** the ProxyManager */
@@ -382,6 +383,7 @@ public class OpenUrlResolver {
     if (daemon == null) {
       throw new IllegalArgumentException("LOCKSS daemon not specified");
     }
+    this.daemon = daemon;
     this.pluginMgr = daemon.getPluginManager();
     this.proxyMgr = daemon.getProxyManager();
   }
@@ -1206,7 +1208,7 @@ public class OpenUrlResolver {
     OpenUrlInfo resolved = noOpenUrlInfo;
     try {
       // resolve from database manager
-      MetadataDbManager dbMgr = getMetadataDbManager();
+      MetadataDbManager dbMgr = daemon.getMetadataDbManager();
       resolved = resolveFromDoi(dbMgr, doi);
     } catch (IllegalArgumentException ex) {
     }
@@ -1394,7 +1396,7 @@ public class OpenUrlResolver {
     
     // try resolving from the metadata database first
     try {
-      MetadataDbManager dbMgr = getMetadataDbManager();
+      MetadataDbManager dbMgr = daemon.getMetadataDbManager();
       OpenUrlInfo aResolved = resolveFromIssn(dbMgr, issn, pub, date, 
                                   volume, issue, spage, artnum, author, atitle);
       if (aResolved.resolvedTo != OpenUrlInfo.ResolvedTo.NONE) {
@@ -1717,7 +1719,7 @@ public class OpenUrlResolver {
     final String DEBUG_HEADER = "resolveFromQuery(): ";
     log.debug3(DEBUG_HEADER + "query: " + query);
 
-    MetadataDbManager dbMgr = getMetadataDbManager();
+    MetadataDbManager dbMgr = daemon.getMetadataDbManager();
     PreparedStatement stmt = dbMgr.prepareStatement(conn, query);
 
     int count = 0;
@@ -2407,7 +2409,7 @@ public class OpenUrlResolver {
     // only go to database manager if requesting individual article/chapter
     try {
       // resolve from database manager
-      MetadataDbManager dbMgr = getMetadataDbManager();
+      MetadataDbManager dbMgr = daemon.getMetadataDbManager();
       OpenUrlInfo aResolved = resolveFromIsbn(
           dbMgr, isbn, pub, date, volume, edition, 
           chapter, spage, author, atitle);
@@ -2700,8 +2702,8 @@ public class OpenUrlResolver {
    * 
    * @return a DbManager with the database manager.
    */
-  private MetadataDbManager getMetadataDbManager() {
-    return (MetadataDbManager)LockssApp
-	.getManager(MetadataDbManager.getManagerKey());
-  }
+//  private MetadataDbManager getMetadataDbManager() {
+//    return (MetadataDbManager)LockssApp
+//	.getManager(MetadataDbManager.getManagerKey());
+//  }
 }

@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
- Copyright (c) 2014-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+ Copyright (c) 2014-2015 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -37,17 +41,21 @@ import org.lockss.account.AccountManager;
 import org.lockss.account.UserAccount;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
+import org.lockss.daemon.Crawler;
 import org.lockss.plugin.PluginManager;
 import org.lockss.plugin.PluginTestUtil;
 import org.lockss.plugin.simulated.SimulatedArchivalUnit;
 import org.lockss.plugin.simulated.SimulatedContentGenerator;
 import org.lockss.plugin.simulated.SimulatedPlugin;
+import org.lockss.protocol.MockIdentityManager;
 import org.lockss.servlet.AdminServletManager;
 import org.lockss.servlet.LockssServlet;
 import org.lockss.servlet.ServletManager;
 import org.lockss.test.ConfigurationUtil;
 import org.lockss.test.LockssTestCase;
+import org.lockss.test.MockAuState;
 import org.lockss.test.MockLockssDaemon;
+import org.lockss.test.NoCrawlEndActionsFollowLinkCrawler;
 import org.lockss.test.TcpTestUtil;
 import org.lockss.ws.cxf.AuthorizationInterceptor;
 import org.lockss.ws.entities.ContentResult;
@@ -87,14 +95,23 @@ public class FuncContentService extends LockssTestCase {
     accountManager = theDaemon.getAccountManager();
     accountManager.startService();
 
+    MockIdentityManager idMgr = new MockIdentityManager();
+    theDaemon.setIdentityManager(idMgr);
+    idMgr.initService(theDaemon);
+
     pluginMgr = theDaemon.getPluginManager();
     pluginMgr.setLoadablePluginsReady(true);
     theDaemon.setDaemonInited(true);
+    theDaemon.getRemoteApi().startService();
     theDaemon.getServletManager().startService();
     pluginMgr.startService();
 
     sau = PluginTestUtil.createAndStartSimAu(simAuConfig(tempDirPath));
     sau.generateContentTree();
+
+    Crawler crawler =
+	new NoCrawlEndActionsFollowLinkCrawler(sau, new MockAuState());
+    crawler.doCrawl();
 
     theDaemon.setAusStarted(true);
 

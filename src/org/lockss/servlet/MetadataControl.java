@@ -31,9 +31,8 @@ import static org.lockss.servlet.MetadataMonitor.*;
 import java.io.IOException;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
-import org.lockss.app.LockssApp;
 import org.lockss.db.DbException;
-import org.lockss.db.DbManager;
+import org.lockss.metadata.MetadataDbManager;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.util.Logger;
 
@@ -49,7 +48,7 @@ public class MetadataControl extends LockssServlet {
   static final String DELETE_PUBLICATION_ISSN_ACTION = "deletePublicationIssn";
   static final String DELETE_DB_AU_ACTION = "deleteDbAu";
 
-  private DbManager dbManager;
+  private MetadataDbManager dbManager;
   private MetadataManager mdManager;
 
   /**
@@ -62,9 +61,8 @@ public class MetadataControl extends LockssServlet {
   @Override
   public void init(ServletConfig config) throws ServletException {
     super.init(config);
-    dbManager = (DbManager)LockssApp.getManager(DbManager.getManagerKey());
-    mdManager =
-	(MetadataManager)LockssApp.getManager(MetadataManager.getManagerKey());
+    dbManager = getLockssDaemon().getMetadataDbManager();
+    mdManager = getLockssDaemon().getMetadataManager();
   }
 
   /**

@@ -48,7 +48,7 @@ import org.lockss.plugin.PluginManager;
 import org.lockss.remote.RemoteApi;
 import org.lockss.remote.RemoteApi.BatchAuStatus;
 import org.lockss.servlet.ServletUtil.LinkWithExplanation;
-//import org.lockss.subscription.SubscriptionManager;
+import org.lockss.subscription.SubscriptionManager;
 import org.lockss.util.*;
 import org.mortbay.html.*;
 
@@ -123,7 +123,7 @@ public class BatchAuConfigNew extends LockssServlet {
 
   private PluginManager pluginMgr;
   private RemoteApi remoteApi;
-//  private SubscriptionManager subManager;
+  private SubscriptionManager subManager;
 
   String action;			// action request by form
   Verb verb;
@@ -138,7 +138,7 @@ public class BatchAuConfigNew extends LockssServlet {
     super.init(config);
     pluginMgr = getLockssDaemon().getPluginManager();
     remoteApi = getLockssDaemon().getRemoteApi();
-//    subManager = getLockssDaemon().getSubscriptionManager();
+    subManager = getLockssDaemon().getSubscriptionManager();
   }
 
   protected void lockssHandleRequest() throws IOException {
@@ -251,42 +251,42 @@ public class BatchAuConfigNew extends LockssServlet {
                                null,
                                "Add, Edit or Delete an individual AU"));
 
-//    // Check whether to show the subscriptions links.
-//    if (subManager.isReady()) {
-//      // Yes: Add titles to subscription management.
-//      list.add(getMenuDescriptor(AdminServletManager.SERVLET_SUB_MANAGEMENT,
-//	  			 SubscriptionManagement.SHOW_ADD_PAGE_LINK_TEXT,
-//	  			 ACTION
-//	  			 + SubscriptionManagement.SHOW_ADD_PAGE_ACTION,
-//	  			 SubscriptionManagement
-//	  			 .SHOW_ADD_PAGE_HELP_TEXT));
-//
-//      // Only show the update link if there are subscriptions already.
-//      try {
-//	if (subManager.hasSubscriptionRanges()
-//	    || subManager.hasPublisherSubscriptions()) {
-//	  // Add titles to subscription management.
-//	  list.add(getMenuDescriptor(AdminServletManager.SERVLET_SUB_MANAGEMENT,
-//	      			     SubscriptionManagement
-//	      			     .SHOW_UPDATE_PAGE_LINK_TEXT,
-//	      			     ACTION + SubscriptionManagement
-//	      			     .SHOW_UPDATE_PAGE_ACTION,
-//	      			     SubscriptionManagement
-//	      			     .SHOW_UPDATE_PAGE_HELP_TEXT));
-//	}
-//      } catch (DbException dbe) {
-//	log.error("Error counting subscribed publishers or publications", dbe);
-//      }
-//
-//      // Add titles to subscription management.
-//      list.add(getMenuDescriptor(AdminServletManager.SERVLET_SUB_MANAGEMENT,
-//	  			 SubscriptionManagement
-//	  			 .AUTO_ADD_SUBSCRIPTIONS_LINK_TEXT,
-//	  			 ACTION + SubscriptionManagement
-//	  			 .AUTO_ADD_SUBSCRIPTIONS_ACTION,
-//	  			 SubscriptionManagement
-//	  			 .AUTO_ADD_SUBSCRIPTIONS_HELP_TEXT));
-//    }
+    // Check whether to show the subscriptions links.
+    if (subManager.isReady()) {
+      // Yes: Add titles to subscription management.
+      list.add(getMenuDescriptor(AdminServletManager.SERVLET_SUB_MANAGEMENT,
+	  			 SubscriptionManagement.SHOW_ADD_PAGE_LINK_TEXT,
+	  			 ACTION
+	  			 + SubscriptionManagement.SHOW_ADD_PAGE_ACTION,
+	  			 SubscriptionManagement
+	  			 .SHOW_ADD_PAGE_HELP_TEXT));
+
+      // Only show the update link if there are subscriptions already.
+      try {
+	if (subManager.hasSubscriptionRanges()
+	    || subManager.hasPublisherSubscriptions()) {
+	  // Add titles to subscription management.
+	  list.add(getMenuDescriptor(AdminServletManager.SERVLET_SUB_MANAGEMENT,
+	      			     SubscriptionManagement
+	      			     .SHOW_UPDATE_PAGE_LINK_TEXT,
+	      			     ACTION + SubscriptionManagement
+	      			     .SHOW_UPDATE_PAGE_ACTION,
+	      			     SubscriptionManagement
+	      			     .SHOW_UPDATE_PAGE_HELP_TEXT));
+	}
+      } catch (DbException dbe) {
+	log.error("Error counting subscribed publishers or publications", dbe);
+      }
+
+      // Add titles to subscription management.
+      list.add(getMenuDescriptor(AdminServletManager.SERVLET_SUB_MANAGEMENT,
+	  			 SubscriptionManagement
+	  			 .AUTO_ADD_SUBSCRIPTIONS_LINK_TEXT,
+	  			 ACTION + SubscriptionManagement
+	  			 .AUTO_ADD_SUBSCRIPTIONS_ACTION,
+	  			 SubscriptionManagement
+	  			 .AUTO_ADD_SUBSCRIPTIONS_HELP_TEXT));
+    }
 
     return list.iterator();
   }

@@ -1,6 +1,10 @@
 /*
+ * $Id$
+ */
 
-Copyright (c) 2007-2016 Board of Trustees of Leland Stanford Jr. University,
+/*
+
+Copyright (c) 2007 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -29,7 +33,14 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.plugin.simulated;
 
 import java.io.*;
+import java.util.*;
+import java.util.concurrent.atomic.*;
+import java.net.*;
+import java.text.*;
 import org.lockss.util.*;
+import org.lockss.test.*;
+import org.lockss.plugin.base.*;
+import org.lockss.crawler.*;
 import org.lockss.daemon.*;
 import com.ice.tar.*;
 

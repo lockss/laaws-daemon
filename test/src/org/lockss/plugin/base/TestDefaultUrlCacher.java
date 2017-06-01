@@ -1,4 +1,8 @@
 /*
+ * $Id$
+ */
+
+/*
 
  Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
@@ -29,17 +33,24 @@
 package org.lockss.plugin.base;
 
 import java.io.*;
+import java.net.*;
 import java.util.*;
+import java.text.*;
 import org.apache.commons.lang3.tuple.*;
+
 import org.lockss.plugin.*;
 import org.lockss.daemon.*;
 import org.lockss.state.AuState;
 import org.lockss.test.*;
 import org.lockss.app.*;
+import org.lockss.alert.*;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.*;
 import org.lockss.repository.*;
+import org.lockss.crawler.*;
 import org.lockss.config.*;
+
+import static org.lockss.util.DateTimeUtil.GMT_DATE_FORMATTER;
 
 /**
  * This is the test class for org.lockss.plugin.simulated.GenericFileUrlCacher
@@ -58,6 +69,7 @@ public class TestDefaultUrlCacher extends LockssTestCase {
   private MyMockArchivalUnit mau;
   private MockLockssDaemon theDaemon;
   private LockssRepository repo;
+  private MockAlertManager alertMgr;
   private int pauseBeforeFetchCounter;
   private UrlData ud;
   private MockNodeManager nodeMgr = new MockNodeManager();
@@ -65,15 +77,14 @@ public class TestDefaultUrlCacher extends LockssTestCase {
 
 
   private static final String TEST_URL = "http://www.example.com/testDir/leaf1";
+  private static final String REDIR_URL_1 = "http://www.example.com/redir/one";
+
   private boolean saveDefaultSuppressStackTrace;
 
   public void setUp() throws Exception {
     super.setUp();
 
-    String tempDirPath = getTempDir().getAbsolutePath() + File.separator;
-    CIProperties props = new CIProperties();
-    props.setProperty(LockssRepositoryImpl.PARAM_CACHE_LOCATION, tempDirPath);
-    ConfigurationUtil.setCurrentConfigFromProps(props);
+    setUpDiskSpace();
 
     theDaemon = getMockLockssDaemon();
     theDaemon.getHashService();
@@ -100,6 +111,8 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     mau.setAuCachedUrlSet(mcus);
     saveDefaultSuppressStackTrace =
       CacheException.setDefaultSuppressStackTrace(false);
+    alertMgr = new MockAlertManager();
+    getMockLockssDaemon().setAlertManager(alertMgr);
     
     theDaemon.setNodeManager(nodeMgr, mau);
     maus = new MockAuState(mau);
@@ -133,6 +146,32 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     long finalChange = maus.getLastContentChange();
     assertTrue(cacher.wasStored);
     assertNotEquals(origChange, finalChange);
+  }
+
+  public void testCacheRedirect() throws IOException {
+    String cont = "test stream";
+    ud = new UrlData(new StringInputStream(cont),
+		     new CIProperties(), TEST_URL);
+    long origChange = maus.getLastContentChange();
+    cacher = new MyDefaultUrlCacher(mau, ud);
+    cacher.setRedirectUrls(ListUtil.list(REDIR_URL_1));
+    CachedUrl cu = new BaseCachedUrl(mau, TEST_URL);
+    mau.addCu(cu);
+    mau.addUrlToBeCached(TEST_URL);
+    mau.addUrlToBeCached(REDIR_URL_1);
+
+    cacher.storeContent();
+    assertTrue(cacher.wasStored);
+
+    CachedUrl rcu1 = new BaseCachedUrl(mau, TEST_URL);
+    assertTrue(rcu1.hasContent());
+    assertInputStreamMatchesString(cont, rcu1.getUnfilteredInputStream());
+
+    CachedUrl rcu2 = new BaseCachedUrl(mau, REDIR_URL_1);
+    assertTrue(rcu2.hasContent());
+    assertInputStreamMatchesString(cont, rcu2.getUnfilteredInputStream());
+
+    assertNotEquals(rcu1, rcu2);
   }
 
   public void testCacheEmpty() throws IOException {
@@ -221,7 +260,9 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     assertTrue(cacher.wasStored);
   }
 
-  public void testValidate() throws IOException {
+  List<RedirInfo> redirectInfo = new ArrayList<RedirInfo>();
+
+  void setupValidate() {
     HttpResultMap resultMap = (HttpResultMap)plugin.getCacheResultMap();
     resultMap.storeMapEntry(MyContentValidationException1.class,
 			    CacheSuccess.class);
@@ -229,7 +270,14 @@ public class TestDefaultUrlCacher extends LockssTestCase {
 			    CacheException.WarningOnly.class);
     resultMap.storeMapEntry(MyContentValidationException3.class,
 			    CacheException.RetryableNetworkException_2.class);
-    mau.setContentValidatorFactory(new MyContentValidatorFactory());
+    // 4 isn't mapped
+    resultMap.storeMapEntry(MyContentValidationException5.class,
+			    CacheException.NoStoreWarningOnly.class);
+    mau.setContentValidatorFactory(new MyContentValidatorFactory(redirectInfo));
+  }
+
+  public void testValidate() throws IOException {
+    setupValidate();
     List<String> expVers = new ArrayList<String>();
 
     // no error
@@ -255,6 +303,12 @@ public class TestDefaultUrlCacher extends LockssTestCase {
       assertNull(cacher.getInfoException());
     }
     
+    // Warning, no store
+    doStore("invalid_5", null);
+    assertEquals("v ex 5",
+		 cacher.getInfoException().getMessage());
+    // expVers.add("invalid_5");
+
     // Not explicitly mapped, maps to ContentValidationException default in
     // HttpResultMap
 
@@ -348,7 +402,115 @@ public class TestDefaultUrlCacher extends LockssTestCase {
 		    cacher.getInfoException().toString());
   }
 
-  void doStore(String content, String prop)
+  public void testCacheRedirectValidateOk() throws IOException {
+    setupValidate();
+    String cont = "invalid_1";
+    ud = new UrlData(new StringInputStream(cont),
+		     new CIProperties(), TEST_URL);
+    long origChange = maus.getLastContentChange();
+    cacher = new MyDefaultUrlCacher(mau, ud);
+    cacher.setRedirectUrls(ListUtil.list(REDIR_URL_1));
+    CachedUrl cu = new BaseCachedUrl(mau, TEST_URL);
+    mau.addCu(cu);
+    mau.addUrlToBeCached(TEST_URL);
+    mau.addUrlToBeCached(REDIR_URL_1);
+
+    cacher.storeContent();
+    assertTrue(cacher.wasStored);
+
+    CachedUrl rcu1 = new BaseCachedUrl(mau, TEST_URL);
+    assertTrue(rcu1.hasContent());
+    assertInputStreamMatchesString(cont, rcu1.getUnfilteredInputStream());
+
+    CachedUrl rcu2 = new BaseCachedUrl(mau, REDIR_URL_1);
+    assertTrue(rcu2.hasContent());
+    assertInputStreamMatchesString(cont, rcu2.getUnfilteredInputStream());
+
+    assertNotEquals(rcu1, rcu2);
+
+    // ensure validator was invoked only once, on correct URL, with redir
+    // list in headers.
+    RedirInfo ri = redirectInfo.get(0);
+    assertEquals(TEST_URL, ri.url);
+    assertEquals(ListUtil.list(REDIR_URL_1),
+		 ri.headers.get(CachedUrl.PROPERTY_VALIDATOR_REDIRECT_URLS));
+    assertEquals(1, redirectInfo.size());
+  }
+
+  public void testCacheRedirectValidateError() throws IOException {
+    setupValidate();
+    String cont = "invalid_3";
+    ud = new UrlData(new StringInputStream(cont),
+		     new CIProperties(), TEST_URL);
+    long origChange = maus.getLastContentChange();
+    cacher = new MyDefaultUrlCacher(mau, ud);
+    cacher.setRedirectUrls(ListUtil.list(REDIR_URL_1));
+    CachedUrl cu = new BaseCachedUrl(mau, TEST_URL);
+    mau.addCu(cu);
+    mau.addUrlToBeCached(TEST_URL);
+    mau.addUrlToBeCached(REDIR_URL_1);
+
+    try {
+      cacher.storeContent();
+      fail("Should have thrown CacheException.RetryableNetworkException_2");
+    } catch (CacheException.RetryableNetworkException_2 e) {
+    }
+
+    CachedUrl rcu1 = new BaseCachedUrl(mau, TEST_URL);
+    assertFalse(rcu1.hasContent());
+
+    CachedUrl rcu2 = new BaseCachedUrl(mau, REDIR_URL_1);
+    assertFalse(rcu2.hasContent());
+
+    assertNotEquals(rcu1, rcu2);
+
+    // ensure validator was invoked only once, on correct URL, with redir
+    // list in headers.
+    RedirInfo ri = redirectInfo.get(0);
+    assertEquals(TEST_URL, ri.url);
+    assertEquals(ListUtil.list(REDIR_URL_1),
+		 ri.headers.get(CachedUrl.PROPERTY_VALIDATOR_REDIRECT_URLS));
+    assertEquals(1, redirectInfo.size());
+  }
+
+  public void testCacheRedirectValidateNoStore() throws IOException {
+    setupValidate();
+    String cont = "invalid_5";
+    ud = new UrlData(new StringInputStream(cont),
+		     new CIProperties(), TEST_URL);
+    long origChange = maus.getLastContentChange();
+    cacher = new MyDefaultUrlCacher(mau, ud);
+    cacher.setRedirectUrls(ListUtil.list(REDIR_URL_1));
+    CachedUrl cu = new BaseCachedUrl(mau, TEST_URL);
+    mau.addCu(cu);
+    mau.addUrlToBeCached(TEST_URL);
+    mau.addUrlToBeCached(REDIR_URL_1);
+
+    cacher.storeContent();
+    assertTrue(cacher.wasStored);
+
+    CachedUrl rcu1 = new BaseCachedUrl(mau, TEST_URL);
+    assertFalse(rcu1.hasContent());
+
+    CachedUrl rcu2 = new BaseCachedUrl(mau, REDIR_URL_1);
+    assertFalse(rcu2.hasContent());
+
+    assertNotEquals(rcu1, rcu2);
+
+    // ensure validator was invoked only once, on correct URL, with redir
+    // list in headers.
+    RedirInfo ri = redirectInfo.get(0);
+    assertEquals(TEST_URL, ri.url);
+    assertEquals(ListUtil.list(REDIR_URL_1),
+		 ri.headers.get(CachedUrl.PROPERTY_VALIDATOR_REDIRECT_URLS));
+    assertEquals(1, redirectInfo.size());
+  }
+
+  void doStore(String content, String prop) throws IOException {
+    doStore(content, prop, null);
+  }
+
+  void doStore(String content, String prop, List<String> redirectUrls)
       throws IOException {
     CIProperties props = new CIProperties();
     if (prop != null) {
@@ -358,20 +520,53 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     ud = new UrlData(new StringInputStream(content), 
 		     props, TEST_URL);
     cacher = new MyDefaultUrlCacher(mau, ud);
+    if (redirectUrls != null) {
+      cacher.setRedirectUrls(redirectUrls);
+    }
     cacher.storeContent();
   }
 
+  void doStoreWithRedirect(String content, String prop,
+			   List<String> redirectUrls)
+      throws IOException {
+    doStore(content, prop, redirectUrls);
+  }
+
+  static class RedirInfo {
+    String url;
+    Map headers;
+    RedirInfo(String url, Properties headers) {
+      this.url = url;
+      if (headers != null) this.headers = new HashMap(headers);
+    }
+  }
+
   static class MyContentValidatorFactory implements ContentValidatorFactory {
+    List<RedirInfo> rinfo;
+    public MyContentValidatorFactory(List<RedirInfo> rinfo) {
+      this.rinfo = rinfo;
+    }
+
     public ContentValidator createContentValidator(ArchivalUnit au,
 						   String contentType) {
-    return new MyContentValidator();
+      return new MyContentValidator(rinfo);
     }
   }
     
+  static List<String> validatedUrls = new ArrayList<String>();
+
   static class MyContentValidator implements ContentValidator {
+    List<RedirInfo> rinfo;
+    public MyContentValidator(List<RedirInfo> rinfo) {
+      this.rinfo = rinfo;
+    }
+
     public void validate(CachedUrl cu)
 	throws ContentValidationException, PluginException, IOException {
+
       CIProperties props = cu.getProperties();
+      if (rinfo != null) rinfo.add(new RedirInfo(cu.getUrl(), props));
+
       String prop = props.getProperty("prop_name");
       if (prop != null) {
 	switch (prop) {
@@ -385,6 +580,8 @@ public class TestDefaultUrlCacher extends LockssTestCase {
 	  throw new MyContentValidationException3("v ex 3");
 	case "invalid_4":
 	  throw new MyContentValidationException4("v ex 4");
+	case "invalid_5":
+	  throw new MyContentValidationException5("v ex 5");
 	}
       }
       String cont = StringUtil.fromInputStream(cu.getUnfilteredInputStream());
@@ -397,6 +594,8 @@ public class TestDefaultUrlCacher extends LockssTestCase {
 	throw new MyContentValidationException3("v ex 3");
       case "invalid_4":
 	throw new MyContentValidationException4("v ex 4");
+      case "invalid_5":
+	throw new MyContentValidationException5("v ex 5");
       case "IOException":
 	throw new IOException("EIEIOException");
       case "PluginException":
@@ -429,6 +628,13 @@ public class TestDefaultUrlCacher extends LockssTestCase {
   static class MyContentValidationException4
     extends ContentValidationException {
     MyContentValidationException4(String msg) {
+      super(msg);
+    }
+  }
+
+  static class MyContentValidationException5
+    extends ContentValidationException {
+    MyContentValidationException5(String msg) {
       super(msg);
     }
   }
@@ -526,6 +732,16 @@ public class TestDefaultUrlCacher extends LockssTestCase {
       assertFalse(cacher.wasStored);
       break;
     }
+
+    assertEquals(1, alertMgr.getAlerts().size());
+    Alert alert = alertMgr.getAlerts().get(0);
+    assertEquals("FileVerification", alert.getAttribute(Alert.ATTR_NAME));
+    assertEquals(mau.getAuId(), alert.getAttribute(Alert.ATTR_AUID));
+    assertEquals(TEST_URL, alert.getAttribute(Alert.ATTR_URL));
+    assertEquals(Alert.SEVERITY_WARNING,
+		 alert.getAttribute(Alert.ATTR_SEVERITY));
+    assertEquals("File size (9) differs from Content-Length header (8): " + TEST_URL,
+		 alert.getAttribute(Alert.ATTR_TEXT));
   }
 
   public void testCacheSizeDisagreesDefault() throws IOException {
@@ -550,9 +766,49 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     cacher = new MyDefaultUrlCacher(mau, ud);
     cacher.storeContent();
     assertTrue(cacher.wasStored);
+    assertEquals(0, alertMgr.getAlerts().size());
     ud = new UrlData(new StringInputStream("987"), props, TEST_URL);
     cacher = new MyDefaultUrlCacher(mau, ud);
     cacher.storeContent();
+    assertEquals(1, alertMgr.getAlerts().size());
+    Alert alert = alertMgr.getAlerts().get(0);
+    assertEquals("NewFileVersion", alert.getAttribute(Alert.ATTR_NAME));
+    assertEquals(mau.getAuId(), alert.getAttribute(Alert.ATTR_AUID));
+    assertEquals(TEST_URL, alert.getAttribute(Alert.ATTR_URL));
+    assertEquals(Alert.SEVERITY_INFO,
+		 alert.getAttribute(Alert.ATTR_SEVERITY));
+    assertEquals("Collected an additional version: " + TEST_URL,
+		 alert.getAttribute(Alert.ATTR_TEXT));
+  }
+
+  public void testNoNewVersionAlertIfIdentcal() throws IOException {
+    String content = "123456789";
+    CIProperties props = new CIProperties();
+    assertEquals(0, alertMgr.getAlerts().size());
+
+    ud = new UrlData(new StringInputStream(content), props, TEST_URL);
+    cacher = new MyDefaultUrlCacher(mau, ud);
+    cacher.storeContent();
+    assertTrue(cacher.wasStored);
+    assertEquals(0, alertMgr.getAlerts().size());
+    ud = new UrlData(new StringInputStream(content), props, TEST_URL);
+    cacher = new MyDefaultUrlCacher(mau, ud);
+    cacher.storeContent();
+    assertEquals(0, alertMgr.getAlerts().size());
+
+    ud = new UrlData(new StringInputStream(content + "diff"), props, TEST_URL);
+    cacher = new MyDefaultUrlCacher(mau, ud);
+    cacher.storeContent();
+
+    assertEquals(1, alertMgr.getAlerts().size());
+    Alert alert = alertMgr.getAlerts().get(0);
+    assertEquals("NewFileVersion", alert.getAttribute(Alert.ATTR_NAME));
+    assertEquals(mau.getAuId(), alert.getAttribute(Alert.ATTR_AUID));
+    assertEquals(TEST_URL, alert.getAttribute(Alert.ATTR_URL));
+    assertEquals(Alert.SEVERITY_INFO,
+		 alert.getAttribute(Alert.ATTR_SEVERITY));
+    assertEquals("Collected an additional version: " + TEST_URL,
+		 alert.getAttribute(Alert.ATTR_TEXT));
   }
 
   public void testCacheSizeAgrees() throws IOException {
@@ -562,6 +818,7 @@ public class TestDefaultUrlCacher extends LockssTestCase {
     cacher = new MyDefaultUrlCacher(mau, ud);
     cacher.storeContent();
     assertTrue(cacher.wasStored);
+    assertEquals(0, alertMgr.getAlerts().size());
   }
 
   public void testFileCache() throws IOException {
@@ -725,9 +982,11 @@ public class TestDefaultUrlCacher extends LockssTestCase {
 
     @Override
     protected void storeContentIn(String url, InputStream input,
-				  CIProperties headers)
+				  CIProperties headers,
+				  boolean doValidate,
+				  List<String> redirUrls)
         throws IOException {
-      super.storeContentIn(url, input, headers);
+      super.storeContentIn(url, input, headers, doValidate, redirUrls);
       wasStored = true;
     }
   }
