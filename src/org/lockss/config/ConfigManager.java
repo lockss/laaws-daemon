@@ -330,6 +330,13 @@ public class ConfigManager implements LockssManager {
       this.needReloadAfterWrite = val;
       return this;
     }
+
+    @Override
+    public String toString() {
+      return "[LocalFileDescr: name = " + name + ", file = " + file
+	  + ", keyPred = " + keyPred + ", includePred = " + includePred
+	  + ", needReloadAfterWrite = " + needReloadAfterWrite + "]";
+    }
   }
 
   /** KeyPredicate determines legal keys, and whether illegal keys cause
@@ -958,7 +965,6 @@ public class ConfigManager implements LockssManager {
       return gen;
     } catch (IOException e) {
       String url = cf.getFileUrl();
-      if (log.isDebug3()) log.debug3("IOException caught", e);
       if (e instanceof FileNotFoundException &&
 	  StringUtil.endsWithIgnoreCase(url, ".opt")) {
 	log.debug2("Not loading props from nonexistent optional file: " + url);
@@ -1004,6 +1010,13 @@ public class ConfigManager implements LockssManager {
   List getConfigGenerations(Collection urls, boolean required,
 			    boolean reload, String msg)
       throws IOException {
+    final String DEBUG_HEADER = "getConfigGenerations(): ";
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "urls = " + urls);
+      log.debug2(DEBUG_HEADER + "required = " + required);
+      log.debug2(DEBUG_HEADER + "reload = " + reload);
+      log.debug2(DEBUG_HEADER + "msg = " + msg);
+    }
     return getConfigGenerations(urls, required, reload, msg,
 				trueKeyPredicate);
   }
