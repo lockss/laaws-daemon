@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -212,20 +212,11 @@ public class JobDbManager extends DbManager implements ConfigurableManager {
       dbManagerSql.setFetchSize(fetchSize);
     }
 
-    targetDatabaseVersion = 1;
+    targetDatabaseVersion = 2;
     asynchronousUpdates = new int[] {};
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
   }
-
-  /**
-   * Provides the key used by the application to locate this manager.
-   * 
-   * @return a String with the manager key.
-   */
-//  public static String getManagerKey() {
-//    return "JobDbManager";
-//  }
 
   @Override
   protected String getDataSourceRootName() {
@@ -412,6 +403,8 @@ public class JobDbManager extends DbManager implements ConfigurableManager {
     // Perform the appropriate update for this version.
     if (databaseVersion == 1) {
       jobDbManagerSql.setUpDatabaseVersion1(conn);
+    } else if (databaseVersion == 2) {
+      jobDbManagerSql.updateDatabaseFrom1To2(conn);
     } else {
       throw new RuntimeException("Non-existent method to update the database "
 	  + "to version " + databaseVersion + ".");

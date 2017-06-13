@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -39,7 +39,7 @@ import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
 
 /**
- * The MeatadataDbManager SQL code executor.
+ * The JobDbManager SQL code executor.
  * 
  * @author Fernando García-Loygorri
  */
@@ -290,5 +290,27 @@ public class JobDbManagerSql extends DbManagerSql {
     }
 
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Done.");
+  }
+
+  /**
+   * Updates the database from version 1 to version 2.
+   * 
+   * @param conn
+   *          A Connection with the database connection to be used.
+   * @throws SQLException
+   *           if any problem occurred updating the database.
+   */
+  void updateDatabaseFrom1To2(Connection conn) throws SQLException {
+    final String DEBUG_HEADER = "updateDatabaseFrom1To2(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "Starting...");
+
+    if (conn == null) {
+      throw new IllegalArgumentException("Null connection");
+    }
+
+    // Add the new job type for incremental metadata extractions.
+    addJobType(conn, JOB_TYPE_PUT_INCREMENTAL_AU);
+
+    if (log.isDebug2())  log.debug2(DEBUG_HEADER + "Done.");
   }
 }

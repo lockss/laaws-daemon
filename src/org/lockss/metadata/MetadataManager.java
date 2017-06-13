@@ -4604,9 +4604,13 @@ public class MetadataManager extends BaseLockssDaemonManager implements
    * 
    * @param auId
    *          A String with the identifier of the archival unit.
+   * @param needFullReindex
+   *          A boolean with the indication of whether a full extraction is to
+   *          be performed or not.
    * @return a ReindexingTask with the metadata indexing task.
    */
-  public ReindexingTask onDemandStartReindexing(String auId) {
+  public ReindexingTask onDemandStartReindexing(String auId,
+      boolean needFullReindex) {
     final String DEBUG_HEADER = "onDemandStartReindexing(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
 
@@ -4669,7 +4673,7 @@ public class MetadataManager extends BaseLockssDaemonManager implements
 	+ "Creating the reindexing task for AU: " + au.getName());
 
     ReindexingTask task = new ReindexingTask(au, getMetadataExtractor(au));
-    task.setFullReindex(true);
+    task.setFullReindex(needFullReindex);
 
     log.debug(DEBUG_HEADER + "Running the reindexing task for AU: "
 	+ au.getName());

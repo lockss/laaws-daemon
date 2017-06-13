@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -374,16 +374,22 @@ public class JobManagerSql {
    * 
    * @param auId
    *          A String with the Archival Unit identifier.
+   * @param needFullReindex
+   *          A boolean with the indication of whether a full extraction is to
+   *          be performed or not.
    * @return a JobAuStatus with the created metadata extraction job properties.
    * @throws IllegalArgumentException
    *           if the Archival Unit does not exist.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  JobAuStatus createMetadataExtractionJob(String auId)
-      throws IllegalArgumentException, DbException {
+  JobAuStatus createMetadataExtractionJob(String auId,
+      boolean needFullReindex) throws IllegalArgumentException, DbException {
     final String DEBUG_HEADER = "createMetadataExtractionJob(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "auId = " + auId);
+      log.debug2(DEBUG_HEADER + "needFullReindex = " + needFullReindex);
+    }
 
     JobAuStatus result = null;
     Connection conn = null;
@@ -393,7 +399,7 @@ public class JobManagerSql {
       conn = dbManager.getConnection();
 
       // Create the Archival Unit metadata extraction job.
-      result = createMetadataExtractionJob(conn, auId);
+      result = createMetadataExtractionJob(conn, auId, needFullReindex);
 
       JobDbManager.commitOrRollback(conn, log);
     } finally {
@@ -411,16 +417,23 @@ public class JobManagerSql {
    *          A Connection with the database connection to be used.
    * @param auId
    *          A String with the Archival Unit identifier.
+   * @param needFullReindex
+   *          A boolean with the indication of whether a full re-indexing is to
+   *          be performed or not.
    * @return a JobAuStatus with the created metadata extraction job properties.
    * @throws IllegalArgumentException
    *           if the Archival Unit does not exist.
    * @throws DbException
    *           if any problem occurred accessing the database.
    */
-  private JobAuStatus createMetadataExtractionJob(Connection conn, String auId)
+  private JobAuStatus createMetadataExtractionJob(Connection conn,
+      String auId, boolean needFullReindex)
       throws IllegalArgumentException, DbException {
     final String DEBUG_HEADER = "createMetadataExtractionJob(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "auId = " + auId);
+      log.debug2(DEBUG_HEADER + "needFullReindex = " + needFullReindex);
+    }
 
     JobAuStatus result = null;
 
@@ -433,8 +446,12 @@ public class JobManagerSql {
       if (log.isDebug3())
 	log.debug3(DEBUG_HEADER + "jobTypeSeq = " + jobTypeSeq);
 
-      // Check whether it's a job extracting the metadata of the Archival Unit.
-      if (jobTypeSeqByName.get(JOB_TYPE_PUT_AU).equals(jobTypeSeq)) {
+      // Check whether it's a job extracting the metadata of the Archival Unit
+      // and it is of the same type.
+      if ((jobTypeSeqByName.get(JOB_TYPE_PUT_AU).equals(jobTypeSeq)
+	  && needFullReindex) ||
+	  (jobTypeSeqByName.get(JOB_TYPE_PUT_INCREMENTAL_AU).equals(jobTypeSeq)
+	      && !needFullReindex)) {
 	// Yes: Get its status.
 	Long jobStatusSeq = (long)job.getStatusCode();
 
@@ -460,20 +477,33 @@ public class JobManagerSql {
 	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "New job needed");
 	  }
 	}
-      } else if (jobTypeSeqByName.get(JOB_TYPE_DELETE_AU).equals(jobTypeSeq)) {
+      } else if (jobTypeSeqByName.get(JOB_TYPE_DELETE_AU).equals(jobTypeSeq) ||
+	  (jobTypeSeqByName.get(JOB_TYPE_PUT_AU).equals(jobTypeSeq)
+	      && !needFullReindex) ||
+	  (jobTypeSeqByName.get(JOB_TYPE_PUT_INCREMENTAL_AU).equals(jobTypeSeq)
+	      && needFullReindex)) {
 	// Yes: Try to delete it.
-	boolean deletedDeleteJob =
+	boolean deletedJob =
 	    deleteInactiveJob(conn, Long.valueOf(job.getId()));
 	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "deletedDeleteJob = " + deletedDeleteJob);
+	  log.debug3(DEBUG_HEADER + "deletedJob = " + deletedJob);
       }
     }
 
     // Check whether no job can be reused.
     if (result == null) {
       // Yes: Create the job.
-      Long jobSeq = addJob(conn, jobTypeSeqByName.get(JOB_TYPE_PUT_AU),
-	  "Metadata Extraction", auId, new Date().getTime(), null, null,
+      String jobType =
+	  needFullReindex ? JOB_TYPE_PUT_AU : JOB_TYPE_PUT_INCREMENTAL_AU;
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "jobType = " + jobType);
+
+      String jobTypeLabel = needFullReindex ? "Full Metadata Extraction"
+	  : "Incremental Metadata Extraction";
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "jobTypeLabel = " + jobTypeLabel);
+
+      Long jobSeq = addJob(conn, jobTypeSeqByName.get(jobType), jobTypeLabel,
+	  auId, new Date().getTime(), null, null,
 	  jobStatusSeqByName.get(JOB_STATUS_CREATED),
 	  INITIAL_JOB_STATUS_MESSAGE);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "jobSeq = " + jobSeq);
@@ -913,10 +943,14 @@ public class JobManagerSql {
       resultSet = dbManager.executeQuery(findAus);
 
       Long deleteJobTypeSeq = jobTypeSeqByName.get(JOB_TYPE_DELETE_AU);
-      Long putJobTypeSeq = jobTypeSeqByName.get(JOB_TYPE_PUT_AU);
+      Long putFullJobTypeSeq = jobTypeSeqByName.get(JOB_TYPE_PUT_AU);
+      Long putIncrementalJobTypeSeq =
+	  jobTypeSeqByName.get(JOB_TYPE_PUT_INCREMENTAL_AU);
       if (log.isDebug3()) {
 	log.debug3(DEBUG_HEADER + "deleteJobTypeSeq = " + deleteJobTypeSeq);
-	log.debug3(DEBUG_HEADER + "putJobTypeSeq = " + putJobTypeSeq);
+	log.debug3(DEBUG_HEADER + "putFullJobTypeSeq = " + putFullJobTypeSeq);
+	log.debug3(DEBUG_HEADER + "putIncrementalJobTypeSeq = "
+	    + putIncrementalJobTypeSeq);
       }
 
       String previousAuId = null;
@@ -943,14 +977,16 @@ public class JobManagerSql {
 	if (previousAuId != null && previousAuId.equals(thisAuId)) {
 	  if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Matched previous");
 	  // Yes: Check whether the previous one was a PUT operation.
-	  if (putJobTypeSeq == previousJobTypeSeq) {
+	  if (putFullJobTypeSeq == previousJobTypeSeq
+	      || putIncrementalJobTypeSeq == previousJobTypeSeq) {
 	    // Yes: Ignore this one.
 	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Ignore this one");
 	    continue;
 	    // No: Check whether the previous one was a DELETE operation while
 	    // this one is a PUT operation.
 	  } else if (deleteJobTypeSeq == previousJobTypeSeq
-	      && putJobTypeSeq == thisJobTypeSeq) {
+	      && (putFullJobTypeSeq == thisJobTypeSeq
+	      || putIncrementalJobTypeSeq == thisJobTypeSeq)) {
 	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "Delete previous");
 	    // Yes: Replace the previous one with this one.
 	    aus.remove(aus.size() - 1);
@@ -1109,7 +1145,9 @@ public class JobManagerSql {
 	    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "New job needed");
 	  }
 	}
-      } else if (jobTypeSeqByName.get(JOB_TYPE_PUT_AU).equals(jobTypeSeq)) {
+      } else if (jobTypeSeqByName.get(JOB_TYPE_PUT_AU).equals(jobTypeSeq)
+	  || jobTypeSeqByName.get(JOB_TYPE_PUT_INCREMENTAL_AU)
+	  .equals(jobTypeSeq)) {
 	// Yes: Try to delete it.
 	boolean deletedPutJob =
 	    deleteInactiveJob(conn, Long.valueOf(job.getId()));
@@ -1193,7 +1231,9 @@ public class JobManagerSql {
 	log.debug3(DEBUG_HEADER + "jobTypeSeq = " + jobTypeSeq);
 
       // Check whether it's a job extracting the metadata of the Archival Unit.
-      if (jobTypeSeqByName.get(JOB_TYPE_PUT_AU).equals(jobTypeSeq)) {
+      if (jobTypeSeqByName.get(JOB_TYPE_PUT_AU).equals(jobTypeSeq)
+	  || jobTypeSeqByName.get(JOB_TYPE_PUT_INCREMENTAL_AU)
+	  .equals(jobTypeSeq)) {
 	// Yes: Return it.
 	result = job;
 	break;

@@ -34,8 +34,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import org.lockss.app.BaseLockssDaemonManager;
 import org.lockss.app.ConfigurableManager;
-import org.lockss.app.LockssApp;
-//import org.lockss.app.LockssDaemon;
 import org.lockss.config.Configuration;
 import org.lockss.db.DbException;
 import org.lockss.metadata.DeleteMetadataTask;
@@ -201,39 +199,43 @@ public class JobManager extends BaseLockssDaemonManager implements
   }
 
   /**
-   * Provides the key used by the application to locate this manager.
-   * 
-   * @return a String with the manager key.
-   */
-//  public static String getManagerKey() {
-//    return "JobManager";
-//  }
-
-  /**
-   * Schedules the extraction and storage of all of the metadata for an Archival
-   * Unit given its identifier.
+   * Schedules the extraction and storage of all or part of the metadata for an
+   * Archival Unit given its identifier.
    * 
    * @param auId
    *          A String with the Archival Unit identifier.
+   * @param needFullReindex
+   *          A boolean with the indication of whether a full re-indexing is to
+   *          be performed or not.
    * @return a JobAuStatus with the details of the scheduled job.
    * @throws IllegalArgumentException
    *           if the Archival Unit does not exist.
    * @throws Exception
    *           if there are problems scheduling the job.
    */
-  public JobAuStatus scheduleMetadataExtraction(String auId)
-      throws IllegalArgumentException, Exception {
+  public JobAuStatus scheduleMetadataExtraction(String auId,
+      boolean needFullReindex) throws IllegalArgumentException, Exception {
     final String DEBUG_HEADER = "scheduleMetadataExtraction(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
+    if (log.isDebug2()) {
+      log.debug2(DEBUG_HEADER + "auId = " + auId);
+      log.debug2(DEBUG_HEADER + "needFullReindex = " + needFullReindex);
+    }
 
     JobAuStatus job = null;
     String auName = getAuName(auId);
 
-    String message =
-	"Cannot schedule metadata extraction for auId = '" + auId + "'";
+    String message = null;
+
+    if (needFullReindex) {
+	message = "Cannot schedule a full metadata extraction for auId = '"
+	    + auId + "'";
+    } else {
+	message = "Cannot schedule an incremental metadata extraction for "
+	    + "auId = '" + auId + "'";
+    }
 
     try {
-      job = jobManagerSql.createMetadataExtractionJob(auId);
+      job = jobManagerSql.createMetadataExtractionJob(auId, needFullReindex);
       job.setAuName(auName);
     } catch (IllegalArgumentException iae) {
       log.error(message, iae);
@@ -884,8 +886,6 @@ public class JobManager extends BaseLockssDaemonManager implements
 
     try {
       // Get the Archival Unit.
-//      ArchivalUnit au =
-//	  LockssDaemon.getLockssDaemon().getMetadataManager().getAu(auId);
       ArchivalUnit au = pluginManager.getAuFromId(auId);
       if (log.isDebug3()) log.debug3(DEBUG_HEADER + "au = " + au);
 

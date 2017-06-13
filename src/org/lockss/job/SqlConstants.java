@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2014-2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2014-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -118,6 +118,7 @@ public class SqlConstants {
    */
   public static final String JOB_TYPE_DELETE_AU = "delete_au";
   public static final String JOB_TYPE_PUT_AU = "put_au";
+  public static final String JOB_TYPE_PUT_INCREMENTAL_AU = "put_incremental_au";
 
   /**
    * Statuses of jobs.
