@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2013 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -83,7 +79,14 @@ public class ContextListenerWebApplicationHandler extends WebApplicationHandler
       ServletContextEvent event = new ServletContextEvent(getServletContext());
       for (EventListener listener : contextListeners) {
 	if (log.isDebug2()) log.debug2("doStart: listener = " + listener);
-	((ServletContextListener)listener).contextInitialized(event);
+
+	try {
+	  ((ServletContextListener)listener).contextInitialized(event);
+	} catch (Throwable t) {
+	  // TODO: This should not happen, but it does because of an
+	  // incompatibility between recent Spring and old Jetty.
+	  log.warning("Exception caught: " + t.getMessage());
+	}
       }
 
       // Initialize the servlets.
