@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -38,13 +38,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import javax.ws.rs.ProcessingException;
-import javax.ws.rs.core.GenericType;
+import javax.ws.rs.core.MediaType;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
 import org.jboss.resteasy.client.jaxrs.BasicAuthentication;
 import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import org.lockss.config.CurrentConfig;
-import org.lockss.laaws.indexservice.model.Url;
+import org.lockss.laaws.rs.model.Artifact;
+import org.lockss.laaws.rs.model.ArtifactPage;
 import org.lockss.util.Logger;
 import org.lockss.ws.status.DaemonStatusService;
 
@@ -104,28 +105,31 @@ public class GetAuUrlsClient {
 	if (log.isDebug3())
 	  log.debug3(DEBUG_HEADER + "encodedAuId = '" + encodedAuId + "'");
 
+	// Build the REST service URL.
+	String restServiceUrl =
+	    restServiceLocation.replace("{auid}", encodedAuId);
+	log.info(DEBUG_HEADER + "Making request to '" + restServiceUrl + "'");
+
 	// Make the request to the REST service and get its response.
-	List<Url> result = new ResteasyClientBuilder()
+	ArtifactPage result = new ResteasyClientBuilder()
 	    .register(JacksonJsonProvider.class)
 	    .establishConnectionTimeout(timeoutValue, TimeUnit.SECONDS)
             .socketTimeout(timeoutValue, TimeUnit.SECONDS).build()
-            .target(restServiceLocation)
+            .target(restServiceUrl)
             .register(new BasicAuthentication(userName, password))
-            .path("aus").path(encodedAuId).path("urls").request()
-            .get(new GenericType<List<Url>>() {});
-	if (log.isDebug3()) {
-	  log.debug3(DEBUG_HEADER + "result = " + result);
-	  log.debug3(DEBUG_HEADER + "result.size() = " + result.size());
-	}
+            .request().header("Content-Type", MediaType.APPLICATION_JSON_TYPE)
+            .get(ArtifactPage.class);
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result = " + result);
 
 	// Initialize the results.
 	List<String> urls = new ArrayList<String>();
 
-	// Loop through all the objects provided by the REST service.
-	for (Url url : result) {
-	  // Extract the URL from the REST service response object and add it to
-	  // the results.
-	  urls.add(url.getUrl());
+	// Loop through all the artifacts provided by the REST service.
+	for (Artifact artifact : result.getItems()) {
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "artifact = " + artifact);
+	  // Extract the URL from the artifact and add it to the results.
+	  urls.add(artifact.getUri());
 	}
 
 	if (log.isDebug2()) log.debug2(DEBUG_HEADER + "urls = " + urls);
