@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,11 +33,13 @@ import java.net.URL;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
 import org.lockss.config.CurrentConfig;
+import org.lockss.plugin.PluginManager;
 import org.lockss.util.Logger;
 import org.lockss.ws.content.ContentService;
 
 /**
- * A client for the ContentService.isUrlCached() web service operation.
+ * A client for the ContentService.isUrlCached() web service operation or for
+ * the equivalent Repository REST web service.
  */
 public class IsUrlCachedClient {
   private static Logger log = Logger.getLogger(IsUrlCachedClient.class);
@@ -57,7 +59,26 @@ public class IsUrlCachedClient {
     final String DEBUG_HEADER = "isUrlCached(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
 
-    return getProxy().isUrlCached(url, null);
+    // Get the configured REST service location.
+    String restServiceLocation = CurrentConfig.getParam(
+	PluginManager.PARAM_URL_CACHED_REST_SERVICE_LOCATION);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "restServiceLocation = "
+	+ restServiceLocation);
+
+    // Check whether a REST service location has been configured.
+    if (restServiceLocation != null
+	&& restServiceLocation.trim().length() > 0) {
+      // Yes: Get the indication of whether the URL is cached from the REST
+      // service.
+      boolean isUrlCached = new GetUrlRepositoryPropertiesClient()
+	  .getUrlRepositoryProperties(url).getItems().size() > 0;
+      if (log.isDebug2())
+	log.debug2(DEBUG_HEADER + "isUrlCached = " + isUrlCached);
+      return isUrlCached;
+    } else {
+      // No: Get the indication from the non-REST service.
+      return getProxy().isUrlCached(url, null);
+    }
   }
 
   /**
@@ -71,17 +92,17 @@ public class IsUrlCachedClient {
     final String DEBUG_HEADER = "getProxy(): ";
     authenticate();
     String addressLocation = CurrentConfig.getParam(
-	OpenUrlResolver.PARAM_IS_URL_CACHED_WS_ADDRESS_LOCATION);
+	PluginManager.PARAM_IS_URL_CACHED_WS_ADDRESS_LOCATION);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "addressLocation = " + addressLocation);
 
     String targetNamespace = CurrentConfig.getParam(
-	OpenUrlResolver.PARAM_IS_URL_CACHED_WS_TARGET_NAMESPACE);
+	PluginManager.PARAM_IS_URL_CACHED_WS_TARGET_NAMESPACE);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "targetNamespace = " + targetNamespace);
 
     String serviceName = CurrentConfig.getParam(
-	OpenUrlResolver.PARAM_IS_URL_CACHED_WS_SERVICE_NAME);
+	PluginManager.PARAM_IS_URL_CACHED_WS_SERVICE_NAME);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "serviceName = " + serviceName);
 
@@ -92,8 +113,8 @@ public class IsUrlCachedClient {
 
     // Set the client connection timeout.
     int timeoutValue = CurrentConfig.getIntParam(
-	OpenUrlResolver.PARAM_IS_URL_CACHED_WS_TIMEOUT_VALUE,
-	OpenUrlResolver.DEFAULT_IS_URL_CACHED_WS_TIMEOUT_VALUE);
+	PluginManager.PARAM_IS_URL_CACHED_WS_TIMEOUT_VALUE,
+	PluginManager.DEFAULT_IS_URL_CACHED_WS_TIMEOUT_VALUE);
     ((javax.xml.ws.BindingProvider) port).getRequestContext().put(TIMEOUT_KEY,
 	new Integer(timeoutValue*1000));
 
@@ -109,9 +130,9 @@ public class IsUrlCachedClient {
       @Override
       protected PasswordAuthentication getPasswordAuthentication() {
 	String userName = CurrentConfig
-	    .getParam(OpenUrlResolver.PARAM_IS_URL_CACHED_WS_USER_NAME);
+	    .getParam(PluginManager.PARAM_IS_URL_CACHED_WS_USER_NAME);
 	String password = CurrentConfig
-	    .getParam(OpenUrlResolver.PARAM_IS_URL_CACHED_WS_PASSWORD);
+	    .getParam(PluginManager.PARAM_IS_URL_CACHED_WS_PASSWORD);
 	return new PasswordAuthentication(userName, password.toCharArray());
       }
     });

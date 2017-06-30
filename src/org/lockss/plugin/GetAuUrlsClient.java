@@ -51,7 +51,7 @@ import org.lockss.ws.status.DaemonStatusService;
 
 /**
  * A client for the DaemonStatusService.getAuUrls() web service operation or for
- * the equivalent Index REST web service.
+ * the equivalent Repository REST web service.
  */
 public class GetAuUrlsClient {
   private static Logger log = Logger.getLogger(GetAuUrlsClient.class);
@@ -73,8 +73,8 @@ public class GetAuUrlsClient {
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
 
     // Get the configured REST service location.
-    String restServiceLocation =
-	CurrentConfig.getParam(PluginManager.PARAM_REST_SERVICE_LOCATION);
+    String restServiceLocation = CurrentConfig.getParam(PluginManager
+	.PARAM_URL_LIST_REST_SERVICE_LOCATION);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "restServiceLocation = "
 	+ restServiceLocation);
 
@@ -108,7 +108,8 @@ public class GetAuUrlsClient {
 	// Build the REST service URL.
 	String restServiceUrl =
 	    restServiceLocation.replace("{auid}", encodedAuId);
-	log.info(DEBUG_HEADER + "Making request to '" + restServiceUrl + "'");
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	    + "Making request to '" + restServiceUrl + "'");
 
 	// Make the request to the REST service and get its response.
 	ArtifactPage result = new ResteasyClientBuilder()

@@ -134,34 +134,6 @@ public class OpenUrlResolver {
    */
   public static final int DEFAULT_MAX_PUBLISHERS_PER_ARTICLE = 10;
 
-  /**
-   * If true, use a web service, instead of the repository, to get the cached
-   * URLs.
-   */
-  public static final String PARAM_URL_CACHE_FROM_WS =
-      PREFIX + "urlCacheFromWs";
-  public static final boolean DEFAULT_URL_CACHE_FROM_WS = false;
-
-  /**
-   * The parameters of the web service used, instead of the repository, to
-   * obtain an indication of whether a URL is cached, if so configured.
-   */
-  public static final String IS_URL_CACHED_WS_PREFIX = PARAM_URL_CACHE_FROM_WS
-      + ".isUrlCachedWs.";
-  public static final String PARAM_IS_URL_CACHED_WS_USER_NAME =
-      IS_URL_CACHED_WS_PREFIX + "userName";
-  public static final String PARAM_IS_URL_CACHED_WS_PASSWORD =
-      IS_URL_CACHED_WS_PREFIX + "password";
-  public static final String PARAM_IS_URL_CACHED_WS_ADDRESS_LOCATION =
-      IS_URL_CACHED_WS_PREFIX + "addressLocation";
-  public static final String PARAM_IS_URL_CACHED_WS_TARGET_NAMESPACE =
-      IS_URL_CACHED_WS_PREFIX + "targetNameSpace";
-  public static final String PARAM_IS_URL_CACHED_WS_SERVICE_NAME =
-      IS_URL_CACHED_WS_PREFIX + "serviceName";
-  public static final String PARAM_IS_URL_CACHED_WS_TIMEOUT_VALUE =
-      IS_URL_CACHED_WS_PREFIX + "timeoutValue";
-  public static final int DEFAULT_IS_URL_CACHED_WS_TIMEOUT_VALUE = 600;
-  
   private static final class FeatureEntry {
     final String auFeatureKey;
     final OpenUrlInfo.ResolvedTo resolvedTo;
@@ -546,7 +518,8 @@ public class OpenUrlResolver {
       // handle rft_id that is an HTTP or HTTPS URL
       if (UrlUtil.isHttpOrHttpsUrl(rft_id)) {
         boolean isUrlCachedFromWs = ConfigManager.getCurrentConfig()
-            .getBoolean(PARAM_URL_CACHE_FROM_WS, DEFAULT_URL_CACHE_FROM_WS);
+            .getBoolean(PluginManager.PARAM_URL_CACHE_FROM_WS,
+        	PluginManager.DEFAULT_URL_CACHE_FROM_WS);
         if (log.isDebug3())
           log.debug3(DEBUG_HEADER + "isUrlCachedFromWs = " + isUrlCachedFromWs);
 
@@ -1340,7 +1313,8 @@ public class OpenUrlResolver {
         if (log.isDebug3()) log.debug3(DEBUG_HEADER + "url = " + url);
 
         boolean isUrlCachedFromWs = ConfigManager.getCurrentConfig()
-            .getBoolean(PARAM_URL_CACHE_FROM_WS, DEFAULT_URL_CACHE_FROM_WS);
+            .getBoolean(PluginManager.PARAM_URL_CACHE_FROM_WS,
+        	PluginManager.DEFAULT_URL_CACHE_FROM_WS);
         if (log.isDebug3())
           log.debug3(DEBUG_HEADER + "isUrlCachedFromWs = " + isUrlCachedFromWs);
 
