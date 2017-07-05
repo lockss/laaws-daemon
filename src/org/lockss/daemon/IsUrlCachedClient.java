@@ -61,7 +61,7 @@ public class IsUrlCachedClient {
 
     // Get the configured REST service location.
     String restServiceLocation = CurrentConfig.getParam(
-	PluginManager.PARAM_URL_CACHED_REST_SERVICE_LOCATION);
+	PluginManager.PARAM_URL_ARTIFACT_REST_SERVICE_LOCATION);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "restServiceLocation = "
 	+ restServiceLocation);
 
@@ -92,17 +92,17 @@ public class IsUrlCachedClient {
     final String DEBUG_HEADER = "getProxy(): ";
     authenticate();
     String addressLocation = CurrentConfig.getParam(
-	PluginManager.PARAM_IS_URL_CACHED_WS_ADDRESS_LOCATION);
+	PluginManager.PARAM_URL_ARTIFACT_WS_ADDRESS_LOCATION);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "addressLocation = " + addressLocation);
 
     String targetNamespace = CurrentConfig.getParam(
-	PluginManager.PARAM_IS_URL_CACHED_WS_TARGET_NAMESPACE);
+	PluginManager.PARAM_URL_ARTIFACT_WS_TARGET_NAMESPACE);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "targetNamespace = " + targetNamespace);
 
     String serviceName = CurrentConfig.getParam(
-	PluginManager.PARAM_IS_URL_CACHED_WS_SERVICE_NAME);
+	PluginManager.PARAM_URL_ARTIFACT_WS_SERVICE_NAME);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "serviceName = " + serviceName);
 
@@ -113,8 +113,8 @@ public class IsUrlCachedClient {
 
     // Set the client connection timeout.
     int timeoutValue = CurrentConfig.getIntParam(
-	PluginManager.PARAM_IS_URL_CACHED_WS_TIMEOUT_VALUE,
-	PluginManager.DEFAULT_IS_URL_CACHED_WS_TIMEOUT_VALUE);
+	PluginManager.PARAM_URL_ARTIFACT_WS_TIMEOUT_VALUE,
+	PluginManager.DEFAULT_URL_ARTIFACT_WS_TIMEOUT_VALUE);
     ((javax.xml.ws.BindingProvider) port).getRequestContext().put(TIMEOUT_KEY,
 	new Integer(timeoutValue*1000));
 
@@ -130,9 +130,9 @@ public class IsUrlCachedClient {
       @Override
       protected PasswordAuthentication getPasswordAuthentication() {
 	String userName = CurrentConfig
-	    .getParam(PluginManager.PARAM_IS_URL_CACHED_WS_USER_NAME);
+	    .getParam(PluginManager.PARAM_URL_ARTIFACT_WS_USER_NAME);
 	String password = CurrentConfig
-	    .getParam(PluginManager.PARAM_IS_URL_CACHED_WS_PASSWORD);
+	    .getParam(PluginManager.PARAM_URL_ARTIFACT_WS_PASSWORD);
 	return new PasswordAuthentication(userName, password.toCharArray());
       }
     });

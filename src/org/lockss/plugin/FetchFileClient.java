@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2016-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,18 +27,31 @@
  */
 package org.lockss.plugin;
 
+import java.io.InputStream;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
+import java.util.List;
+import java.util.Properties;
+import javax.activation.DataHandler;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
+import org.apache.cxf.jaxrs.ext.multipart.InputStreamDataSource;
 import org.lockss.config.CurrentConfig;
+import org.lockss.daemon.GetUrlRepositoryPropertiesClient;
+import org.lockss.laaws.rs.model.Artifact;
+import org.lockss.util.HeaderUtil;
 import org.lockss.util.Logger;
 import org.lockss.ws.content.ContentService;
 import org.lockss.ws.entities.ContentResult;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.util.MultiValueMap;
 
 /**
- * A client for the ContentService.fetchFile() web service operation.
+ * A client for the ContentService.fetchFile() web service operation or for the
+ * equivalent Repository REST web service.
  */
 public class FetchFileClient {
   private static Logger log = Logger.getLogger(FetchFileClient.class);
@@ -64,7 +77,98 @@ public class FetchFileClient {
       log.debug2(DEBUG_HEADER + "auId = " + auId);
     }
 
-    return getProxy().fetchFile(url, auId);
+    // Get the configured REST service location.
+    String restServiceLocation = CurrentConfig.getParam(
+	PluginManager.PARAM_URL_ARTIFACT_REST_SERVICE_LOCATION);
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "restServiceLocation = "
+	+ restServiceLocation);
+
+    // Check whether a REST service location has been configured.
+    if (restServiceLocation != null
+	&& restServiceLocation.trim().length() > 0) {
+      // Yes: Get the URL artifacts from the REST service.
+      List<Artifact> artifacts = new GetUrlRepositoryPropertiesClient()
+	  .getUrlRepositoryProperties(url).getItems();
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "artifacts = " + artifacts);
+
+      if (artifacts == null || artifacts.size() < 1) {
+	throw new Exception("No artifacts found for URL '" + url + "'");
+      }
+
+      // Get the artifact identifier.
+      String artifactId = null;
+
+      // Loop through all the received artifacts.
+      for (Artifact artifact : artifacts) {
+	// Check whether the Archival Unit identifier matches.
+	if (auId.equals(artifact.getAuid())) {
+	  // Yes: Get its artifact identifier.
+	  artifactId = artifact.getId();
+	  break;
+	}
+      }
+
+      // Handle error conditions.
+      if (artifactId == null || artifactId.trim().length() < 1) {
+	throw new Exception("No artifacts found for URL '" + url + "' and AU '"
+	    + auId + "'");
+      }
+
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "artifactId = " + artifactId);
+
+      // Get the content of the artifact from the repository.
+      MultiValueMap<String, Object> artifactContent =
+	  new GetArtifactContentClient().getArtifactContent(artifactId);
+
+      // Handle error conditions.
+      if (artifactContent == null || artifactContent.isEmpty()) {
+	throw new Exception("No artifact content found for URL '" + url
+	    + "' and AU '" + auId + "'");
+      }
+
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "artifactContent = " + artifactContent);
+
+      // Get the content part.
+      HttpEntity<ByteArrayResource> content =
+	  (HttpEntity<ByteArrayResource>)artifactContent.getFirst("content");
+
+      if (content == null) {
+	throw new Exception("No content part found for URL '" + url
+	    + "' and AU '" + auId + "'");
+      }
+
+      // Get the headers of the content part.
+      HttpHeaders headers = content.getHeaders();
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "headers = " + headers);
+
+      // Get an input stream to the body of the content part.
+      InputStream is = content.getBody().getInputStream();
+
+      // Get the content type of the body.
+      String contentType = headers.getContentType().getType();
+      if (log.isDebug3())
+	log.debug3(DEBUG_HEADER + "contentType = " + contentType);
+
+      String mimeType = HeaderUtil.getMimeTypeFromContentType(contentType);
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "mimeType = " + mimeType);
+
+      // Populate the response.
+      ContentResult result = new ContentResult();
+
+      // TODO: Fill the right properties, which are the equivalent of
+      // CachedUrl.getProperties().
+      result.setProperties(new Properties());
+      result.setDataHandler(new DataHandler(
+	  new InputStreamDataSource(is, mimeType, url)));
+
+      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+      return result;
+    } else {
+      // No: Get the content from the non-REST service.
+      return getProxy().fetchFile(url, auId);
+    }
   }
 
   /**

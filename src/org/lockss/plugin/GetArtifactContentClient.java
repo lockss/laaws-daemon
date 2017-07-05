@@ -25,7 +25,7 @@
  in this Software without prior written authorization from Stanford University.
 
  */
-package org.lockss.daemon;
+package org.lockss.plugin;
 
 import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 import java.net.URLEncoder;
@@ -34,72 +34,64 @@ import javax.ws.rs.core.MediaType;
 import org.jboss.resteasy.client.jaxrs.BasicAuthentication;
 import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import org.lockss.config.CurrentConfig;
-import org.lockss.laaws.rs.model.ArtifactPage;
-import org.lockss.plugin.PluginManager;
 import org.lockss.util.Logger;
+import org.springframework.util.MultiValueMap;
 
 /**
  * A client for the Repository REST Service
- * GET /repos/{repository}/artifacts?uri={uri} operation.
+ * GET /repos/{repository}/artifacts/{artifactid} operation.
  */
-public class GetUrlRepositoryPropertiesClient {
-  private static Logger log =
-      Logger.getLogger(GetUrlRepositoryPropertiesClient.class);
+public class GetArtifactContentClient {
+  private static Logger log = Logger.getLogger(GetArtifactContentClient.class);
 
-  /**
-   * Provides the repository artifact properties for a URL.
-   * 
-   * @param url
-   *          A String with the URL.
-   * @return an ArtifactPage with the URL repository artifact metadata.
-   * @throws Exception
-   *           if there are problems getting the indication.
-   */
-  public ArtifactPage getUrlRepositoryProperties(String url) throws Exception {
-    final String DEBUG_HEADER = "getUrlRepositoryProperties(): ";
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "url = " + url);
+  public MultiValueMap<String, Object> getArtifactContent(String artifactId)
+      throws Exception {
+    final String DEBUG_HEADER = "getArtifactContent(): ";
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "artifactId = " + artifactId);
 
     // Get the configured REST service location.
     String restServiceLocation = CurrentConfig.getParam(
-	PluginManager.PARAM_URL_ARTIFACT_REST_SERVICE_LOCATION);
+	PluginManager.PARAM_URL_CONTENT_REST_SERVICE_LOCATION);
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "restServiceLocation = "
 	+ restServiceLocation);
 
     // Get the indication of whether the URL is cached from the REST service.
     int timeoutValue = CurrentConfig.getIntParam(
-	PluginManager.PARAM_URL_ARTIFACT_WS_TIMEOUT_VALUE,
-	PluginManager.DEFAULT_URL_ARTIFACT_WS_TIMEOUT_VALUE);
+	PluginManager.PARAM_URL_CONTENT_WS_TIMEOUT_VALUE,
+	PluginManager.DEFAULT_URL_CONTENT_WS_TIMEOUT_VALUE);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "timeoutValue = " + timeoutValue);
 
     // Get the authentication credentials.
     String userName =
-	CurrentConfig.getParam(PluginManager.PARAM_URL_ARTIFACT_WS_USER_NAME);
+	CurrentConfig.getParam(PluginManager.PARAM_URL_CONTENT_WS_USER_NAME);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "userName = '" + userName + "'");
     String password =
-	CurrentConfig.getParam(PluginManager.PARAM_URL_ARTIFACT_WS_PASSWORD);
+	CurrentConfig.getParam(PluginManager.PARAM_URL_CONTENT_WS_PASSWORD);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "password = '" + password + "'");
 
-    String encodedUrl = URLEncoder.encode(url, "UTF-8");
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "encodedUrl = '" + encodedUrl + "'");
+    String encodedArtifactId = URLEncoder.encode(artifactId, "UTF-8");
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER
+	+ "encodedArtifactId = '" + encodedArtifactId + "'");
 
     // Build the REST service URL.
-    String restServiceUrl = restServiceLocation.replace("{uri}", encodedUrl);
+    String restServiceUrl =
+	restServiceLocation.replace("{artifactid}", encodedArtifactId);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "Making request to '" + restServiceUrl + "'");
 
     // Make the request to the REST service and get its response.
-    ArtifactPage result = new ResteasyClientBuilder()
+    MultiValueMap<String, Object> result = new ResteasyClientBuilder()
 	.register(JacksonJsonProvider.class)
 	.establishConnectionTimeout(timeoutValue, TimeUnit.SECONDS)
 	.socketTimeout(timeoutValue, TimeUnit.SECONDS).build()
 	.target(restServiceUrl)
 	.register(new BasicAuthentication(userName, password))
-	.request().header("Content-Type", MediaType.APPLICATION_JSON_TYPE)
-	.get(ArtifactPage.class);
+	.request().header("Content-Type", MediaType.MULTIPART_FORM_DATA)
+	.header("Accept", MediaType.MULTIPART_FORM_DATA)
+	.get(MultiValueMap.class);
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
     return result;
   }

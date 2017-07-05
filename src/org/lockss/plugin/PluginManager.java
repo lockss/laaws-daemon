@@ -283,6 +283,12 @@ public class PluginManager
   public static final int DEFAULT_URL_LIST_WS_TIMEOUT_VALUE = 600;
 
   /**
+   * The Repository REST web service location.
+   */
+  public static final String PARAM_URL_LIST_REST_SERVICE_LOCATION =
+      URL_LIST_WS_PREFIX + "restServiceLocation";
+
+  /**
    * The parameters of the web service used, instead of the repository, to
    * obtain the content of a URL for an archival unit, if so configured.
    */
@@ -305,42 +311,34 @@ public class PluginManager
   /**
    * The Repository REST web service location.
    */
-  public static final String PARAM_URL_LIST_REST_SERVICE_LOCATION =
-      URL_LIST_WS_PREFIX + "restServiceLocation";
-
-  /**
-   * If true, use a web service, instead of the repository, to get the cached
-   * URLs.
-   */
-  public static final String PARAM_URL_CACHE_FROM_WS =
-      PREFIX + "urlCacheFromWs";
-  public static final boolean DEFAULT_URL_CACHE_FROM_WS = false;
+  public static final String PARAM_URL_CONTENT_REST_SERVICE_LOCATION =
+      URL_CONTENT_WS_PREFIX + "restServiceLocation";
 
   /**
    * The parameters of the web service used, instead of the repository, to
-   * obtain an indication of whether a URL is cached, if so configured.
+   * obtain the artifact of a URL, if so configured.
    */
-  public static final String IS_URL_CACHED_WS_PREFIX = PARAM_URL_CACHE_FROM_WS
-      + ".isUrlCachedWs.";
-  public static final String PARAM_IS_URL_CACHED_WS_USER_NAME =
-      IS_URL_CACHED_WS_PREFIX + "userName";
-  public static final String PARAM_IS_URL_CACHED_WS_PASSWORD =
-      IS_URL_CACHED_WS_PREFIX + "password";
-  public static final String PARAM_IS_URL_CACHED_WS_ADDRESS_LOCATION =
-      IS_URL_CACHED_WS_PREFIX + "addressLocation";
-  public static final String PARAM_IS_URL_CACHED_WS_TARGET_NAMESPACE =
-      IS_URL_CACHED_WS_PREFIX + "targetNameSpace";
-  public static final String PARAM_IS_URL_CACHED_WS_SERVICE_NAME =
-      IS_URL_CACHED_WS_PREFIX + "serviceName";
-  public static final String PARAM_IS_URL_CACHED_WS_TIMEOUT_VALUE =
-      IS_URL_CACHED_WS_PREFIX + "timeoutValue";
-  public static final int DEFAULT_IS_URL_CACHED_WS_TIMEOUT_VALUE = 600;
+  public static final String URL_ARTIFACT_WS_PREFIX = PARAM_AU_CONTENT_FROM_WS
+      + ".urlArtifactWs.";
+  public static final String PARAM_URL_ARTIFACT_WS_USER_NAME =
+      URL_ARTIFACT_WS_PREFIX + "userName";
+  public static final String PARAM_URL_ARTIFACT_WS_PASSWORD =
+      URL_ARTIFACT_WS_PREFIX + "password";
+  public static final String PARAM_URL_ARTIFACT_WS_ADDRESS_LOCATION =
+      URL_ARTIFACT_WS_PREFIX + "addressLocation";
+  public static final String PARAM_URL_ARTIFACT_WS_TARGET_NAMESPACE =
+      URL_ARTIFACT_WS_PREFIX + "targetNameSpace";
+  public static final String PARAM_URL_ARTIFACT_WS_SERVICE_NAME =
+      URL_ARTIFACT_WS_PREFIX + "serviceName";
+  public static final String PARAM_URL_ARTIFACT_WS_TIMEOUT_VALUE =
+      URL_ARTIFACT_WS_PREFIX + "timeoutValue";
+  public static final int DEFAULT_URL_ARTIFACT_WS_TIMEOUT_VALUE = 600;
 
   /**
-   * The Index REST web service location.
+   * The Repository REST web service location.
    */
-  public static final String PARAM_URL_CACHED_REST_SERVICE_LOCATION =
-      IS_URL_CACHED_WS_PREFIX + "restServiceLocation";
+  public static final String PARAM_URL_ARTIFACT_REST_SERVICE_LOCATION =
+      URL_ARTIFACT_WS_PREFIX + "restServiceLocation";
 
   public static final List NON_USER_SETTABLE_AU_PARAMS =
     Collections.unmodifiableList(new ArrayList());

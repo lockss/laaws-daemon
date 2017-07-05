@@ -518,8 +518,8 @@ public class OpenUrlResolver {
       // handle rft_id that is an HTTP or HTTPS URL
       if (UrlUtil.isHttpOrHttpsUrl(rft_id)) {
         boolean isUrlCachedFromWs = ConfigManager.getCurrentConfig()
-            .getBoolean(PluginManager.PARAM_URL_CACHE_FROM_WS,
-        	PluginManager.DEFAULT_URL_CACHE_FROM_WS);
+            .getBoolean(PluginManager.PARAM_AU_CONTENT_FROM_WS,
+        	PluginManager.DEFAULT_AU_CONTENT_FROM_WS);
         if (log.isDebug3())
           log.debug3(DEBUG_HEADER + "isUrlCachedFromWs = " + isUrlCachedFromWs);
 
@@ -1313,8 +1313,8 @@ public class OpenUrlResolver {
         if (log.isDebug3()) log.debug3(DEBUG_HEADER + "url = " + url);
 
         boolean isUrlCachedFromWs = ConfigManager.getCurrentConfig()
-            .getBoolean(PluginManager.PARAM_URL_CACHE_FROM_WS,
-        	PluginManager.DEFAULT_URL_CACHE_FROM_WS);
+            .getBoolean(PluginManager.PARAM_AU_CONTENT_FROM_WS,
+        	PluginManager.DEFAULT_AU_CONTENT_FROM_WS);
         if (log.isDebug3())
           log.debug3(DEBUG_HEADER + "isUrlCachedFromWs = " + isUrlCachedFromWs);
 
