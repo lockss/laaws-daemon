@@ -27,27 +27,18 @@
  */
 package org.lockss.plugin;
 
-import java.io.InputStream;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
 import java.util.List;
-import java.util.Properties;
-import javax.activation.DataHandler;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
-import org.apache.cxf.jaxrs.ext.multipart.InputStreamDataSource;
 import org.lockss.config.CurrentConfig;
 import org.lockss.daemon.GetUrlRepositoryPropertiesClient;
 import org.lockss.laaws.rs.model.Artifact;
-import org.lockss.util.HeaderUtil;
 import org.lockss.util.Logger;
 import org.lockss.ws.content.ContentService;
 import org.lockss.ws.entities.ContentResult;
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.util.MultiValueMap;
 
 /**
  * A client for the ContentService.fetchFile() web service operation or for the
@@ -76,6 +67,8 @@ public class FetchFileClient {
       log.debug2(DEBUG_HEADER + "url = " + url);
       log.debug2(DEBUG_HEADER + "auId = " + auId);
     }
+
+    ContentResult result = null;
 
     // Get the configured REST service location.
     String restServiceLocation = CurrentConfig.getParam(
@@ -118,58 +111,16 @@ public class FetchFileClient {
 	log.debug3(DEBUG_HEADER + "artifactId = " + artifactId);
 
       // Get the content of the artifact from the repository.
-      MultiValueMap<String, Object> artifactContent =
-	  new GetArtifactContentClient().getArtifactContent(artifactId);
-
-      // Handle error conditions.
-      if (artifactContent == null || artifactContent.isEmpty()) {
-	throw new Exception("No artifact content found for URL '" + url
-	    + "' and AU '" + auId + "'");
-      }
-
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "artifactContent = " + artifactContent);
-
-      // Get the content part.
-      HttpEntity<ByteArrayResource> content =
-	  (HttpEntity<ByteArrayResource>)artifactContent.getFirst("content");
-
-      if (content == null) {
-	throw new Exception("No content part found for URL '" + url
-	    + "' and AU '" + auId + "'");
-      }
-
-      // Get the headers of the content part.
-      HttpHeaders headers = content.getHeaders();
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "headers = " + headers);
-
-      // Get an input stream to the body of the content part.
-      InputStream is = content.getBody().getInputStream();
-
-      // Get the content type of the body.
-      String contentType = headers.getContentType().getType();
-      if (log.isDebug3())
-	log.debug3(DEBUG_HEADER + "contentType = " + contentType);
-
-      String mimeType = HeaderUtil.getMimeTypeFromContentType(contentType);
-      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "mimeType = " + mimeType);
-
-      // Populate the response.
-      ContentResult result = new ContentResult();
-
-      // TODO: Fill the right properties, which are the equivalent of
-      // CachedUrl.getProperties().
-      result.setProperties(new Properties());
-      result.setDataHandler(new DataHandler(
-	  new InputStreamDataSource(is, mimeType, url)));
-
-      if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
-      return result;
+      result =
+	  new GetArtifactContentClient().getArtifactContent(artifactId, url);
     } else {
       // No: Get the content from the non-REST service.
-      return getProxy().fetchFile(url, auId);
+      result = getProxy().fetchFile(url, auId);
     }
-  }
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+    return result;
+}
 
   /**
    * Provides a proxy to the web service.

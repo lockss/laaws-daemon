@@ -28,14 +28,23 @@
 package org.lockss.plugin;
 
 import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
+import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import javax.activation.DataHandler;
+import javax.activation.DataSource;
 import javax.ws.rs.core.MediaType;
 import org.jboss.resteasy.client.jaxrs.BasicAuthentication;
 import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import org.lockss.config.CurrentConfig;
 import org.lockss.util.Logger;
-import org.springframework.util.MultiValueMap;
+import org.lockss.ws.entities.ContentResult;
 
 /**
  * A client for the Repository REST Service
@@ -44,7 +53,7 @@ import org.springframework.util.MultiValueMap;
 public class GetArtifactContentClient {
   private static Logger log = Logger.getLogger(GetArtifactContentClient.class);
 
-  public MultiValueMap<String, Object> getArtifactContent(String artifactId)
+  public ContentResult getArtifactContent(String artifactId, String url)
       throws Exception {
     final String DEBUG_HEADER = "getArtifactContent(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "artifactId = " + artifactId);
@@ -83,7 +92,7 @@ public class GetArtifactContentClient {
       log.debug3(DEBUG_HEADER + "Making request to '" + restServiceUrl + "'");
 
     // Make the request to the REST service and get its response.
-    MultiValueMap<String, Object> result = new ResteasyClientBuilder()
+    String result = new ResteasyClientBuilder()
 	.register(JacksonJsonProvider.class)
 	.establishConnectionTimeout(timeoutValue, TimeUnit.SECONDS)
 	.socketTimeout(timeoutValue, TimeUnit.SECONDS).build()
@@ -91,8 +100,105 @@ public class GetArtifactContentClient {
 	.register(new BasicAuthentication(userName, password))
 	.request().header("Content-Type", MediaType.MULTIPART_FORM_DATA)
 	.header("Accept", MediaType.MULTIPART_FORM_DATA)
-	.get(MultiValueMap.class);
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
-    return result;
+	.get(String.class);
+    //if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+
+    InputStream inputStream =
+	new ByteArrayInputStream(result.getBytes(StandardCharsets.UTF_8));
+
+    int newLineCount = 0;
+    StringBuilder sb = new StringBuilder();
+    String contentType = null;
+    String contentLength = null;
+
+    while (newLineCount < 5) {
+      int code = inputStream.read();
+
+      if (code == 13) {
+	newLineCount++;
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "Found " + newLineCount + " newline.");
+
+	String line = sb.toString();
+	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "line = " + line);
+
+	if (newLineCount == 3) {
+	  contentType = line.substring("Content-Type: ".length());
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "contentType = " + contentType);
+	} else if (newLineCount == 4) {
+	  contentLength = line.substring("Content-Length: ".length());
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "contentLength = " + contentLength);
+	}
+
+	sb = new StringBuilder();
+      } else {
+	sb.append((char)code);
+      }
+    }
+
+    // Populate the response.
+    ContentResult cr = new ContentResult();
+
+    // TODO: Fill the right properties, which are the equivalent of
+    // CachedUrl.getProperties().
+    Properties properties = new Properties();
+    properties.setProperty("x-lockss-node-url", url);
+
+    Date now = new Date();
+    
+    properties.setProperty("x_lockss-server-date",
+	String.valueOf(now.getTime()));
+    properties.setProperty("date", now.toString());
+    properties.setProperty("pragma", "no-cache");
+    properties.setProperty("cache-control", "no-cache");
+    properties.setProperty("org.lockss.version.number", "1");
+    // The content type from the Repository REST service is always
+    // application/octet-stream, which some metadata extractors cannot handle.
+//  properties.setProperty("content-type", contentType);
+//  properties.setProperty("x-lockss-content-type", contentType);
+    properties.setProperty("content-type", "text/plain; charset=UTF-8");
+    properties.setProperty("x-lockss-content-type", "text/plain; charset=UTF-8");
+    properties.setProperty("content-length", contentLength);
+
+    cr.setProperties(properties);
+    cr.setDataHandler(new DataHandler(new InputStreamDataSource(inputStream)));
+
+    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "cr = " + cr);
+    return cr;
+  }
+
+  public class InputStreamDataSource implements DataSource {
+
+    private InputStream is;
+
+    public InputStreamDataSource(InputStream is) {
+      this.is = is;
+    }
+
+    @Override
+    public String getContentType() {
+      // TODO Auto-generated method stub
+      return null;
+    }
+
+    @Override
+    public InputStream getInputStream() throws IOException {
+      // TODO Auto-generated method stub
+      return is;
+    }
+
+    @Override
+    public String getName() {
+      // TODO Auto-generated method stub
+      return null;
+    }
+
+    @Override
+    public OutputStream getOutputStream() throws IOException {
+      // TODO Auto-generated method stub
+      return null;
+    }
   }
 }
