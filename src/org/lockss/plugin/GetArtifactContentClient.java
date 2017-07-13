@@ -156,10 +156,10 @@ public class GetArtifactContentClient {
     properties.setProperty("org.lockss.version.number", "1");
     // The content type from the Repository REST service is always
     // application/octet-stream, which some metadata extractors cannot handle.
-//  properties.setProperty("content-type", contentType);
-//  properties.setProperty("x-lockss-content-type", contentType);
-    properties.setProperty("content-type", "text/plain; charset=UTF-8");
-    properties.setProperty("x-lockss-content-type", "text/plain; charset=UTF-8");
+    properties.setProperty("content-type", contentType);
+    properties.setProperty("x-lockss-content-type", contentType);
+//    properties.setProperty("content-type", "text/plain; charset=UTF-8");
+//    properties.setProperty("x-lockss-content-type", "text/plain; charset=UTF-8");
     properties.setProperty("content-length", contentLength);
 
     cr.setProperties(properties);
