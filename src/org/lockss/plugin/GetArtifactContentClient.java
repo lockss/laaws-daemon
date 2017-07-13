@@ -32,6 +32,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.StringReader;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
@@ -43,7 +44,9 @@ import javax.ws.rs.core.MediaType;
 import org.jboss.resteasy.client.jaxrs.BasicAuthentication;
 import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import org.lockss.config.CurrentConfig;
+import org.lockss.util.LineEndingBufferedReader;
 import org.lockss.util.Logger;
+import org.lockss.util.ReaderInputStream;
 import org.lockss.ws.entities.ContentResult;
 
 /**
@@ -103,40 +106,78 @@ public class GetArtifactContentClient {
 	.get(String.class);
     //if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
 
-    InputStream inputStream =
-	new ByteArrayInputStream(result.getBytes(StandardCharsets.UTF_8));
+    LineEndingBufferedReader lebr =
+	new LineEndingBufferedReader(new StringReader(result));
 
-    int newLineCount = 0;
-    StringBuilder sb = new StringBuilder();
     String contentType = null;
     String contentLength = null;
 
-    while (newLineCount < 5) {
-      int code = inputStream.read();
+    int ctCount = 0;
+    int emptyCount = 0;
+    String line = null;
 
-      if (code == 13) {
-	newLineCount++;
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "Found " + newLineCount + " newline.");
+    while ((line = lebr.readLine()) != null) {
+      if (log.isDebug3()) log.debug3(DEBUG_HEADER + "line = " + line);
 
-	String line = sb.toString();
-	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "line = " + line);
-
-	if (newLineCount == 3) {
+      if (line.startsWith("Content-Type: ")) {
+	if (ctCount > 0) {
 	  contentType = line.substring("Content-Type: ".length());
 	  if (log.isDebug3())
 	    log.debug3(DEBUG_HEADER + "contentType = " + contentType);
-	} else if (newLineCount == 4) {
-	  contentLength = line.substring("Content-Length: ".length());
+	} else {
+	  ctCount++;
 	  if (log.isDebug3())
-	    log.debug3(DEBUG_HEADER + "contentLength = " + contentLength);
+	    log.debug3(DEBUG_HEADER + "ctCount = " + ctCount);
 	}
-
-	sb = new StringBuilder();
-      } else {
-	sb.append((char)code);
+      } else if ("\r\n".equals(line)) {
+	if (emptyCount > 0) {
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "Done with the header lines.");
+	  break;
+	} else {
+	  emptyCount++;
+	  if (log.isDebug3())
+	    log.debug3(DEBUG_HEADER + "emptyCount = " + emptyCount);
+	}
+      } else if (line.startsWith("Content-Length: ")) {
+	contentLength = line.substring("Content-Length: ".length());
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "contentLength = " + contentLength);
       }
     }
+
+    InputStream inputStream = new ReaderInputStream(lebr);
+//	new ByteArrayInputStream(result.getBytes(StandardCharsets.UTF_8));
+
+//    int newLineCount = 0;
+//    StringBuilder sb = new StringBuilder();
+//
+//    while (newLineCount < 5) {
+//      int code = inputStream.read();
+//
+//      if (code == 13) {
+//	newLineCount++;
+//	if (log.isDebug3())
+//	  log.debug3(DEBUG_HEADER + "Found " + newLineCount + " newline.");
+//	
+//	String line = sb.toString();
+//	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "line = " + line);
+//
+//	if (newLineCount == 3) {
+//	  contentType = line.substring("Content-Type: ".length());
+//	  if (log.isDebug3())
+//	    log.debug3(DEBUG_HEADER + "contentType = " + contentType);
+//	} else if (newLineCount == 4) {
+//	  contentLength = line.substring("Content-Length: ".length());
+//	  if (log.isDebug3())
+//	    log.debug3(DEBUG_HEADER + "contentLength = " + contentLength);
+//	}
+//
+//	sb = new StringBuilder();
+//      } else {
+//	sb.append((char)code);
+//      }
+//    }
 
     // Populate the response.
     ContentResult cr = new ContentResult();
