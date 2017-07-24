@@ -1,10 +1,6 @@
 /*
- * $Id$
- */
 
-/*
-
- Copyright (c) 2013-2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -265,6 +261,16 @@ public class AdminServletManager extends BaseServletManager {
    * Default value of the OIOSAML protected URL mapping configuration parameter.
    */
   public static final String DEFAULT_OIOSAML_PROTECTED_URLS = "/*";
+
+  static final String CXF_WS_PREFIX = Configuration.PREFIX + "ws.";
+
+  /**
+   * Default value of the CXF web services configuration parameter.
+   * <p />
+   * <code>false</code> to disable, <code>true</code> to enable.
+   */
+  public static final String PARAM_CXF_WS_ENABLED = CXF_WS_PREFIX + "enabled";
+  public static final boolean DEFAULT_CXF_WS_ENABLED = true;
 
   // Descriptors for all admin servlets.
 
@@ -578,8 +584,11 @@ public class AdminServletManager extends BaseServletManager {
                        "JAX-WS CXF Servlet",
 		       "ws/*",
 		       0,
-	               "JAX-WS CXF Web Services");
-
+	               "JAX-WS CXF Web Services") {
+	public boolean isEnabled(LockssDaemon daemon) {
+	  return CurrentConfig.getBooleanParam(PARAM_CXF_WS_ENABLED,
+	      DEFAULT_CXF_WS_ENABLED);
+	}};
   protected static final ServletDescr SERVLET_SUB_MANAGEMENT =
       new ServletDescr("SubscriptionManagement",
 		       SubscriptionManagement.class,
@@ -959,8 +968,11 @@ public class AdminServletManager extends BaseServletManager {
     // user authentication handler
     setContextAuthHandler(context, realm);
     
-    // Specify the Spring configuration location for the CXF web services.
-    context.setInitParameter("contextConfigLocation", "WEB-INF/beans.xml");
+    if (CurrentConfig.getBooleanParam(PARAM_CXF_WS_ENABLED,
+	DEFAULT_CXF_WS_ENABLED)) {
+      // Specify the Spring configuration location for the CXF web services.
+      context.setInitParameter("contextConfigLocation", "WEB-INF/beans.xml");
+    }
 
     // Create a servlet container.  ContextListenerWebApplicationHandler is a
     // WebApplicationHandler that allows the registration of servlet context

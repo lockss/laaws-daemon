@@ -33,6 +33,7 @@ import java.util.EventListener;
 import java.util.List;
 import javax.servlet.ServletContextEvent;
 import javax.servlet.ServletContextListener;
+import org.lockss.config.CurrentConfig;
 import org.lockss.util.Logger;
 import org.mortbay.jetty.servlet.WebApplicationHandler;
 
@@ -80,12 +81,14 @@ public class ContextListenerWebApplicationHandler extends WebApplicationHandler
       for (EventListener listener : contextListeners) {
 	if (log.isDebug2()) log.debug2("doStart: listener = " + listener);
 
-	try {
+	// Skip if CXF Web Services are disabled and this listener is related to
+	// them. 
+	if (CurrentConfig.getBooleanParam(
+	    AdminServletManager.PARAM_CXF_WS_ENABLED,
+	    AdminServletManager.DEFAULT_CXF_WS_ENABLED) ||
+	    !(listener instanceof
+		org.springframework.web.context.ContextLoaderListener)) {
 	  ((ServletContextListener)listener).contextInitialized(event);
-	} catch (Throwable t) {
-	  // TODO: This should not happen, but it does because of an
-	  // incompatibility between recent Spring and old Jetty.
-	  log.warning("Exception caught: " + t.getMessage());
 	}
       }
 
