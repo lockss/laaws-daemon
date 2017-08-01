@@ -35,6 +35,8 @@ package org.lockss.plugin.springer.link;
 import java.io.*;
 import java.net.URLEncoder;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -46,6 +48,7 @@ import org.lockss.plugin.*;
 import org.lockss.plugin.ArchivalUnit.ConfigurationException;
 import org.lockss.plugin.UrlFetcher.FetchResult;
 import org.lockss.plugin.base.SimpleUrlConsumer;
+import org.lockss.state.AuState;
 import org.lockss.util.*;
 import org.lockss.util.urlconn.CacheException;
 
@@ -200,76 +203,104 @@ public abstract class BaseSpringerLinkCrawlSeed extends BaseCrawlSeed {
    * @since 1.67.5
    */
   protected void populateUrlList() throws IOException {
-    // Initialization
-    boolean siteWarning = false; // Flag to log the potential siteWarning only once
-    urlList = new ArrayList<String>();
-    int index = 1; // API numbers records starting with 1
-    SpringerLinkPamLinkExtractor ple = new SpringerLinkPamLinkExtractor();
-    
-    // Query API until done
-    while (!ple.isDone()) {
-      log.debug2("Beginning at index " + index);
-      
-      if (facade.isAborted()) {
-        log.debug2("Crawl aborted");
-        return;
-      }
-      
-      // Make URL fetcher for this request
-      String url = makeApiUrl(index);
-      String loggerUrl = loggerUrl(url);
-      UrlFetcher uf = makeApiUrlFetcher(ple, url, loggerUrl);
-      log.debug2("Request URL: " + loggerUrl);
-      facade.getCrawlerStatus().addPendingUrl(loggerUrl);
-
-      // Make request
-      FetchResult fr = null;
-      try {
-        fr = uf.fetch();
-      }
-      catch (CacheException ce) {
-        log.debug2("Stopping due to fatal CacheException", ce);
-        Throwable cause = ce.getCause();
-        if (cause != null && IOException.class.equals(cause.getClass())) {
-          throw (IOException)cause; // Unwrap IOException
-        }
-        else {
-          throw ce;
-        }
-      }
-      if (fr == FetchResult.FETCHED) {
-        facade.getCrawlerStatus().removePendingUrl(loggerUrl);
-        facade.getCrawlerStatus().signalUrlFetched(loggerUrl);
-      }
-      else {
-        log.debug2("Stopping due to fetch result " + fr);
-        Map<String, String> errors = facade.getCrawlerStatus().getUrlsWithErrors();
-        if (errors.containsKey(url)) {
-          errors.put(loggerUrl, errors.remove(url));
-        }
-        else {
-          facade.getCrawlerStatus().signalErrorForUrl(loggerUrl, "Cannot fetch seed URL");
-        }
-        throw new CacheException("Cannot fetch seed URL");
-      }
-      
-      // Site warning for unexpected response length
-      int records = ple.getPageLength();
-      if (records != EXPECTED_RECORDS_PER_RESPONSE && !siteWarning) {
-        siteWarning = true;
-        log.siteWarning(String.format("Unexpected number of records per response in %s: expected %d, got %d",
-                                      loggerUrl,
-                                      EXPECTED_RECORDS_PER_RESPONSE,
-                                      records));
-      }
-      
-      // Next batch of records
-      index += records;
-    }
-    log.debug2(String.format("Ending with %d URLs", urlList.size()));
-    if (log.isDebug3()) {
-      log.debug3("Start URLs: " + urlList.toString());
-    }
+	AuState aus = AuUtil.getAuState(au);
+	urlList = new ArrayList<String>();
+    String storeUrl = baseUrl + "auid=" + UrlUtil.encodeUrl(au.getAuId());
+	//In order to query the metadata service less if this is a normal
+	//recrawl and we think the intial crawl was good just grab all the start 
+	//URLs from the AU
+	if(aus.hasCrawled() && au.getRefetchDepth() < 2 && !aus.hasNoSubstance()) {
+		CachedUrlSet contents = au.getAuCachedUrlSet();
+		CuIterable contentIter = contents.getCuIterable();
+		Pattern articlePattern = Pattern.compile("/article/[^/]+/[^/.]+$", Pattern.CASE_INSENSITIVE);
+		for(CachedUrl cu : contentIter) {
+			String url = cu.getUrl();
+			Matcher mat = articlePattern.matcher(url);
+			if(mat.find()) {
+				urlList.add(url);
+			}
+		}
+	} else {
+	
+	    // Initialization
+	    boolean siteWarning = false; // Flag to log the potential siteWarning only once
+	    int index = 1; // API numbers records starting with 1
+	    SpringerLinkPamLinkExtractor ple = new SpringerLinkPamLinkExtractor();
+	    
+	    // Query API until done
+	    while (!ple.isDone()) {
+	      log.debug2("Beginning at index " + index);
+	      
+	      if (facade.isAborted()) {
+	        log.debug2("Crawl aborted");
+	        return;
+	      }
+	      
+	      // Make URL fetcher for this request
+	      String url = makeApiUrl(index);
+	      String loggerUrl = loggerUrl(url);
+	      UrlFetcher uf = makeApiUrlFetcher(ple, url, loggerUrl);
+	      log.debug2("Request URL: " + loggerUrl);
+	      facade.getCrawlerStatus().addPendingUrl(loggerUrl);
+	
+	      // Make request
+	      FetchResult fr = null;
+	      try {
+	        fr = uf.fetch();
+	      }
+	      catch (CacheException ce) {
+	        if(ce.getCause() != null && ce.getCause().getMessage().contains("LOCKSS")) {
+                  log.debug("OAI result errored due to LOCKSS audit proxy. Trying alternate start Url", ce);
+                  urlList.add(storeUrl);
+                  return;
+                } else {
+      	        log.debug2("Stopping due to fatal CacheException", ce);
+      	        Throwable cause = ce.getCause();
+      	        if (cause != null && IOException.class.equals(cause.getClass())) {
+      	          throw (IOException)cause; // Unwrap IOException
+      	        }
+      	        else {
+      	          throw ce;
+      	        }
+                }
+	      }
+	      if (fr == FetchResult.FETCHED) {
+	        facade.getCrawlerStatus().removePendingUrl(loggerUrl);
+	        facade.getCrawlerStatus().signalUrlFetched(loggerUrl);
+	      }
+	      else {
+	        log.debug2("Stopping due to fetch result " + fr);
+	        Map<String, String> errors = facade.getCrawlerStatus().getUrlsWithErrors();
+	        if (errors.containsKey(url)) {
+	          errors.put(loggerUrl, errors.remove(url));
+	        }
+	        else {
+	          facade.getCrawlerStatus().signalErrorForUrl(loggerUrl, "Cannot fetch seed URL");
+	        }
+	        throw new CacheException("Cannot fetch seed URL");
+	      }
+	      
+	      // Site warning for unexpected response length
+	      int records = ple.getPageLength();
+	      if (records != EXPECTED_RECORDS_PER_RESPONSE && !siteWarning) {
+	        siteWarning = true;
+	        log.siteWarning(String.format("Unexpected number of records per response in %s: expected %d, got %d",
+	                                      loggerUrl,
+	                                      EXPECTED_RECORDS_PER_RESPONSE,
+	                                      records));
+	      }
+	      
+	      // Next batch of records
+	      index += records;
+	    }
+	}
+	Collections.sort(urlList);
+	storeStartUrls(urlList, storeUrl);
+	log.debug2(String.format("Ending with %d URLs", urlList.size()));
+	if (log.isDebug3()) {
+		log.debug3("Start URLs: " + urlList.toString());
+	    
+	}
   }
 
   /**
@@ -322,7 +353,7 @@ public abstract class BaseSpringerLinkCrawlSeed extends BaseCrawlSeed {
           @Override
           public void consume() throws IOException {
             // Apply link extractor to URL and output results into a list
-            final Set<String> partial = new LinkedHashSet<String>();
+            final Set<String> partial = new HashSet<String>();
             try {
               String au_cset = AuUtil.getCharsetOrDefault(fud.headers);
               String cset = CharsetUtil.guessCharsetFromStream(fud.input,au_cset);
@@ -362,6 +393,21 @@ public abstract class BaseSpringerLinkCrawlSeed extends BaseCrawlSeed {
       }
     });
     return uf;
+  }
+  
+  protected void storeStartUrls(Collection<String> urlList, String url) throws IOException {
+      StringBuilder sb = new StringBuilder();
+      sb.append("<html>\n");
+      for (String u : urlList) {
+              sb.append("<a href=\"" + u + "\">" + u + "</a><br/>\n");
+      }
+      sb.append("</html>");
+      CIProperties headers = new CIProperties();
+      //Should use a constant here
+      headers.setProperty("content-type", "text/html; charset=utf-8");
+      UrlData ud = new UrlData(new ByteArrayInputStream(sb.toString().getBytes(Constants.ENCODING_UTF_8)), headers, url);
+      UrlCacher cacher = facade.makeUrlCacher(ud);
+      cacher.storeContent();
   }
   
   public boolean isFailOnStartUrlError() {

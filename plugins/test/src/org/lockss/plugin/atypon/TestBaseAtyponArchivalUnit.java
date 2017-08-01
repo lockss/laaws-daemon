@@ -50,7 +50,7 @@ import org.lockss.util.*;
 //
 // This plugin test framework is set up to run the same tests in two variants - CLOCKSS and GLN
 // without having to actually duplicate any of the written tests
-//
+//a
 public class TestBaseAtyponArchivalUnit extends LockssTestCase {
   private MockLockssDaemon theDaemon;
   static final String BASE_URL_KEY = ConfigParamDescr.BASE_URL.getKey();
@@ -60,13 +60,28 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
   static final String ROOT_HOST = "www.BaseAtypon.com"; //this is not a real url
   
   // these two are currently the same, but for future possible divergence
-  static final String BASE_REPAIR_FROM_PEER_REGEXP = "(/(templates/jsp|(css|img|js)Jawr)/|/(css|img|js|wro)/.+\\.(css|gif|jpe?g|js|png)(_v[0-9]+)?$)";
-  static final String BOOK_REPAIR_FROM_PEER_REGEXP = "(/(templates/jsp|(css|img|js)Jawr)/|/(css|img|js|wro)/.+\\.(css|gif|jpe?g|js|png)(_v[0-9]+)?$)";
+  //static final String BASE_REPAIR_FROM_PEER_REGEXP = "(/(templates/jsp|(css|img|js)Jawr)/|/(css|img|js|wro)/.+\\.(css|gif|jpe?g|js|png)(_v[0-9]+)?$)";
+  //static final String BOOK_REPAIR_FROM_PEER_REGEXP = "(/(templates/jsp|(css|img|js)Jawr)/|/(css|img|js|wro)/.+\\.(css|gif|jpe?g|js|png)(_v[0-9]+)?$)";
 
+  static final String baseRepairList[] = 
+    {
+    "://[^/]+/(templates/jsp|(css|img|js)Jawr|pb-assets|resources|sda|wro)/",
+    "/(assets|css|img|js|wro)/.+\\.(css|gif|jpe?g|js|png)(_v[0-9]+)?$",
+    "://[^/]+/na[0-9]+/home/(readonly|literatum)/publisher/.*(/covergifs/.*\\.jpg|\\.fp\\.png(_v[0-9]+)?)$",
+    };
+
+  static final String bookRepairList[] = 
+    {
+    "://[^/]+/(templates/jsp|(css|img|js)Jawr|pb-assets|resources|sda|wro)/",
+    "/(assets|css|img|js|wro)/.+\\.(css|gif|jpe?g|js|png)(_v[0-9]+)?$",
+    };
+
+  
   private static final Logger log = Logger.getLogger(TestBaseAtyponArchivalUnit.class);
 
   static final String PLUGIN_ID = "org.lockss.plugin.atypon.BaseAtyponPlugin";
   static final String BOOK_PLUGIN_ID = "org.lockss.plugin.atypon.BaseAtyponBooksPlugin";
+  static final String RESTRICTED_BOOK_PLUGIN_ID = "org.lockss.plugin.atypon.BaseAtyponISBNBooksPlugin";
   static final String PluginName = "Base Atypon Plugin";
 
   public void setUp() throws Exception {
@@ -98,7 +113,7 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
     return au;
   }
   
-  private DefinableArchivalUnit makeBookAu(URL url, String book_eisbn)
+  private DefinableArchivalUnit makeBookAu(URL url, String book_eisbn, boolean restricted)
       throws Exception {
 
     Properties props = new Properties();
@@ -109,8 +124,14 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
     Configuration config = ConfigurationUtil.fromProps(props);
 
     DefinablePlugin ap = new DefinablePlugin();
-    ap.initPlugin(getMockLockssDaemon(),
-        BOOK_PLUGIN_ID);
+    // if restricted use the book plugin that limits to ISBN-based doi
+    if (restricted) {
+      ap.initPlugin(getMockLockssDaemon(),
+          RESTRICTED_BOOK_PLUGIN_ID);
+    } else {
+      ap.initPlugin(getMockLockssDaemon(),
+          BOOK_PLUGIN_ID);
+    }
     DefinableArchivalUnit au = (DefinableArchivalUnit)ap.createAu(config);
     return au;
   }  
@@ -208,6 +229,15 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
     // this one is valid 
     shouldCacheTest(ROOT_URL + "action/downloadCitation?doi=10.1111%2F123456&format=ris&include=cit", 
         true, ABAu, cus);
+    
+    // a few things we explicitly don't want
+    // mistake in T&F that caused recursing due to incorrect use of relative link
+    shouldCacheTest(ROOT_URL + "toc/iort20/85/www.tandf.co.uk/journals/pdf/rate-cards/www.tandf.co.uk/journals/pdf/rate-cards/www.tandf.co.uk/journals/pdf/rate-cards/IORT.pdf", 
+        false, ABAu, cus);
+    //ppt used in downlaod of figures - we can't hash 
+    shouldCacheTest(ROOT_URL + "action/downloadFigures?doi=10.1080%2F0376835X.2014.952896&id=F0003", 
+        false, ABAu, cus);
+
 
     // ASCE use of relative link where it should be absolute causes ever-deeper URLS because
     // the "page not found" page uses the template with the same relative link problem.
@@ -221,6 +251,115 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
 
   }
 
+  public void testShouldCacheBookPages() throws Exception {
+    URL base = new URL(ROOT_URL);
+
+    // Run this test twice - once with a generic book plugin
+    // once with a restricted (eISBN) book plugin
+    boolean restricted;
+    for (int i=0; i < 2; i++) {
+      if (i==0) {
+        restricted = false;
+        log.debug3("testing book crawl rules using a standard parent");
+      } else {
+        restricted = true;  
+        log.debug3("testing book crawl rules using a restricted to eisbn parent");
+      }
+      ArchivalUnit aBookAu = makeBookAu(base, "9781780447636", restricted);
+      theDaemon.getLockssRepository(aBookAu);
+      theDaemon.getNodeManager(aBookAu);
+      BaseCachedUrlSet cus = new BaseCachedUrlSet(aBookAu,
+          new RangeCachedUrlSetSpec(base.toString()));
+      boolean trueIfNotRestricted = !restricted;
+
+      // Test for pages that should get crawled
+      //manifest page/book landing page
+      shouldCacheTest(ROOT_URL+"lockss/eisbn/9781780447636", true, aBookAu, cus);    
+      // images (etc.) but not as query arguments
+      shouldCacheTest(ROOT_URL+"doi/book/10.3362/9781780447636", true, aBookAu, cus);
+      shouldCacheTest("http://" + ROOT_HOST + "/foo/bar/baz/qux.js", true, aBookAu, cus);
+      shouldCacheTest("https://" + ROOT_HOST + "/foo/bar/baz/qux.js", true, aBookAu, cus);
+      //abstract forms for chapters, landing, etc
+      shouldCacheTest(ROOT_URL+"doi/abs/10.3362/9781780447636", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/abs/10.3362/9781780447636.000", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/abs/10.3362/9781780447636_ch03", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/abs/10.3362/9781780447636_03", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/abs/10.3362/9781780447636-05", true, aBookAu, cus);
+      
+      // pdf forms for landing, chapters, etc
+      shouldCacheTest(ROOT_URL+"doi/pdf/10.3362/9781780447636", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/pdf/10.3362/9781780447636.000", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/pdfplus/10.3362/9781780447636_ch03", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/pdfplus/10.3362/9781780447636_03", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/pdf/10.3362/9781780447636-05", true, aBookAu, cus);
+
+      shouldCacheTest(ROOT_URL+"doi/ref/10.3362/9781780447636", true, aBookAu, cus);
+
+      // check restrictions...
+      shouldCacheTest(ROOT_URL+"doi/abs/10.3362/9781780551234", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/book/10.3362/9781780551234", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/abs/10.3362/9781780551234_03", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/pdf/10.3362/9781780551234-05", trueIfNotRestricted, aBookAu, cus);
+      
+      // check allowable variants even with restricted plugin
+      // the eisbn portion of the DOI can have a prefix and/or a suffix but the eisbn
+      // must be in the second part of the doi...
+      //endocrine
+      shouldCacheTest(ROOT_URL+"doi/book/10.3362/TEAM.9781780447636", true, aBookAu, cus);
+      //siam-seg
+      shouldCacheTest(ROOT_URL+"doi/book/10.3362/1.9781780447636", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/abs/10.3362/1.9781780447636.ch4", true, aBookAu, cus);
+      
+      
+      // these are real urls from publishers - a book landing and a "chapter" if they 
+      // support that. Keep these in to keep supporting the variations
+      //aiaa
+      shouldCacheTest(ROOT_URL+"doi/book/10.2514/4.476556", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/book/10.2514/4.476556", trueIfNotRestricted, aBookAu, cus);
+      //emerald
+      shouldCacheTest(ROOT_URL+"doi/book/10.1108/9780080549910", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/full/10.1108/9780080549910-003", trueIfNotRestricted, aBookAu, cus);
+      //endocrine
+      shouldCacheTest(ROOT_URL+"doi/book/10.1210/TEAM.9781936704071", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/abs/10.1210/TEAM.9781936704071.ch3", trueIfNotRestricted, aBookAu, cus);
+      //futurescience
+      shouldCacheTest(ROOT_URL+"doi/book/10.2217/9781780840628", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/full/10.2217/ebo.11.226", trueIfNotRestricted, aBookAu, cus);
+      //liverpool
+      shouldCacheTest(ROOT_URL+"doi/book/10.3828/978-1-84631-495-7", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/book/10.3828/978-1-84631-495-7", trueIfNotRestricted, aBookAu, cus);
+      //nrc
+      shouldCacheTest(ROOT_URL+"doi/book/10.1139/9780660199795", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/book/10.1139/9780660199795", trueIfNotRestricted, aBookAu, cus);
+      //practicalaction
+      shouldCacheTest(ROOT_URL+"doi/book/10.3362/9780855986483", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/abs/10.3362/9780855986483.004", trueIfNotRestricted, aBookAu, cus);
+      //siam
+      shouldCacheTest(ROOT_URL+"doi/book/10.1137/1.9780898719833", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/abs/10.1137/1.9780898719833.ch4", trueIfNotRestricted, aBookAu, cus);
+      //seg
+      shouldCacheTest(ROOT_URL+"doi/book/10.1190/1.9781560801795", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/abs/10.1190/1.9781560801795.ch3", trueIfNotRestricted, aBookAu, cus);
+      //wageningen
+      shouldCacheTest(ROOT_URL+"doi/book/10.3920/978-90-8686-805-6", trueIfNotRestricted, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"doi/abs/10.3920/978-90-8686-805-6_5", trueIfNotRestricted, aBookAu, cus);
+
+      // citation
+      shouldCacheTest(ROOT_URL+"action/downloadCitation?doi=10.1108%2F9780857245168-015&format=ris&include=cit", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"action/showCitFormats?doi=10.1108%2F9780857245168-001", true, aBookAu, cus);
+      // popups and images
+      shouldCacheTest(ROOT_URL+"action/showPopup?citid=citart1&id=App8-A-3&doi=10.1108%2F9780857245168-008", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"action/showPopup?citid=citart1&id=FN1&doi=10.1108%2F9780857245168-001", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"action/showPopup?citid=citart1&id=TFN6&doi=10.1108%2F9780857245168-009", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"action/showPopup?citid=citart1&id=eq3&doi=10.1108%2F9780857245168-008", true, aBookAu, cus);
+      shouldCacheTest(ROOT_URL+"action/showPopup?doi=10.1108%2F9780857245168-008&id=fig8-2a", true, aBookAu, cus);
+
+      // supporting stuff
+      shouldCacheTest(ROOT_URL+"na101/home/literatum/publisher/emerald/books/content/books/2007/9780857245168/9780857245168-002/20160202/images/medium/figure5.jpg", true, aBookAu, cus);   
+      shouldCacheTest(ROOT_URL+"na101/home/literatum/publisher/practical/books/content/books/2013/9781780447636/9781780447636/20150707/9781780447636.cover.gif", true, aBookAu, cus);
+
+    }
+  }
 
 
   private void shouldCacheTest(String url, boolean shouldCache,
@@ -232,9 +371,9 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
     URL url = new URL(ROOT_URL);
 
     // 4 digit
-    String expected = ROOT_URL+"lockss/xxxx/123/index.html";
+    String expected1 = ROOT_URL+"lockss/xxxx/123/index.html";
     DefinableArchivalUnit ABAu = makeAu(url, 123, "xxxx");
-    assertEquals(ListUtil.list(expected), ABAu.getStartUrls());
+    assertEquals(ListUtil.list(expected1), ABAu.getStartUrls());
   }
 
   public void testShouldNotCachePageFromOtherSite() throws Exception {
@@ -275,11 +414,9 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
     theDaemon.getLockssRepository(FooAu);
     theDaemon.getNodeManager(FooAu);
 
-
     // if it changes in the plugin, you might need to change the test, so verify
-    assertEquals(ListUtil.list(
-        BASE_REPAIR_FROM_PEER_REGEXP),
-        RegexpUtil.regexpCollection(FooAu.makeRepairFromPeerIfMissingUrlPatterns()));
+  assertEquals(Arrays.asList(baseRepairList),
+    RegexpUtil.regexpCollection(FooAu.makeRepairFromPeerIfMissingUrlPatterns()));
     
     // make sure that's the regexp that will match to the expected url string
     // this also tests the regexp (which is the same) for the weighted poll map
@@ -292,35 +429,54 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
         "http://www.emeraldinsight.com/templates/jsp/images/sfxbutton.gif",
         "http://www.emeraldinsight.com/resources/page-builder/img/widget-placeholder.png",
         "http://www.emeraldinsight.com/resources/page-builder/img/playPause.gif",
-        "http://www.emeraldinsight.com/pb/css/t1459270391157-v1459207566000/head_14_18_329.css");
-     Pattern p = Pattern.compile(BASE_REPAIR_FROM_PEER_REGEXP);
+        "http://www.emeraldinsight.com/pb/css/t1459270391157-v1459207566000/head_14_18_329.css",
+        "http://www.emeraldinsight.com/pb-assets/global-images/journals-blog-back.png",
+        "http://www.emeraldinsight.com/pb-assets/icons/graphics.png",
+        "http://www.emeraldinsight.com/resources/page-builder/newimg/playPause.gif",
+        "http://www.inderscienceonline.com/na102/home/readonly/publisher/indersci/journals/covergifs/ijlt/cover.jpg",
+        "http://www.inderscienceonline.com/na101/home/literatum/publisher/indersci/journals/covergifs/ijlt/cover.jpg",
+        "http://www.inderscienceonline.com/na101/home/literatum/publisher/indersci/journals/content/ijpe/2015/ijpe.2015.1.issue-3/ijpe.2015.071062/20150811/ijpe.2015.071062.fp.png_v03",
+        //variant on pb-assets in now defunct Maney
+        "http://www.maneyonline.com/pb/assets/raw/sub-hist.png",
+        "http://www.emeraldinsight.com/wro/product.css",
+        "http://journals.sagepub.com/pb/css/t1486049682000-v1486049682000/head_1_6_7.css",
+        "http://journals.sagepub.com/templates/jsp/_style2/_sage/images/sfxbutton.gif");
+     Pattern p0 = Pattern.compile(baseRepairList[0]);
+     Pattern p1 = Pattern.compile(baseRepairList[1]);
+     Pattern p2 = Pattern.compile(baseRepairList[2]);
+     Matcher m0, m1, m2;
      for (String urlString : repairList) {
-       Matcher m = p.matcher(urlString);
-       assertEquals(true, m.find());
+       m0 = p0.matcher(urlString);
+       m1 = p1.matcher(urlString);
+       m2 = p2.matcher(urlString);
+       assertEquals(urlString, true, m0.find() || m1.find() || m2.find());
      }
      //and this one should fail - it needs to be weighted correctly and repaired from publisher if possible
      String notString ="http://www.emeraldinsight.com/na101/home/literatum/publisher/emerald/books/content/books/2013/9781781902868/9781781902868-007/20160215/images/small/figure1.gif";
-     Matcher m = p.matcher(notString);
-     assertEquals(false, m.find());
+     m0 = p0.matcher(notString);
+     m1 = p1.matcher(notString);
+     m2 = p2.matcher(notString);
+     assertEquals(false, m0.find() && m1.find() && m2.find());
 
      
     PatternFloatMap urlPollResults = FooAu.makeUrlPollResultWeightMap();
     assertNotNull(urlPollResults);
     for (String urlString : repairList) {
       assertEquals(0.0,
-          urlPollResults.getMatch(urlString),
+          urlPollResults.getMatch(urlString, (float) 1),
           .0001);
     }
+    assertEquals(1.0, urlPollResults.getMatch(notString, (float) 1), .0001);
   }
   
   public void testPollSpecialBooks() throws Exception {
-    ArchivalUnit FooBookAu = makeBookAu(new URL("http://www.emeraldinsight.com/"), "9780585475226");
+    ArchivalUnit FooBookAu = makeBookAu(new URL("http://www.emeraldinsight.com/"), "9780585475226", false);
     theDaemon.getLockssRepository(FooBookAu);
     theDaemon.getNodeManager(FooBookAu);
 
 
-    assertEquals(ListUtil.list(
-        BOOK_REPAIR_FROM_PEER_REGEXP),
+    assertEquals(Arrays.asList(
+        bookRepairList),
         RegexpUtil.regexpCollection(FooBookAu.makeRepairFromPeerIfMissingUrlPatterns()));
     
     // make sure that's the regexp that will match to the expected url string
@@ -334,25 +490,29 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
         "http://www.emeraldinsight.com/resources/page-builder/img/widget-placeholder.png",
         "http://www.emeraldinsight.com/resources/page-builder/img/playPause.gif",
         "http://www.emeraldinsight.com/pb/css/t1459270391157-v1459207566000/head_14_18_329.css");
-     Pattern p = Pattern.compile(BOOK_REPAIR_FROM_PEER_REGEXP);
-     for (String urlString : repairList) {
-       Matcher m = p.matcher(urlString);
-       assertEquals(true, m.find());
-     }
+    Pattern p0 = Pattern.compile(baseRepairList[0]);
+    Pattern p1 = Pattern.compile(baseRepairList[1]);
+    Matcher m0, m1;
+    for (String urlString : repairList) {
+      m0 = p0.matcher(urlString);
+      m1 = p1.matcher(urlString);
+      assertEquals(urlString, true, m0.find() || m1.find());
+    }
      //and this one should fail - it needs to be weighted correctly and repaired from publisher if possible
      String notString ="http://www.emeraldinsight.com/na101/home/literatum/publisher/emerald/books/content/books/2013/9781781902868/9781781902868-007/20160215/images/small/figure1.gif";
-     Matcher m = p.matcher(notString);
-     assertEquals(false, m.find());
+     m0 = p0.matcher(notString);
+     m1 = p1.matcher(notString);
+     assertEquals(false, m0.find() && m1.find());
 
      
     PatternFloatMap urlPollResults = FooBookAu.makeUrlPollResultWeightMap();
     assertNotNull(urlPollResults);
     for (String urlString : repairList) {
       assertEquals(0.0,
-          urlPollResults.getMatch(urlString),
+          urlPollResults.getMatch(urlString, (float) 1),
           .0001);
     }
-
+    assertEquals(1.0, urlPollResults.getMatch(notString, (float) 1), .0001);
   }
 
 
@@ -416,6 +576,9 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
     testSpecificUserMsg("http://arc.aiaa.org/", null, 
         "org.lockss.plugin.atypon.aiaa.AIAAPlugin",
         "org.lockss.plugin.atypon.aiaa.ClockssAIAAPlugin");
+    testSpecificUserMsg("http://arc.aiaa.org/", null, 
+        "org.lockss.plugin.atypon.aiaa.AIAABooksPlugin",
+        "org.lockss.plugin.atypon.aiaa.ClockssAIAABooksPlugin");
     //asce - only a clockss plugin
     testSpecificUserMsg("http://ascelibrary.org/", null, 
         null,
@@ -443,15 +606,27 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
     //emeraldgroup
     testSpecificUserMsg("http://www.emeraldinsight.com/", null, 
         "org.lockss.plugin.atypon.emeraldgroup.EmeraldGroupPlugin",
-        null);
+        "org.lockss.plugin.atypon.emeraldgroup.ClockssEmeraldGroupPlugin");
+    //emeraldgroup
+    testSpecificUserMsg("http://www.emeraldinsight.com/", null, 
+        "org.lockss.plugin.atypon.emeraldgroup.EmeraldGroupBooksPlugin",
+        "org.lockss.plugin.atypon.emeraldgroup.ClockssEmeraldGroupBooksPlugin");
     //endocrine society
     testSpecificUserMsg("http://press.endocrine.org/", null, 
         "org.lockss.plugin.atypon.endocrinesociety.EndocrineSocietyPlugin",
         "org.lockss.plugin.atypon.endocrinesociety.ClockssEndocrineSocietyPlugin");
+    //endocrine society
+    testSpecificUserMsg("http://press.endocrine.org/", null, 
+        "org.lockss.plugin.atypon.endocrinesociety.EndocrineSocietyBooksPlugin",
+        "org.lockss.plugin.atypon.endocrinesociety.ClockssEndocrineSocietyBooksPlugin");
     //futurescience
     testSpecificUserMsg("http://www.future-science.com/", null,
         "org.lockss.plugin.atypon.futurescience.FutureSciencePlugin",
         "org.lockss.plugin.atypon.futurescience.ClockssFutureSciencePlugin");
+    //futurescience
+    testSpecificUserMsg("http://www.future-science.com/", null,
+        "org.lockss.plugin.atypon.futurescience.FutureScienceBooksPlugin",
+        "org.lockss.plugin.atypon.futurescience.ClockssFutureScienceBooksPlugin");
     //inderscience
     testSpecificUserMsg("http://www.inderscienceonline.com/", null, 
         "org.lockss.plugin.atypon.inderscience.IndersciencePlugin",
@@ -460,6 +635,10 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
     testSpecificUserMsg("http://online.liverpooluniversitypress.co.uk/", null, 
         "org.lockss.plugin.atypon.liverpool.LiverpoolJournalsPlugin",
         "org.lockss.plugin.atypon.liverpool.ClockssLiverpoolJournalsPlugin");
+    //liverpool
+    testSpecificUserMsg("http://online.liverpooluniversitypress.co.uk/", null, 
+        "org.lockss.plugin.atypon.liverpool.LiverpoolBooksPlugin",
+        "org.lockss.plugin.atypon.liverpool.ClockssLiverpoolBooksPlugin");
     //maney
     testSpecificUserMsg("http://www.maneyonline.com/", null, 
         "org.lockss.plugin.atypon.maney.ManeyAtyponPlugin",
@@ -482,18 +661,34 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
     testSpecificUserMsg("http://www.nrcresearchpress.com/", null, 
         null,
         "org.lockss.plugin.atypon.nrcresearchpress.ClockssNRCResearchPressPlugin");
+    //nrcresearch
+    testSpecificUserMsg("http://www.nrcresearchpress.com/", null, 
+        null,
+        "org.lockss.plugin.atypon.nrcresearchpress.ClockssNRCResearchPressBooksPlugin");
     //practicalaction
     testSpecificUserMsg("http://www.developmentbookshelf.com/", null, 
         null,
         "org.lockss.plugin.atypon.practicalaction.ClockssPracticalActionJournalsPlugin");    
+    //practicalaction
+    testSpecificUserMsg("http://www.developmentbookshelf.com/", null, 
+        null,
+        "org.lockss.plugin.atypon.practicalaction.ClockssPracticalActionBooksPlugin");    
     //seg
     testSpecificUserMsg("http://library.seg.org/", null, 
         null,
         "org.lockss.plugin.atypon.seg.ClockssSEGPlugin");
+    //seg
+    testSpecificUserMsg("http://library.seg.org/", null, 
+        null,
+        "org.lockss.plugin.atypon.seg.ClockssSEGBooksPlugin");
     //siam
     testSpecificUserMsg("http://epubs.siam.org/", null, 
         "org.lockss.plugin.atypon.siam.SiamPlugin",
         "org.lockss.plugin.atypon.siam.ClockssSiamPlugin");
+    //siam
+    testSpecificUserMsg("http://epubs.siam.org/", null, 
+        "org.lockss.plugin.atypon.siam.SiamBooksPlugin",
+        "org.lockss.plugin.atypon.siam.ClockssSiamBooksPlugin");
 
     // and the ones that do not live below the atypon directory
     //bioone
@@ -510,8 +705,18 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
         "org.lockss.plugin.taylorandfrancis.ClockssTaylorAndFrancisPlugin");
     //wageningen
     testSpecificUserMsg("http://www.wageningenacademic.com/", null, 
-        null,
-        "org.lockss.plugin.atypon.wageningen.ClockssWageningenJournalsPlugin");    
+        "org.lockss.plugin.atypon.wageningen.WageningenJournalsPlugin",
+        "org.lockss.plugin.atypon.wageningen.ClockssWageningenJournalsPlugin");
+    //wageningen books
+    testSpecificUserMsg("http://www.wageningenacademic.com/", null, 
+        "org.lockss.plugin.atypon.wageningen.WageningenBooksPlugin",
+        "org.lockss.plugin.atypon.wageningen.ClockssWageningenBooksPlugin");
+    //Sage on Atypon
+    testSpecificUserMsg("http://journals.sagepub.com/", null, 
+        "org.lockss.plugin.atypon.sage.SageAtyponJournalsPlugin",
+        "org.lockss.plugin.atypon.sage.ClockssSageAtyponJournalsPlugin");    
+    
+
   }
 
   // Associate the base_url with the publisher name for convenience
@@ -543,16 +748,26 @@ public class TestBaseAtyponArchivalUnit extends LockssTestCase {
     pluginPubMap.put("http://www.euppublishing.com/", "Edinburgh University Press");
     pluginPubMap.put("http://www.tandfonline.com/", "Taylor & Francis");
     pluginPubMap.put("http://www.wageningenacademic.com/", "Wageningen Academic Publishers");
+    pluginPubMap.put("http://journals.sagepub.com/", "Sage Publications");
   }
 
 
   private void testSpecificUserMsg(String plugin_base_url, String full_msg, 
       String gln_plugin, String clockss_plugin) throws Exception {
 
+    
     Properties props = new Properties();
-    props.setProperty(VOL_KEY, Integer.toString(17));
-    props.setProperty(JID_KEY, "eint");
-    props.setProperty(BASE_URL_KEY, plugin_base_url);
+    if ((gln_plugin != null && gln_plugin.contains("Books")) ||
+          (clockss_plugin != null && clockss_plugin.contains("Books")) ) {
+      // set up a books plugin for testing
+      props.setProperty("book_eisbn", "9781780447636");
+      props.setProperty(BASE_URL_KEY, plugin_base_url);
+    } else {
+      props.setProperty(VOL_KEY, Integer.toString(17));
+      props.setProperty(JID_KEY, "eint");
+      props.setProperty(BASE_URL_KEY, plugin_base_url);
+    }
+    
     Configuration config = ConfigurationUtil.fromProps(props);
 
     if (!StringUtils.isEmpty(gln_plugin)) {

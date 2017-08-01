@@ -53,12 +53,18 @@ public class TestBIRAtyponHtmlFilterFactory extends LockssTestCase {
   String tempDirPath;
   MockLockssDaemon daemon;
   PluginManager pluginMgr;
-        
+
+  
+  // BIR now removes all tags after filtering based on tag information 
   private static final String PLUGIN_ID = 
       "org.lockss.plugin.atypon.bir.ClockssBIRAtyponPlugin";
   
+  // BIR now removes all tags after filtering based on tag information 
   private static final String filteredStr = 
-      "<div class=\"block\"></div>";
+//      " <div class=\"block\"> </div>";
+      " ";
+  private static final String filteredCrawlStr = 
+         "<div class=\"block\"></div>";
     
   private static final String withMenuXml =
       "<div class=\"block\">" +
@@ -214,16 +220,8 @@ public class TestBIRAtyponHtmlFilterFactory extends LockssTestCase {
           "</ul></div></div>" +
           "</div>";
     
-    // id tag also got filtered
     private static final String articleToolsWidgetFiltered = 
-      "<div class=\"block\">" +  
-          "<div class=\"widget literatumArticleToolsWidget\" >" +
-          "<div class=\"articleTools\">" +
-          "<ul class=\"blockLinks\">" +
-          "<li class=\"downloadCitations\"><a href=\"/action/showCitFormats?" +
-          "doi=1.11111%2Fjid.2013.111\">Download Citation</a></li>" +
-          "</ul></div></div>" +
-          "</div>";
+            " Download Citation ";
     
     private static final String withCitedby =
       "<div class=\"block\">" + 
@@ -231,11 +229,7 @@ public class TestBIRAtyponHtmlFilterFactory extends LockssTestCase {
           "<a href=\"/doi/citedby/11.1111/jid.20129999\"> Cited by </a>" +
           "</li></ul>" +
           "</div>"; 
-    private static final String withoutCitedby =
-      "<div class=\"block\">" + 
-          "<ul></ul>" +
-          "</div>";    
-    
+
     private static final String withSectionJumpTo =
         "<div class=\"block\">" +
             "<div class=\"sectionJumpTo\">" +
@@ -264,9 +258,31 @@ public class TestBIRAtyponHtmlFilterFactory extends LockssTestCase {
             "<h1 class=\"topContentTitle\">" +                                                                                                            
             "Most read articles" +                                                                                                                  
             "</h1><ul><li>art2></li><li>art2</li></ul>" +
-            "</div></section></div></div></div>BOO</body>";                
+            "</div></section></div></div></div>BOO</body>";
+    
+    private static final String referencesTable = 
+        "<table border=\"0\" class=\"references\">" +
+            "<tr id=\"b1\">" +
+            "<td class=\"refnumber\">1.</td>" +
+            "<td valign=\"top\"> <span class=\"NLM_string-name\">Foo <span class=\"NLM_given-names\">BL</span>" +
+            "</span>, <span class=\"NLM_string-name\">Smith <span class=\"NLM_given-names\">BS</span>" +
+            "</span>. <span class=\"NLM_article-title\">Infection: prevention and management</span>. <i>Instr Course Lect</i> " +
+            "<span class=\"NLM_year\">2012</span>; 61: " +
+            "<span class=\"NLM_fpage\">411</span>–<span class=\"NLM_lpage\">19</span>.  " +
+            "<a href=\"/servlet/linkout?suffix=b1&amp;dbid=8&amp;doi=10.1111%2Fbjr.foo&amp;key=x0\" onclick=\"newWindow(this.href);return false\">Medline</a>" +
+            "</td>" +
+            "</tr>" +
+            "</table>";
+    private static final String referencesTableFiltered = 
+            " Foo BL" +
+            " Smith BS" +
+            " Infection: prevention and management" +
+            " 2012 " +
+            "411 19 ";
 
     private static final String mostReadHtmlFiltered = 
+        " BOO ";   
+    private static final String mostReadHtmlCrawlFiltered = 
         "<body>BOO</body>";   
     
   protected ArchivalUnit createAu()
@@ -312,10 +328,10 @@ public class TestBIRAtyponHtmlFilterFactory extends LockssTestCase {
   public static class TestCrawl extends TestBIRAtyponHtmlFilterFactory {
     public void testFiltering() throws Exception {
       variantFact = new BIRAtyponHtmlCrawlFilterFactory();
-      doFilterTest(bau, variantFact, withMenuXml, filteredStr); 
-      doFilterTest(bau, variantFact, withRelatedLayer, filteredStr);      
-      doFilterTest(bau, variantFact, withRelatedContent, filteredStr);      
-      doFilterTest(bau, variantFact, mostReadHtml, mostReadHtmlFiltered);      
+      doFilterTest(bau, variantFact, withMenuXml, filteredCrawlStr); 
+      doFilterTest(bau, variantFact, withRelatedLayer, filteredCrawlStr);      
+      doFilterTest(bau, variantFact, withRelatedContent, filteredCrawlStr);      
+      doFilterTest(bau, variantFact, mostReadHtml, mostReadHtmlCrawlFiltered);      
     }    
   }
 
@@ -340,9 +356,10 @@ public class TestBIRAtyponHtmlFilterFactory extends LockssTestCase {
         doFilterTest(bau, variantFact, 
                      withArticleToolsWidgetExceptDownloadCitation, 
                      articleToolsWidgetFiltered);
-        doFilterTest(bau, variantFact, withCitedby, withoutCitedby); 
+        doFilterTest(bau, variantFact, withCitedby, filteredStr); 
         doFilterTest(bau, variantFact, withSectionJumpTo, filteredStr);         
-        doFilterTest(bau, variantFact, mostReadHtml , mostReadHtmlFiltered);         
+        doFilterTest(bau, variantFact, mostReadHtml , mostReadHtmlFiltered);
+        doFilterTest(bau, variantFact, referencesTable, referencesTableFiltered);
      }
   }
   

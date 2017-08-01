@@ -612,6 +612,7 @@ public class TestDefinableArchivalUnit extends LockssTestCase {
 
     assertEquals(ListUtil.list("http://www.example.com/lockss-volume/43.html"),
 		 cau.getStartUrls());
+    assertEquals(cau.getStartUrls(), cau.getAccessUrls());
   }
 
   public void testMakeStartUrlList() throws Exception {
@@ -625,6 +626,7 @@ public class TestDefinableArchivalUnit extends LockssTestCase {
     assertEquals(ListUtil.list("http://www.example.com/l-volume/43.html",
 			       "http://www.example.com/unl-vol/43.html"),
 		 cau.getStartUrls());
+    assertEquals(cau.getStartUrls(), cau.getAccessUrls());
   }
 
   public void xxxxtestMakeStartUrlListWithSet() throws Exception {
@@ -637,6 +639,7 @@ public class TestDefinableArchivalUnit extends LockssTestCase {
     assertEquals(ListUtil.list("http://www.example.com/l-volume/43.html",
 			       "http://www.example.com/unl-vol/43.html"),
 		 cau.getStartUrls());
+    assertEquals(cau.getStartUrls(), cau.getAccessUrls());
   }
 
   public void testMakeStartUrlListNoVal() throws Exception {
@@ -650,6 +653,36 @@ public class TestDefinableArchivalUnit extends LockssTestCase {
 
     assertEquals(ListUtil.list("http://www.example.com/volume/43.html"),
 		 cau.getStartUrls());
+    assertEquals(cau.getStartUrls(), cau.getAccessUrls());
+  }
+
+  public void testGetAccessUrls() throws Exception {
+    defMap.putString(ArchivalUnit.KEY_AU_START_URL, "\"start/url\"");
+    setupAu(additionalAuConfig);
+
+    assertEquals(ListUtil.list("start/url"),
+		 cau.getStartUrls());
+    assertEquals(cau.getStartUrls(), cau.getAccessUrls());
+
+    defMap.putString(DefinablePlugin.KEY_PLUGIN_ACCESS_URL_FACTORY, MyFeatureUrlHelperFactory.class.getName());
+    assertEquals(ListUtil.list("http://access_url"), cau.getAccessUrls());
+
+  }
+
+  public static class MyFeatureUrlHelperFactory
+    implements FeatureUrlHelperFactory {
+    @Override
+    public FeatureUrlHelper createFeatureUrlHelper(Plugin plug) {
+      return new MyFeatureUrlHelper();
+    }
+  }
+
+  private static class MyFeatureUrlHelper extends BaseFeatureUrlHelper {
+    @Override
+    public Collection<String> getAccessUrls(ArchivalUnit au)
+	throws PluginException, IOException {
+      return ListUtil.list("http://access_url");
+    }
   }
 
   void setStdConfigProps() {
@@ -1480,6 +1513,7 @@ public class TestDefinableArchivalUnit extends LockssTestCase {
     assertClass(RegexpCssLinkRewriterFactory.class,
 		au.getLinkRewriterFactory("text/css"));
     assertNull(au.getLinkRewriterFactory("text/xml"));
+    assertEquals(ListUtil.list("uuu_uuu"), au.getAccessUrls());
 
     CrawlWindow window = au.getCrawlWindow();
     CrawlWindows.Interval intr = (CrawlWindows.Interval)window;

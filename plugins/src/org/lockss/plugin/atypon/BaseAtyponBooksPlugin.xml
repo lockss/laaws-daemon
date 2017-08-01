@@ -11,14 +11,14 @@
     <string>plugin_name</string>
     <string>Base Atypon Books Plugin</string>
   </entry>
-<!--  full figure/table extraction support in JSoup -->  
+<!--  http to https support -->  
   <entry>
     <string>required_daemon_version</string>
-    <string>1.67.0</string>
+    <string>1.70.0</string>
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>16</string>
+    <string>26</string>
   </entry>
   <entry>
     <string>plugin_publishing_platform</string>
@@ -35,7 +35,7 @@
       </entry>
       <entry>
         <string>Poll</string>
-        <string>6</string>
+        <string>11</string>
       </entry>
       <entry>
         <string>Substance</string>
@@ -58,6 +58,11 @@
   </entry>  
   <entry>
     <string>au_crawlrules</string>
+    <!--
+     NOTE: any changes to the crawl rules in BaseAtyponBooksPlugin must be
+     added to BaseAtyponISBNBooksPlugin which is a child of this plugin with
+     ISBN restricted crawl rules         
+     -->  
     <!--  CRAWL COMMENT BLOCK
     support files
     images and data:<base>/na101v1/home/midtierbeta/publisher/fum/books/content/books/2011/9781780840000/ebo.11.115/production/images/large/figure1.jpeg
@@ -71,13 +76,13 @@
      -->
     <list>
       <string>1,"^https?://%s/[^?]*\.(bmp|css|eot|gif|ico|jpe?g|js|png|svg|tif?f|ttf|woff)(_v[0-9]+)?$", url_host(base_url)</string>
-      <string>1,"^%sna101/home/[a-z]+/publisher/[^/]+/books/content/books/[^/]+/%s/", base_url, book_eisbn</string>   
+      <string>1,"^https?://%s/na101/home/[a-z]+/publisher/[^/]+/books/content/books/[^/]+/%s/", url_host(base_url), book_eisbn</string>   
       <string>1,"^https?://%s\.global\.prod\.fastly\.net/[^?]*\.(css|gif|jpe?g|js|png)$", url_host(base_url)</string>
-      <string>2,"^%sdoi/[^/]+/[0-9.]+/(null\?|[-.9]+$)", base_url</string>
-      <string>1,"^%sdoi/book/[0-9.]+/", base_url</string>
-      <string>1,"^%sdoi/(abs|full|pdf|pdfplus|ref)/[0-9.]+/", base_url</string>
-      <string>1,"^%saction/(showImage|showFullPopup|showCitFormats|showSupplements|showMediaPlayer|showPopup)\?([^=]+=[^&amp;]+&amp;)*doi=", base_url</string>
-      <string>1,"^%saction/downloadCitation\?doi=.*&amp;format=ris&amp;include=(cit|abs)$", base_url</string> 
+      <string>2,"^https?://%s/doi/[^/]+/[0-9.]+/(null\?|[-.9]+$)", url_host(base_url)</string>
+      <string>1,"^https?://%s/doi/book/[0-9.]+/", url_host(base_url)</string>
+      <string>1,"^https?://%s/doi/(abs|full|pdf|pdfplus|ref)/[0-9.]+/", url_host(base_url)</string>
+      <string>1,"^https?://%s/action/(showImage|showFullPopup|showCitFormats|showSupplements|showMediaPlayer|showPopup)\?([^=]+=[^&amp;]+&amp;)*doi=", url_host(base_url)</string>
+      <string>1,"^https?://%s/action/downloadCitation\?doi=.*&amp;format=ris&amp;include=(cit|abs)$", url_host(base_url)</string> 
     </list>
   </entry>
   <entry>
@@ -123,7 +128,7 @@
   <entry>
     <string>au_substance_url_pattern</string>
     <list>
-      	<string>"^%sdoi/(pdf|pdfplus|full)/[.0-9]+/[^\?&amp;]+$", base_url</string>
+      	<string>"^https?://%s/doi/(pdf|pdfplus|full)/[.0-9]+/[^\?&amp;]+$", url_host(base_url)</string>
     </list>
   </entry>
   <entry>
@@ -202,6 +207,21 @@
       </entry>
     </map>
   </entry>
+    <entry>
+    <string>plugin_cache_result_list</string>
+    <list>
+      <!-- Invalid content-type file. Captures cases like html returned instead of PDF 
+        Make no store/no_fail due to html returned for http://caseconnector.jbjs.org/content/2/2/e16
+        we will count on polls to catch errors where no content was stored -->
+      <string>org.lockss.plugin.ContentValidationException=org.lockss.plugin.atypon.BaseAtyponHttpResponseHandler</string>
+      <string>500=org.lockss.plugin.atypon.BaseAtyponHttpResponseHandler</string>
+    </list>
+  </entry>
+  <entry>
+    <!-- Validator factory for text MIME types -->
+    <string>text/*_content_validator_factory</string>
+    <string>org.lockss.plugin.atypon.BaseAtyponContentValidator$Factory</string>
+  </entry>
   <!-- au_permitted_host_pattern:
        Necessary for using global hosts (eg cdn) (instead of using base_url2),
        Until unwieldy, confine these settings to BaseAtyponParent
@@ -215,16 +235,21 @@
   <!--  versioning or variants for style support -->  
   <entry>
     <string>au_repair_from_peer_if_missing_url_pattern</string>
-    <!-- base_url host or cdn host + templates/jsp/. or any of (img|css|js)Jawr/
-         OR /(img|css|js)/ if ends .css, .js, etc -->
-    <string>(/(templates/jsp|(css|img|js)Jawr)/|/(css|img|js|wro)/.+\.(css|gif|jpe?g|js|png)(_v[0-9]+)?$)</string>
-  </entry>
+    <!-- base_url host or cdn host + templates/jsp/. or any of (img|css|js)Jawr/ or sda/
+         OR /(img|css|js)/ if ends .css, .js, etc 
+         -->
+    <list>
+    <string>://[^/]+/(templates/jsp|(css|img|js)Jawr|pb-assets|resources|sda|wro)/</string>
+    <string>/(assets|css|img|js|wro)/.+\.(css|gif|jpe?g|js|png)(_v[0-9]+)?$</string>
+    </list>
+  </entry>         
   <!-- don't worry about polling for those low-importance files that will 
        repair from peer in time (eg due to versioning, etc)  -->
    <entry>
     <string>au_url_poll_result_weight</string>
     <list>
-      <string>(/(templates/jsp|(css|img|js)Jawr)/|/(css|img|js|wro)/.+\.(css|gif|jpe?g|js|png)(_v[0-9]+)?$), 0</string>
+      <string>://[^/]+/(templates/jsp|(css|img|js)Jawr|pb-assets|resources|sda|wro)/, 0</string>
+      <string>/(assets|css|img|js|wro)/.+\.(css|gif|jpe?g|js|png)(_v[0-9]+)?$, 0</string>
     </list>
   </entry>  
   <!-- GLN children require a plugin_au_config_user_msg, which is a printf -->

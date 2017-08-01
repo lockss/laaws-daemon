@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2015-2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2015-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -27,14 +27,12 @@
  */
 package org.lockss.ws.metadata;
 
-import static org.lockss.db.SqlConstants.*;
 import static org.lockss.metadata.SqlConstants.*;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import javax.jws.WebService;
-
 import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.metadata.Isbn;

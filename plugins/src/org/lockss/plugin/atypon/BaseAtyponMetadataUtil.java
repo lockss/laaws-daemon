@@ -45,6 +45,7 @@ import org.lockss.extractor.ArticleMetadata;
 import org.lockss.extractor.MetadataField;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.CachedUrl;
+import org.lockss.util.UrlUtil;
 import org.lockss.util.Logger;
 import org.lockss.util.TypedEntryMap;
 
@@ -93,6 +94,8 @@ public class BaseAtyponMetadataUtil {
         return false;
     }
     
+    // if we do an ISSN check, then we can bypass checking the title later, which is trickier
+    Boolean checkedISSN = false;
     String AU_ISSN = (tdbau == null) ? null : normalize_isbn(tdbau.getPrintIsbn());
     String AU_EISSN = (tdbau == null) ? null : normalize_isbn(tdbau.getEissn());
     // If the tdb lists both values for issn, then check with our found values
@@ -101,6 +104,7 @@ public class BaseAtyponMetadataUtil {
     if ( !(StringUtils.isEmpty(AU_ISSN) || StringUtils.isEmpty(AU_EISSN)) ){
       String foundEISSN = normalize_isbn(am.get(MetadataField.FIELD_EISSN));
       String foundISSN = normalize_isbn(am.get(MetadataField.FIELD_ISSN));
+      checkedISSN = true;
       // don't go crazy. If the EISSN is there and matches, just move on
       if (foundEISSN != null) { 
         if (!(foundEISSN.equals(AU_EISSN) || foundEISSN.equals(AU_ISSN)) ) {
@@ -121,7 +125,7 @@ public class BaseAtyponMetadataUtil {
 
     // If we got nothing, just return, we can't validate further
     if (StringUtils.isEmpty(foundVolume) && StringUtils.isEmpty(foundDate) &&
-        StringUtils.isEmpty(foundDate)) {
+        StringUtils.isEmpty(foundJournalTitle)) {
       return isInAu; //return true, we have no way of knowing
     }
     
@@ -140,6 +144,11 @@ public class BaseAtyponMetadataUtil {
 
       // Add in doing year comparison if FIELD_DATE is set
       // this is more complicated because date format is variable
+    }
+    
+    // If we've come this far and have passed an ISSN check, we're done
+    if (checkedISSN) {
+      return isInAu;
     }
 
     String AU_journal_title = (tdbau == null) ? null : tdbau.getPublicationTitle();
@@ -339,7 +348,8 @@ public class BaseAtyponMetadataUtil {
       /*matches() is anchored so must create complete pattern or else use .finds() */
       /* URL is "<base>/doi/(abs|full)/<doi1st>/<doi2nd> */
       String base_url = cu.getArchivalUnit().getConfiguration().get(ConfigParamDescr.BASE_URL.getKey());
-      String patternString = "^" + base_url + "doi/[^/]+/([^/]+)/([^?&]+)$";
+      String base_host = UrlUtil.stripProtocol(base_url);
+      String patternString = "^https?://" + base_host + "doi/[^/]+/([^/]+)/([^?&]+)$";
       Pattern METADATA_PATTERN = Pattern.compile(patternString, Pattern.CASE_INSENSITIVE);
       String url = cu.getUrl();
       Matcher mat = METADATA_PATTERN.matcher(url);    

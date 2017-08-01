@@ -39,6 +39,7 @@ import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.BaseCachedUrlSet;
 import org.lockss.plugin.definable.*;
+import org.lockss.state.SubstanceChecker;
 import org.lockss.test.*;
 import org.lockss.util.*;
 
@@ -53,7 +54,8 @@ public class TestELifeArchivalUnit extends LockssTestCase {
   static final String PLUGIN_ID = "org.lockss.plugin.elifesciences.ELifeSciencesPlugin";
   static final String PluginName = "eLife Sciences Plugin";
   
-  static final String  METAPRESS_REPAIR_FROM_PEER_REGEXP = "sites/default/files/(css|js)/(css|js)_[^/]+\\.(css|js)$";
+  static final String  ELIFE_REPAIR_FROM_PEER_REGEXP1 = "sites/default/files/(css|js)/(css|js)_[^/]+\\.(css|js)$";
+//  static final String  ELIFE_REPAIR_FROM_PEER_REGEXP2 = "\\.(mp4)$";
   
   public void setUp() throws Exception {
     super.setUp();
@@ -119,6 +121,14 @@ public class TestELifeArchivalUnit extends LockssTestCase {
     shouldCacheTest(REAL_ROOT+"panels_ajax_tab/elife_article/node:97986/0", false, msau,cus);    
 
   }
+  
+  public void testSubstancePattern() throws Exception {
+	ArchivalUnit  msau = makeAu(new URL(ROOT_URL), "2015/04");
+	SubstanceChecker checker = new SubstanceChecker(msau);
+    
+    assertFalse(checker.isSubstanceUrl(ROOT_URL + "content/4/e05959"));
+    assertTrue(checker.isSubstanceUrl(ROOT_URL + "content/4/e05959-download.pdf"));
+  }
 
   private void shouldCacheTest(String url, boolean shouldCache,
       ArchivalUnit au, CachedUrlSet cus) {
@@ -153,7 +163,7 @@ public class TestELifeArchivalUnit extends LockssTestCase {
     
     // if it changes in the plugin, you will likely need to change the test, so verify
     assertEquals(ListUtil.list(
-        METAPRESS_REPAIR_FROM_PEER_REGEXP),
+        ELIFE_REPAIR_FROM_PEER_REGEXP1),
         RegexpUtil.regexpCollection(au.makeRepairFromPeerIfMissingUrlPatterns()));
     
     // make sure that's the regexp that will match to the expected url string
@@ -165,7 +175,7 @@ public class TestELifeArchivalUnit extends LockssTestCase {
         OTHER_ROOT + "sites/default/files/js/js_9xhttD4CLtluGwHnuEz_uVz7OnsXLXJ3WZVHYkHd3kI.js",
         OTHER_OTHER_ROOT + "sites/default/files/css/css_xE-rWrJf-fncB6ztZfd2huxqgxu4WO-qwma6Xer30m4.css",
         OTHER_OTHER_ROOT + "sites/default/files/js/js_9xhttD4CLtluGwHnuEz_uVz7OnsXLXJ3WZVHYkHd3kI.js");
-    Pattern p = Pattern.compile(METAPRESS_REPAIR_FROM_PEER_REGEXP);
+    Pattern p = Pattern.compile(ELIFE_REPAIR_FROM_PEER_REGEXP1);
     for (String urlString : repairList) {
       Matcher m = p.matcher(urlString);
       assertEquals(urlString, true, m.find());
@@ -179,8 +189,9 @@ public class TestELifeArchivalUnit extends LockssTestCase {
     PatternFloatMap urlPollResults = au.makeUrlPollResultWeightMap();
     assertNotNull(urlPollResults);
     for (String urlString : repairList) {
-      assertEquals(0.0, urlPollResults.getMatch(urlString), .0001);
+      assertEquals(0.0, urlPollResults.getMatch(urlString, (float) 1), .0001);
     }
+    assertEquals(1.0, urlPollResults.getMatch(notString, (float) 1), .0001);
   }
   
 }

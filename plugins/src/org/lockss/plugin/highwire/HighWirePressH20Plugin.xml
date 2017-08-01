@@ -13,7 +13,7 @@
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>115</string>
+    <string>122</string>
   </entry>
   <entry>
     <string>plugin_feature_version_map</string>
@@ -24,7 +24,7 @@
       </entry>
       <entry>
         <string>Poll</string>
-        <string>37</string>
+        <string>41</string>
       </entry>
       <entry>
         <string>Metadata</string>
@@ -34,7 +34,7 @@
   </entry>
   <entry>
     <string>required_daemon_version</string>
-    <string>1.68.4</string> <!-- plugin_fetch_rate_limiter_source title_attribute: with default -->
+    <string>1.70.0</string>  <!-- HTTP-To-HTTPS -->
   </entry>
   <entry>
     <string>plugin_config_props</string>
@@ -139,7 +139,8 @@
       <!-- may want to fix this: http://www.pnas.org/content/108/12/4748.full gets http://www.pnas.org/content/107/16/7347/suppl/DCSupplemental -->
       <string>1,"^https?://%s/[^?]*DC(Supplemental|[0-9])", url_host(base_url)</string>
       <string>1,"^https?://%s/highwire/filestream/", url_host(base_url)</string>
-      <string>1,"^https?://%s/c?lockss-manifest/[^.]*vol_[0-9]+_manifest.dtl", url_host(base_url)</string>
+      <!-- Added for eolj, but allows wrong volume manifest page to be crawled -->
+      <string>1,"^https?://%s/c?lockss-manifest/[^/.]*vol_[^/._]+_manifest.dtl", url_host(base_url)</string>
       <!-- TOCs made up of searches -->
       <string>1,"^https?://%s/search[?]submit=yes(?=.*&amp;tocsectionid=).*&amp;volume=%s[&amp;|$]", url_host(base_url), volume_name</string>
      </list>
@@ -177,7 +178,7 @@
   </entry>
   <entry>
     <string>plugin_fetch_rate_limiter_source</string>
-    <string>title_attribute:highwire_crawl_pool:HighWire</string>
+    <string>title_attribute:highwire_crawl_pool:HighWireClassic</string>
   </entry>
   <entry>
     <string>plugin_article_iterator_factory</string>
@@ -198,11 +199,11 @@
   </entry>
   <entry>
     <string>plugin_url_consumer_factory</string>
-    <string>org.lockss.plugin.highwire.HttpToHttpsUtil$HttpToHttpsUrlConsumerFactory</string>
+    <string>org.lockss.plugin.base.HttpToHttpsUrlConsumerFactory</string>
   </entry>
   <entry>
     <string>plugin_url_fetcher_factory</string>
-    <string>org.lockss.plugin.highwire.HttpToHttpsUtil$HttpToHttpsUrlFetcherFactory</string>
+    <string>org.lockss.plugin.base.HttpToHttpsUrlFetcherFactory</string>
   </entry>
   <entry>
     <string>au_substance_url_pattern</string>
@@ -269,6 +270,7 @@
     <list>
       <string>[.](css|js)$</string>
       <string>://[^/]+(?!.*/content/)(/[^/]+)+[.](gif|png)$</string>
+      <string>://[^/]+(/shared/img/).*[.](gif|png)$</string>
     </list>
   </entry>
   <entry>
@@ -277,6 +279,8 @@
     <list>
       <string>"[.](css|js)$", 0</string>
       <string>"://[^/]+(?!.*/content/)(/[^/]+)+[.](gif|png)$", 0</string>
+      <string>"://[^/]+(/shared/img/).*[.](gif|png)$", 0</string>
+      <string>"/search\?submit=yes(?!(&amp;sortspec=[^&amp;]+)?&amp;tocsectionid=)", 0</string>
     </list>
   </entry>
 </map>

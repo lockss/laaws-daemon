@@ -40,13 +40,11 @@ public class TestCopernicusHtmlFilterFactory extends LockssTestCase {
   static String ENC = Constants.DEFAULT_ENCODING;
 
   private CopernicusHtmlFilterFactory hfact;
-  private CopernicusHtmlCrawlFilterFactory cfact;
   private MockArchivalUnit mau;
 
   public void setUp() throws Exception {
     super.setUp();
     hfact = new CopernicusHtmlFilterFactory();
-    cfact = new CopernicusHtmlCrawlFilterFactory();
     mau = new MockArchivalUnit();
   }
 
@@ -55,7 +53,7 @@ public class TestCopernicusHtmlFilterFactory extends LockssTestCase {
       "<div id=\"page_content_container\">KEEPME</div>" +
       "</div>";
   private static final String includeBitFiltered=
-      "<div id=\"page_content_container\">KEEPME</div>";
+      " <div id=\"page_content_container\">KEEPME </div>";
 
   private static final String basicLayout = 
       "<html>"+ 
@@ -76,7 +74,7 @@ public class TestCopernicusHtmlFilterFactory extends LockssTestCase {
           "</html>";
   
   private static final String basicLayoutFiltered =
-          "<div class=\"foo\" id=\"page_content_container\">GOODSTUFF</div>";
+          " <div id=\"page_content_container\">GOODSTUFF </div>";
   
   private static final String minimumBeginning =
       "<html>"+ 
@@ -86,7 +84,7 @@ public class TestCopernicusHtmlFilterFactory extends LockssTestCase {
           "<div class=\"foo\" id=\"page_content_container\">";
   private static final String minimumEnding =
       "</div></body></html>";
-  private static final String minimumEndingFiltered = "</div>";
+  private static final String minimumEndingFiltered = " </div>";
   
   private static final String scriptsAndComments =
       minimumBeginning +
@@ -107,8 +105,8 @@ public class TestCopernicusHtmlFilterFactory extends LockssTestCase {
           minimumEnding;
 
   private static final String scriptsAndCommentsFiltered =
-      "<div class=\"foo\" id=\"page_content_container\">" +
-      "</tr></table> " + minimumEndingFiltered;
+      " <div id=\"page_content_container\">" +
+      " </tr> </table>" + minimumEndingFiltered;
   
   private static final String whiteSpacesV1 = 
       "<a href=\"/1/1/2003/adgeo-1-1-2003.pdf\" >" +
@@ -178,9 +176,9 @@ public class TestCopernicusHtmlFilterFactory extends LockssTestCase {
           "<span class=\"pb_toc_link\"><br /><br /><a href=\"/14/1111/1996/angeo-14-1111-1996.pdf\" >Full Article</a>" +
           "(PDF, 639 KB)&nbsp;&nbsp;&nbsp;<br /><br /></div></div></div>";
   private static final String spanStyleHtml =
-      "dynamics, but are also important for the validation of ozone measurements.</span>" +
-          "<span class=\"pb_toc_link\"><br /><br />&nbsp;<span style=\"white-space:nowrap;\"><a href=\"/14/1111/1996/angeo-14-1111-1996.pdf\" >Full Article</a>" +
-          "(PDF, 639 KB)</span>&nbsp; &nbsp;<br /><br /></div></div></div>"; 
+      "dynamics, but are also important for the validation of ozone measurements. </span>" +
+          " <span class=\"pb_toc_link\"> <br /> <br />&nbsp; <span style=\"white-space:nowrap;\"> <a href=\"/14/1111/1996/angeo-14-1111-1996.pdf\" >Full Article </a>" +
+          "(PDF, 639 KB)</span>&nbsp; &nbsp; <br /> <br /> </div> </div> </div>"; 
   
 private static final String genericIndexContent =
   "<div class=\"CMSCONTAINER j-content edt-flag\" id=\"page_content_container\">" +
@@ -193,6 +191,10 @@ private static final String genericIndexContent =
   "<div class=\"j-news-item\">" +
   "NEW GOES HERE" +
   "</div>" +
+  "</div>" +
+  "<h2>Highlight articles</h2>" +
+  "<div id=\"highlight_articles\">" +
+  "<span class=\"j-news-item-date\">13 Jul 2016</span>" +
   "</div>" +
   "</div>" +
   "<div id=\"recent_paper\" class=\"cmsbox j-article j-article-section\">" +
@@ -226,15 +228,13 @@ private static final String genericIndexContent =
   "</ul></div>";
 
 private static final String genericIndexContentFiltered =
-"<div class=\"CMSCONTAINER j-content edt-flag\" id=\"page_content_container\">" +
-"<div id=\"landing_page\" class=\"cmsbox j-intro-section j-section\">" +
-" generic information about this journal" +
-"</div>" +
-"<div id=\"cmsbox_61812\" class=\"cmsbox \"><h2>News</h2>" +
-"</div>" +
-"<div id=\"something else\">" +
+" <div id=\"page_content_container\">" +
+" <div id=\"cmsbox_61812\" class=\"cmsbox \"> <h2>News </h2>" +
+" <h2>Highlight articles </h2>" +
+" </div>" +
+" <div id=\"something else\">" +
 "blah goes here" +
-"</div>";
+" </div>";
 
 
 /*  filtered bits for CRAWL filter */
@@ -266,8 +266,52 @@ private static final String genericIndexCrawlContent =
 "         logo" +
 "    </li>" +
 "</ul></div>";
-  
-  
+
+/* class id has inconsistent name - just remove for hashing 
+ */
+private static final String publishedDateIdBefore = 
+"<div class=\"CMSCONTAINER j-content edt-flag\" id=\"page_content_container\">" +
+"<div class=\"publishedDateAndMsType group\">" +
+"<div class=\"msType\"></div>" +
+"<div class=\"publishedDate\">10 Jul 2013</div>" +
+"</div>"+
+"<div class=\"publishedDateAndMsType\">" +
+"<div class=\"msType\"></div>" +
+"<div class=\"publishedDate\">24 Dec 1999</div>" +
+"</div>"+
+"<p>HelloWorld" +
+"</div>";
+
+private static final String publishedDateIdAfter = 
+" <div id=\"page_content_container\">" +
+" <p>HelloWorld" +
+" </div>";
+
+private static final String extraSpaceWithSpanBefore = 
+"<div class=\"CMSCONTAINER j-content edt-flag\" id=\"page_content_container\">" +
+"<span>   <p>Hello World</p>   </span>" +
+"</div>";
+private static final String extraSpaceWithSpanAfter = 
+" <div id=\"page_content_container\">" +
+" <span> <p>Hello World </p> </span>"+
+" </div>";
+private static final String noSpaceGenericBefore=
+"<div class=\"CMSCONTAINER j-content edt-flag\" id=\"page_content_container\">" +
+"<div>  <div><span class=\"pb_toc_link\"><br /><br /><b>Citation:</b> Atlas, J. S., Bay, P. S., and Cove, R. J.: A Long Title NO<sub>2</sub> Yes It Is, Abbrev. More. Tech., 8, 3-15, doi:10.1234/amt-8-123-2015, 2015.</span></div> </div> </div>";
+private static final String extraSpaceGenericBefore=
+"<div class=\"CMSCONTAINER j-content edt-flag\" id=\"page_content_container\">" +
+"  <div>  <div>   <span class=\"pb_toc_link\"><br /><br /><b>Citation:</b> Atlas, J. S., Bay, P. S., and Cove, R. J.: A Long Title NO<sub>2</sub> Yes It Is, Abbrev. More. Tech., 8, 3-15, doi:10.1234/amt-8-123-2015, 2015.</span>  </div>  </div>  </div>";
+private static final String extraSpaceGenericAfter=
+" <div id=\"page_content_container\">" +
+" <div> <div> <span class=\"pb_toc_link\"> <br /> <br /> <b>Citation:</b> Atlas, J. S., Bay, P. S., and Cove, R. J.: A Long Title NO<sub>2</sub> Yes It Is, Abbrev. More. Tech., 8, 3-15, doi:10.1234/amt-8-123-2015, 2015.</span> </div> </div> </div>";
+private static final String extraneousDatesBefore=
+"<div class=\"CMSCONTAINER j-content edt-flag\" id=\"page_content_container\">" +
+"<div class=\"articleDates\">Received: 13 November 2013 &ndash; Published in The Beautiful Frisbee Discuss.: 06 January 2014 <br/>Revised: 17 April 2014 &ndash; Accepted: 22 April 2014 &ndash; Published: 03 June 2014 </div>"+
+"Hello World </div>";
+private static final String extraneousDatesAfter=
+" <div id=\"page_content_container\">" +
+"Hello World </div>";
+
   public void testHashFiltering() throws Exception {
     InputStream inA;
     InputStream inB;
@@ -275,7 +319,7 @@ private static final String genericIndexCrawlContent =
     /* Check basic include/exclude functionality */
     inA = hfact.createFilteredInputStream(mau, new StringInputStream(includeBit),
         ENC);
-    assertEquals(includeBitFiltered,StringUtil.fromInputStream(inA));
+   assertEquals(includeBitFiltered,StringUtil.fromInputStream(inA));
     
     /* Check basic include/exclude functionality */
     inA = hfact.createFilteredInputStream(mau, new StringInputStream(basicLayout),
@@ -285,41 +329,44 @@ private static final String genericIndexCrawlContent =
     /* remove <script> <noscript> and comments <!-- --> */
     inA = hfact.createFilteredInputStream(mau, new StringInputStream(scriptsAndComments),
         ENC);
-
     assertEquals(scriptsAndCommentsFiltered,StringUtil.fromInputStream(inA));
 
     inA = hfact.createFilteredInputStream(mau, new StringInputStream(whiteSpacesV1),
         ENC);
     inB = hfact.createFilteredInputStream(mau, new StringInputStream(whiteSpacesV2),
         ENC);
-    assertEquals(StringUtil.fromInputStream(inA),
-        StringUtil.fromInputStream(inB));
+    assertEquals(StringUtil.fromInputStream(inA), StringUtil.fromInputStream(inB));
     
     //serving up slightly different files 
     inA = hfact.createFilteredInputStream(mau, new StringInputStream(noSpanStyleHtml),
         ENC);
     inB = hfact.createFilteredInputStream(mau, new StringInputStream(spanStyleHtml),
         ENC);
-    assertEquals(StringUtil.fromInputStream(inA),
-        StringUtil.fromInputStream(inB));
+    assertEquals(StringUtil.fromInputStream(inA), StringUtil.fromInputStream(inB));
     
     /* remove contents from the home_url index page <!-- --> */
     inA = hfact.createFilteredInputStream(mau, new StringInputStream(genericIndexContent),
         ENC);
-
     assertEquals(genericIndexContentFiltered,StringUtil.fromInputStream(inA));
-  }
-  
-  public void testCrawlFiltering() throws Exception {
-    InputStream inA;
-    InputStream inB;
+
+
+    /* remove the div class="publishedDateAndMsType" */
+    inA = hfact.createFilteredInputStream(mau, new StringInputStream(publishedDateIdBefore), ENC);
+    assertEquals(publishedDateIdAfter,StringUtil.fromInputStream(inA));
     
-    /* Check basic include/exclude functionality */
-    inA = cfact.createFilteredInputStream(mau, new StringInputStream(genericIndexContent),
-        ENC);
-    assertEquals(genericIndexCrawlContent,StringUtil.fromInputStream(inA));
+    /* remove the extra space before end of </span> and after a <span> " */
+    inA = hfact.createFilteredInputStream(mau, new StringInputStream(extraSpaceWithSpanBefore), ENC);
+    assertEquals(extraSpaceWithSpanAfter,StringUtil.fromInputStream(inA));
+   
+    /* check of adding space(s) between "><" before whitespace filter */
+    inA = hfact.createFilteredInputStream(mau, new StringInputStream(extraSpaceGenericBefore), ENC);
+    inB = hfact.createFilteredInputStream(mau, new StringInputStream(noSpaceGenericBefore), ENC);
+    assertEquals(StringUtil.fromInputStream(inA),StringUtil.fromInputStream(inB));
+
+    /* remove the div class="articleDates" */
+    inA = hfact.createFilteredInputStream(mau, new StringInputStream(extraneousDatesBefore), ENC);
+    assertEquals(extraneousDatesAfter,StringUtil.fromInputStream(inA));
+    
   }
     
 }
-
-

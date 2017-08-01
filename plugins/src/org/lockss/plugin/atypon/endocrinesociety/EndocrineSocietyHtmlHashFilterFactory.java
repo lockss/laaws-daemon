@@ -4,7 +4,7 @@
 
 /*
 
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -33,7 +33,6 @@ in this Software without prior written authorization from Stanford University.
 package org.lockss.plugin.atypon.endocrinesociety;
 
 import java.io.InputStream;
-import java.util.regex.Pattern;
 import org.htmlparser.NodeFilter;
 import org.lockss.filter.html.*;
 import org.lockss.plugin.*;
@@ -62,13 +61,6 @@ public class EndocrineSocietyHtmlHashFilterFactory
         // nav journal - current past issues, about, authors
         // http://press.endocrine.org/doi/full/10.1210/en.2012-2147
         HtmlNodeFilters.tagWithAttributeRegex("div", "class", "nav-journal"),
-        // toc - breadcrumbs
-        // <div class="widget literatumBreadcrumbs
-        HtmlNodeFilters.tagWithAttributeRegex("div", "class", 
-                                              "literatumBreadcrumbs"),
-        // from issue toc or article: previous issue / next issue
-        HtmlNodeFilters.tagWithAttributeRegex("div", "class", 
-                                              "literatumBookIssueNavigation"),
         // toc - free.gif image
         HtmlNodeFilters.tagWithAttributeRegex("img",  "src", "free.gif"),
         // toc - access icon container
@@ -84,17 +76,27 @@ public class EndocrineSocietyHtmlHashFilterFactory
         // doi=10.1210%2Fjc.2013-1811
         HtmlNodeFilters.tagWithAttributeRegex("div",  "class", 
                                               "twoColumnRightDropZoneColor"),
+       // on TOC, the links to various aspects (pdf, abstract, permissions) gets 
+       // added to and we can hash it out. NOT crawl filter
+       HtmlNodeFilters.tagWithAttribute("div",  "class", "tocDeliverFormatsLinks"),
+       
+       // on full text and referenes page the ways to linkout to the reference get
+       // added to (GoogleScholar, Medline, ISI, abstract, etc)
+       // leave the content (NLM_article-title, NLM_year, etc),
+       // but remove everything else (links and punctuation)
+       HtmlNodeFilters.allExceptSubtree(
+           HtmlNodeFilters.tagWithAttributeRegex( 
+               "div", "class", "references"),
+               HtmlNodeFilters.tagWithAttributeRegex(
+                   "span", "class", "NLM_")),    
+                                              
         // figure - corrigendum
         // <div class="articleMetaDrop publicationContentDropZone" data-pb-dropzone="articleMetaDropZone">
         HtmlNodeFilters.tagWithAttributeRegex("div", "class", 
                                               "articleMetaDrop"),                                              
-        // right column of an article - all except Download Citations
+        // right column of an article - hash doesn't care about download link
         // note: institution banner is inside sidebar-right
-        HtmlNodeFilters.allExceptSubtree(
-            HtmlNodeFilters.tagWithAttributeRegex( 
-                "div", "class", "literatumRightSidebar"),
-                HtmlNodeFilters.tagWithAttributeRegex(
-                    "a", "href", "/action/showCitFormats\\?"))                       
+        HtmlNodeFilters.tagWithAttributeRegex("div", "class", "literatumRightSidebar"),
     };
     
     // super.createFilteredInputStream adds filters to the baseAtyponFilters

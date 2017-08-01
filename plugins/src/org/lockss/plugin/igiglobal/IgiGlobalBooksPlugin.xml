@@ -13,18 +13,22 @@
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>11</string>
+    <string>20</string>
   </entry>
+  <entry>
+    <string>required_daemon_version</string>
+    <string>1.70.2</string> <!-- content validation -->
+  </entry>  
   <entry>
     <string>plugin_feature_version_map</string>
     <map>
       <entry>
         <string>Metadata</string>
-        <string>3</string>
+        <string>4</string>
       </entry>
       <entry>
         <string>Poll</string>
-        <string>8</string>
+        <string>12</string>
       </entry>
       <entry>
         <string>Substance</string>
@@ -39,7 +43,10 @@
   </entry>
   <entry>
     <string>au_manifest</string>
-    <string>"%slockss/books.aspx", base_url</string>
+      <list>
+	<string>"%slockss/books.aspx", to_http(base_url)</string>
+	<string>"%slockss/books.aspx", to_https(base_url)</string>
+      </list>
   </entry>
   <entry>
     <string>au_start_url</string>
@@ -63,10 +70,11 @@
 -->
     <string>au_crawlrules</string>
     <list>
-      <string>1,"^%s.*[.](bmp|css|gif|ico|jpe?g|js|png|tif?f)([?]v=.+)?$", base_url</string>
-      <string>4,"^%s", base_url</string>
-      <string>1,"^%sgateway/chapter(/full-text-pdf|/full-text-html)?/[0-9]+$", base_url</string>
-      <string>1,"^%spdf[.]aspx[?]", base_url</string>
+      <string>1,"^https?://%s/.*[.](bmp|css|gif|ico|jpe?g|js|png|tif?f)([?]v=.+)?$", url_host(base_url)</string>
+      <string>4,"^https?://%s/", url_host(base_url)</string>
+      <string>1,"^https?://%s/gateway/book/%s$", url_host(base_url),volume</string>
+      <string>1,"^https?://%s/gateway/chapter(/full-text-pdf|/full-text-html)?/[0-9]+$", url_host(base_url)</string>
+      <string>1,"^https?://%s/pdf[.]aspx[?]", url_host(base_url)</string>
     </list>
   </entry>
   <entry>
@@ -102,6 +110,18 @@
     </list>
   </entry>
   <entry>
+    <string>plugin_url_consumer_factory</string>
+    <string>org.lockss.plugin.base.HttpToHttpsUrlConsumerFactory</string>
+  </entry>  
+  <entry>
+    <string>plugin_url_fetcher_factory</string>
+    <string>org.lockss.plugin.igiglobal.IgiGlobalHttpToHttpsUrlFetcherFactory</string>
+  </entry>
+  <entry>
+    <string>au_url_normalizer</string>
+    <string>org.lockss.plugin.igiglobal.IgiGlobalUrlNormalizer</string>
+  </entry>    
+  <entry>
     <string>au_login_page_checker</string>
     <string>org.lockss.plugin.igiglobal.IgiGlobalLoginPageChecker</string>
   </entry>
@@ -135,6 +155,18 @@
     </map>
   </entry>
   <entry>
+    <!-- Validator factory for text MIME types -->
+    <string>text/*_content_validator_factory</string>
+    <string>org.lockss.plugin.igiglobal.IgiGlobalContentValidator$Factory</string>
+  </entry>
+  <entry>
+    <string>plugin_cache_result_list</string>
+    <list>
+      <!-- Invalid content-type file; no retry. Captures cases of html returned instead of PDF  -->
+      <string>org.lockss.plugin.ContentValidationException=org.lockss.util.urlconn.CacheException$ExpectedNoRetryException</string>
+    </list>
+  </entry>
+  <entry>
     <string>au_def_pause_time</string>
     <long>18000</long>
   </entry>
@@ -149,17 +181,16 @@
   <entry>
     <string>au_repair_from_peer_if_missing_url_pattern</string>
     <list>
-      <string>[^/]+/(images|sourcecontent)/.*[.](bmp|gif|ico|jpe?g|png|tif?f)$</string>
-      <string>[.](css|js)$</string>
+      <string>"(?i)://[^/]+/(images|sourcecontent)/.*[.](bmp|gif|ico|jpe?g|png|tif?f)$"</string>
+      <string>"[.](css|js)$"</string>
     </list>
   </entry>
   <entry>
     <!-- these will not count towards poll results but will replicate from peer if above 1.69.5 -->
     <string>au_url_poll_result_weight</string>
     <list>
-      <string>""[^/]+/(images|sourcecontent)/.*[.](bmp|gif|ico|jpe?g|png|tif?f)$", 0</string>
+      <string>"(?i)://[^/]+/(images|sourcecontent)/.*[.](bmp|gif|ico|jpe?g|png|tif?f)$", 0</string>
       <string>"[.](css|js)$", 0</string>
     </list>
-    
   </entry>
 </map>

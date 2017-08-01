@@ -13,12 +13,12 @@
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>31</string>
+    <string>35</string>
   </entry>
    <entry>
     <string>plugin_parent_version</string>
-    <string>31</string>
-  </entry>  
+    <string>35</string>
+  </entry>
   <entry>
     <string>au_name</string>
     <string>"Hindawi Publishing Corporation Plugin (CLOCKSS), Base URL %s, Download URL %s, Journal ID %s, Volume %s", base_url, download_url, journal_id, volume_name</string>
@@ -30,7 +30,8 @@
   <entry>
     <string>au_permission_url</string>
     <list>
-      <string>"%sclockss.html", base_url</string>
+      <string>"%sclockss.html", to_http(base_url)</string>
+      <string>"%sclockss.html", to_https(base_url)</string>
       <string>"%sclockss.html", download_url</string>
     </list>
   </entry>
@@ -42,5 +43,5 @@
         <long>100</long>
       </entry>
     </map>
-  </entry>  
+  </entry>
 </map>

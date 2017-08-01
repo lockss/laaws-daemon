@@ -4,7 +4,7 @@
 
 /*
 
- Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -89,8 +89,16 @@ public class CopernicusHtmlFilterFactory implements FilterFactory {
         // recent articles listing
         HtmlNodeFilters.tagWithAttribute("div","id","recent_paper"),
         // logos at the bottom
-        HtmlNodeFilters.tagWithAttribute("div","id","essentential-logos-carousel"),        
-          
+        HtmlNodeFilters.tagWithAttribute("div","id","essentential-logos-carousel"), 
+        // date class id differs...
+        HtmlNodeFilters.tagWithAttributeRegex("div", "class", "publishedDateAndMsType*"),
+        // list of received/revised/accepted dates sometimes present
+        HtmlNodeFilters.tagWithAttribute("div", "class", "articleDates"),
+        // The following exclude from the permission page, which we cannot crawl-exclude
+        // but all the content is "current", so may differ from older volumes
+        HtmlNodeFilters.tagWithAttribute("div","id","highlight_articles"),
+        HtmlNodeFilters.tagWithAttribute("div","id","landing_page"),
+
     };
           
     
@@ -109,7 +117,13 @@ public class CopernicusHtmlFilterFactory implements FilterFactory {
                 tag.setAttributesEx(new Vector()); //empty attribs Vector. Even clears out tag name
                 tag.setTagName("REMOVE");
                 endTag.setTagName("REMOVE");
+              } // remove the "class" tag on the div with id=page_content_container
+              else if (("div".equals(tagName)) && (tag.getAttribute("id")!= null) && 
+                          tag.getAttribute("id").equals("page_content_container")) {
+                if (tag.getAttribute("class") != null) 
+                  tag.removeAttribute("class");
               }
+                
             }
           });
         }
@@ -135,14 +149,15 @@ public class CopernicusHtmlFilterFactory implements FilterFactory {
     String[][] findAndReplace = new String[][] {
         // use of &nbsp; or " " inconsistent over time
         {"&nbsp;", " "}, 
-        // out of sync - some versions have extraneous single spaces, so remove between tags
-        {"> <", "><"},
+        // out of sync - some versions have extraneous single spaces, 
+        // so ADD a space between tags then use whitespace filter
+        {"<", " <"},
+ 
     };
     Reader stringFilter = StringFilter.makeNestedFilter(tagFilter,
                                                           findAndReplace,
-                                                          false);
-
-    return new ReaderInputStream(new WhiteSpaceFilter(stringFilter));   
+                                                          false);    
     
+    return new ReaderInputStream(new WhiteSpaceFilter(stringFilter));
   }
 }

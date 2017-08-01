@@ -4,7 +4,7 @@
 
 /**
 
-Copyright (c) 2000-2012 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,21 +32,32 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.plugin.medknow;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.Reader;
 import java.util.regex.Pattern;
 
 import org.htmlparser.Node;
 import org.htmlparser.NodeFilter;
+import org.htmlparser.Tag;
+import org.htmlparser.Text;
 import org.htmlparser.filters.*;
+import org.htmlparser.nodes.TextNode;
 import org.htmlparser.tags.LinkTag;
-import org.htmlparser.tags.TableColumn;
 import org.htmlparser.tags.TableTag;
+import org.htmlparser.util.NodeList;
+import org.htmlparser.util.ParserException;
+import org.htmlparser.visitors.NodeVisitor;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.ConfigParamDescr;
 import org.lockss.daemon.PluginException;
+import org.lockss.filter.FilterUtil;
+import org.lockss.filter.StringFilter;
+import org.lockss.filter.WhiteSpaceFilter;
 import org.lockss.filter.html.*;
 import org.lockss.plugin.*;
 import org.lockss.util.Logger;
+import org.lockss.util.ReaderInputStream;
 
 /*
  * Medknow html is very non-descriptive so pursuing a very minimalist approach
@@ -75,9 +86,13 @@ public class MedknowHtmlHashFilterFactory implements FilterFactory {
     String AuVol = auConfig.get(ConfigParamDescr.VOLUME_NAME.getKey());
     String AuIssn = auConfig.get(ConfigParamDescr.JOURNAL_ISSN.getKey());
     final Pattern THIS_VOL_ISSN_PAT = Pattern.compile(String.format("showBackIssue\\.asp\\?issn=%s;year=[0-9]{4};volume=%s;",AuIssn, AuVol),Pattern.CASE_INSENSITIVE);
+    final Pattern ONLINE_ACCESSED_PAT = Pattern.compile("Online since .{1,99}?Accessed [0-9,.]{1,99} times?", Pattern.DOTALL);
+    final Pattern PMID_PAT = Pattern.compile(":?[0-9]{0,10}");
+    
     HtmlFilterInputStream filtered = new HtmlFilterInputStream(
         in,
         encoding,
+        new HtmlCompoundTransform(
         new HtmlCompoundTransform(
             /*
              * KEEP: throw out everything but main content areas
@@ -119,7 +134,10 @@ public class MedknowHtmlHashFilterFactory implements FilterFactory {
                       if(tclass != null && !tclass.isEmpty() && "articlepage".equals(tclass)) {
                         String longContents = ((TableTag)node).getStringText();
                         // the PDF access policy is stated on TOC
-                        if (!(longContents.toLowerCase().contains("pdf access policy"))) {
+                        // except like http://www.ejo.eg.net/showBackIssue.asp?issn=1012-5574;year=2012;volume=28;issue=1
+                        if (!(longContents.toLowerCase().contains("pdf access policy") || 
+                              ONLINE_ACCESSED_PAT.matcher(longContents).find()))
+                        {
                           return true;
                         }
                       }
@@ -168,11 +186,72 @@ public class MedknowHtmlHashFilterFactory implements FilterFactory {
                 HtmlNodeFilters.tagWithAttribute("font", "class", "CorrsAdd"),
                 // do NOT take TOC per-article link sections - variable over time
 
-            }))
-            )
+            }))),
+            
+        new HtmlCompoundTransform(
+            new HtmlTransform() {
+              @Override
+              public NodeList transform(NodeList nodeList) throws IOException {
+                // <td class="sAuthor" style="line-height:18px;">
+                // <b>PMID</b> :24891795
+                try {
+                  nodeList.visitAllNodesWith(new NodeVisitor() {
+                    @Override
+                    public void visitTag(Tag tag) {
+                      if ("td".equals(tag.getTagName().toLowerCase()) &&
+                          "sAuthor".equals(tag.getAttribute("class"))) {
+                          boolean p1 = false;
+                          NodeList nl = tag.getChildren();
+                          for (int sx = 0; sx < nl.size(); sx++) {
+                            Node snode = nl.elementAt(sx);
+                            String xmin = snode.getText();
+                            if (snode instanceof Text &&
+                                ("PMID".equals(xmin) ||
+                                 (p1 && PMID_PAT.matcher(xmin).find()))) {
+                              p1 = true;
+                              nl.remove(sx);
+                            }
+                          }
+                        }
+                      }
+                    });
+                }
+                catch (ParserException pe) {
+                  throw new IOException(pe);
+                }
+                return nodeList;
+              }
+            },
+            // convert all remaining nodes to plaintext nodes
+            new HtmlTransform() {
+              @Override
+              public NodeList transform(NodeList nodeList) throws IOException {
+                NodeList nl = new NodeList();
+                for (int sx = 0; sx < nodeList.size(); sx++) {
+                  Node snode = nodeList.elementAt(sx);
+                  // Add a space for case where to separate nodes,
+                  // required where showstats is filtered but extra NL remained and caused diff
+                  TextNode tn = new TextNode(snode.toPlainTextString() + " ");
+                  nl.add(tn);
+                }
+                return nl;
+              }
+            }
+            ))
         );
+    
+    Reader reader = FilterUtil.getReader(filtered, encoding);
+    // first substitute plain white space for &nbsp;
+    String[][] unifySpaces = new String[][] { 
+        // inconsistent use of nbsp v empty space - do this replacement first
+        {"&nbsp;", " "}, 
+    };
+    Reader NBSPFilter = StringFilter.makeNestedFilter(reader,
+        unifySpaces, false);   
 
-    return filtered;
+    //now consolidate white space
+    Reader WSReader = new WhiteSpaceFilter(NBSPFilter);
+    return new ReaderInputStream(WSReader);
 
   }
 

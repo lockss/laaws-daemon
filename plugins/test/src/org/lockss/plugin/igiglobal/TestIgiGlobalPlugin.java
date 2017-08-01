@@ -59,6 +59,7 @@ public class TestIgiGlobalPlugin extends LockssPluginTestCase {
 	static final String JOURNAL_ISSN_KEY = ConfigParamDescr.JOURNAL_ISSN.getKey();
 	static final String VOLUME_NUMBER_KEY = ConfigParamDescr.VOLUME_NUMBER.getKey();
 	private final String BASE_URL = "http://www.example.com/";
+        private final String BASE_URL2 = "https://www.example.com/";
 	private final String VOLUME = "21";
 	private final String JOURNAL_ISSN = "1546-2234";
 	private final Configuration AU_CONFIG = ConfigurationUtil.fromArgs(
@@ -68,7 +69,7 @@ public class TestIgiGlobalPlugin extends LockssPluginTestCase {
 	
 	// from au_url_poll_result_weight in plugins/src/org/lockss/plugin/igiglobal/IgiGlobalPlugin.xml
 	// if it changes in the plugin, you will likely need to change the test, so verify
-	static final String  IGI_REPAIR_FROM_PEER_REGEXP1 = "[^/]+/(images|sourcecontent)/.*[.](bmp|gif|ico|jpe?g|png|tif?f)$";
+	static final String  IGI_REPAIR_FROM_PEER_REGEXP1 = "(?i)://[^/]+/(images|jquery|sourcecontent)/.*[.](bmp|gif|ico|jpe?g|png|tif?f)$";
 	static final String  IGI_REPAIR_FROM_PEER_REGEXP2 = "[.](css|js)$";
 
   public void setUp() throws Exception {
@@ -166,13 +167,14 @@ public class TestIgiGlobalPlugin extends LockssPluginTestCase {
 
 	  public void testStartUrlConstruction() throws Exception {
 	    String expectedStartUrl = BASE_URL + "lockss/journal-issues.aspx?issn=" + JOURNAL_ISSN + "&volume=" + VOLUME;
+            String expectedStartUrl2 = BASE_URL2 + "lockss/journal-issues.aspx?issn=" + JOURNAL_ISSN + "&volume=" + VOLUME;
 	    ArchivalUnit au = createAu();
-	    assertEquals(ListUtil.list(expectedStartUrl), au.getStartUrls());
+	    assertSameElements(ListUtil.list(expectedStartUrl, expectedStartUrl2), au.getStartUrls());
 	  }
 
 	  public void testGetUrlStems() throws Exception {
 	    ArchivalUnit au = createAu();
-	    assertEquals(ListUtil.list(BASE_URL), au.getUrlStems());
+	    assertSameElements(ListUtil.list(BASE_URL, BASE_URL2), au.getUrlStems());
 	  }
 
 	  public void testShouldDoNewContentCrawlTooEarly() throws Exception {
@@ -206,6 +208,8 @@ public class TestIgiGlobalPlugin extends LockssPluginTestCase {
 	        IGI_REPAIR_FROM_PEER_REGEXP1, IGI_REPAIR_FROM_PEER_REGEXP2),
 	        RegexpUtil.regexpCollection(au.makeRepairFromPeerIfMissingUrlPatterns()));
 	    
+	    PatternFloatMap pfm = au.makeUrlPollResultWeightMap();
+	    
 	    // make sure that's the regexp that will match to the expected url string
 	    // this also tests the regexp (which is the same) for the weighted poll map
 	    // Add to pattern these urls? Has not been seen as problem, yet
@@ -213,23 +217,24 @@ public class TestIgiGlobalPlugin extends LockssPluginTestCase {
 	    
 	    List <String> repairList1 = ListUtil.list(
 	        BASE_URL + "sourcecontent/9781466601161_58264/978-1-4666-0116-1.ch002.f01.png",
-                BASE_URL + "images/workflow-wizard-hand-circle-medium-gray.png",
                 BASE_URL + "jQuery/css/blitzer/images/ui-icons_004276_256x240.png",
-                BASE_URL + "images/erl-2015.png");
-	    Pattern p = Pattern.compile(IGI_REPAIR_FROM_PEER_REGEXP1);
+                BASE_URL + "images/workflow-wizard-hand-circle-medium-gray.png",
+                BASE_URL + "images/erl-2015.png",
+                BASE_URL + "Images/erl-2015.png");
+	    Pattern p = Pattern.compile(IGI_REPAIR_FROM_PEER_REGEXP1, Pattern.CASE_INSENSITIVE);
 	    for (String urlString : repairList1) {
-	      Matcher m = p.matcher(urlString);
-	      assertEquals(urlString, true, m.find());
+	      assertEquals(urlString, true, p.matcher(urlString).find());
+	      assertEquals(urlString, 0.0f, pfm.getMatch(urlString, 1.0f));
 	    }
 	    List <String> repairList2 = ListUtil.list(
 	        BASE_URL + "includes/gateway.61113.js",
 	        BASE_URL + "includes/main.02052016.css",
 	        BASE_URL + "Scripts/tipped/tipped.css",
 	        BASE_URL + "Scripts/tipped/tipped.js");
-	    p = Pattern.compile(IGI_REPAIR_FROM_PEER_REGEXP2);
+	    p = Pattern.compile(IGI_REPAIR_FROM_PEER_REGEXP2, Pattern.CASE_INSENSITIVE);
 	    for (String urlString : repairList2) {
-	      Matcher m = p.matcher(urlString);
-	      assertEquals(urlString, true, m.find());
+	      assertEquals(urlString, true, p.matcher(urlString).find());
+              assertEquals(urlString, 0.0f, pfm.getMatch(urlString, 1.0f));
 	    }
 	    
 	    //and this one should fail - it needs to be weighted correctly and repaired from publisher if possible
@@ -240,8 +245,9 @@ public class TestIgiGlobalPlugin extends LockssPluginTestCase {
 	    PatternFloatMap urlPollResults = au.makeUrlPollResultWeightMap();
 	    assertNotNull(urlPollResults);
 	    for (String urlString : repairList2) {
-	      assertEquals(0.0, urlPollResults.getMatch(urlString), .0001);
+	      assertEquals(0.0, urlPollResults.getMatch(urlString, (float) 1), .0001);
 	    }
+	    assertEquals(1.0, urlPollResults.getMatch(notString, (float) 1), .0001);
 	  }
 	  
 }

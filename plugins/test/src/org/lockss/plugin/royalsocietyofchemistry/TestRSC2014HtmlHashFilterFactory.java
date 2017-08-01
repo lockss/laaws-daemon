@@ -50,7 +50,8 @@ public class TestRSC2014HtmlHashFilterFactory extends LockssTestCase {
     mau = new MockArchivalUnit();
   }
 
-  private static final String withScript = "<html>" +
+  private static final String withScript = "" +
+      "<html>" +
       "  	<head>" +
       "<script type=\"text/javascript\">\n" + 
       "  var _gaq = _gaq || [];\n" + 
@@ -60,9 +61,7 @@ public class TestRSC2014HtmlHashFilterFactory extends LockssTestCase {
       "<script type=\"text/javascript\" src=\"/camcos/etc/cover.js\"></script>" +
       "</html>";
   
-  private static final String withoutScript = "<html>" +
-      " " +
-      "</html>";
+  private static final String withoutScript = " ";
   
   private static final String withStuff = "" +
       "<html lang=\"en\" xml:lang=\"en\" xmlns:rsc=\"urn:rsc.org\" xmlns=\"http://www.w3.org/1999/xhtml\" xmlns:content=\"http://purl.org/rss/1.0/modules/content/\" xmlns:art=\"http://www.rsc.org/schema/rscart38\" xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" xmlns:epub=\"http://www.idpf.org/2007/ops\">" +
@@ -81,42 +80,39 @@ public class TestRSC2014HtmlHashFilterFactory extends LockssTestCase {
       "</body>" +
       "</html>";
   
-  private static final String withoutStuff = "" +
-      "<html>" +
-      "<body> " +
-      "</body>" +
-      "</html>";
+  private static final String withoutStuff = " ";
   
   private static final String withLinks = "" +
       "A. A, A. K, H. S, and R. A, Native changes in <span class=\"italic\">Bacillus subtilis</span>" +
       ", <span class=\"italic\">Jnl.</span>, year, <span class=\"bold\">2</span>(1), 80 87" +
       "<a target=\"_blank\" class=\"Links\" href=\"http://www.rsc.org/\" " +
       "title=\"Left in text\">Left</a>" +
+      "<img src=\"http://sod-a.rsc-cdn.org/pubs-core/rel_ver/content/NewImages/pdf_icon_small.gif\">" +
+      "<img src=\"https://sod-a.rsc-cdn.org/pubs-core/rel_ver/content/NewImages/pdf_icon_small.gif\">" +
       "<a target=\"_blank\" class=\"URLLinks\" href=\"http://pubs.rsc.org/\" " +
       "title=\"Link via OpenURL Resolver\"><img src=\"http://pubs.rsc.org/en\"></a>.";
   
   private static final String withoutLinks = "" +
-      "A. A, A. K, H. S, and R. A, Native changes in <span>Bacillus subtilis</span>" +
-      ", <span>Jnl.</span>, year, <span>2</span>(1), 80 87" +
-      "<a>Left</a><a><img src=\"http://pubs.rsc.org/en\"></a>.";
+      "A. A, A. K, H. S, and R. A, Native changes in Bacillus subtilis " +
+      ", Jnl. , year, 2 (1), 80 87" +
+      " Left .";
   
-  private static final String withNav = "<html>\n" +
+  private static final String withNav = "" +
+      "<html>\n" +
       " <div id=\"top\" class=\"navigation\" style=\"color: rgb(0, 0, 0);\">\n" + 
       "  <h1>\nGap in\n</h1>\n" + 
       "  <div class=\"open_access\">\n</div>" +
       " </div>" +
       "</html>";
   
-  private static final String withoutNav = "<html>" +
-      " " +
-      "</html>";
+  private static final String withoutNav = " ";
   
   private static final String genError = "" +
       "<html><body>" +
       "<span id=\"1\" />" +
       "</body></html>";
   
-  private static final String noError = "" +
+  private static final String noError = " " +
       "<html><body>" +
       "<span/>" +
       "</body></html>";

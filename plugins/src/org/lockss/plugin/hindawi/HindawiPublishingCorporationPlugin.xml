@@ -9,15 +9,15 @@
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>31</string>
+    <string>35</string>
   </entry>
   <entry>
     <string>required_daemon_version</string>
-    <string>1.60.0</string>
+    <string>1.70.0</string>  <!-- HTTP-To-HTTPS -->
   </entry>
   <entry>
     <string>au_def_pause_time</string>
-    <long>5000</long>
+    <long>4000</long>
   </entry>
   <entry>
     <string>plugin_feature_version_map</string>
@@ -28,7 +28,7 @@
       </entry>
       <entry>
      	<string>Poll</string>
-	       <string>13</string>
+	    <string>15</string>
       </entry>
       <entry>
         <string>Metadata</string>
@@ -48,7 +48,6 @@
     <string>au_def_new_content_crawl</string>
     <long>1209600000</long>
   </entry>
-
   <entry>
     <string>au_start_url</string>
     <string>"%sjournals/%s/%s/", base_url, journal_id, volume_name</string>
@@ -73,19 +72,20 @@
   <entry>
     <string>au_permission_url</string>
     <list>
-      <string>"%slockss.html", base_url</string>
+      <string>"%slockss.html", to_https(base_url)</string>
+      <string>"%slockss.html", to_http(base_url)</string>
       <string>"%slockss.html", download_url</string>
     </list>
   </entry>
   <entry>
     <string>au_crawlrules</string>
     <list>
-      <string>1,"^https?://(%s|%s)/.*\.(bmp|css|eot|gif|ico|jpe?g|js|otf|png|svg|tif?f|ttf|woff)(\?ver=.*)?$", base_url_host, download_url_host</string>
-      <string>4,"^(%s|%s)", base_url, download_url</string>
-      <string>1,"^(%s|%s)lockss.html$", base_url, download_url</string>
-      <string>2,"^(%s|%s)journals/%s/%s/[^/]+/citations/?$", base_url, download_url, journal_id, volume_name</string>
-      <string>1,"^(%s|%s)journals/%s/%s/", base_url, download_url, journal_id, volume_name</string>
-      <string>1,"^%sfloats/[^/]+/figures/", base_url</string>
+      <string>1,"^https?://(%s|%s)/.*\.(bmp|css|eot|gif|ico|jpe?g|js|otf|png|svg|tif?f|ttf|woff)(\?ver=.*)?$", url_host(base_url), url_host(download_url)</string>
+      <string>4,"^https?://(%s|%s)/", url_host(base_url), url_host(download_url)</string>
+      <string>1,"^https?://(%s|%s)/lockss.html$", url_host(base_url), url_host(download_url)</string>
+      <string>2,"^https?://(%s|%s)/journals/%s/%s/[^/]+/citations/?$", url_host(base_url), url_host(download_url), journal_id, volume_name</string>
+      <string>1,"^https?://(%s|%s)/journals/%s/%s($|/)", url_host(base_url), url_host(download_url), journal_id, volume_name</string>
+      <string>1,"^https?://(%s)/floats/[^/]+/figures/", url_host(base_url)</string>
     </list>
   </entry>
   <entry>
@@ -133,6 +133,14 @@
         <defaultOnly>false</defaultOnly>
       </org.lockss.daemon.ConfigParamDescr>
     </list>
+  </entry>
+    <entry>
+    <string>plugin_url_consumer_factory</string>
+    <string>org.lockss.plugin.base.HttpToHttpsUrlConsumerFactory</string>
+  </entry>
+  <entry>
+    <string>plugin_url_fetcher_factory</string>
+    <string>org.lockss.plugin.base.HttpToHttpsUrlFetcherFactory</string>
   </entry>
   <entry>
     <string>plugin_article_iterator_factory</string>
@@ -185,6 +193,19 @@
     <list>
       <string>400=org.lockss.util.urlconn.CacheException$NoRetryDeadLinkException</string>
       <string>403=org.lockss.util.urlconn.CacheException$NoRetryDeadLinkException</string>
+    </list>
+  </entry>
+  <entry>
+    <string>au_repair_from_peer_if_missing_url_pattern</string>
+    <list>
+      <string>\.css(\?ver=\d+)?$</string>
+    </list>
+  </entry>
+  <entry>
+    <!-- these will not count towards poll results but will replicate from peer if above -->
+    <string>au_url_poll_result_weight</string>
+    <list>
+      <string>"\.css(\?ver=\d+)?$", 0</string>
     </list>
   </entry>
 </map>

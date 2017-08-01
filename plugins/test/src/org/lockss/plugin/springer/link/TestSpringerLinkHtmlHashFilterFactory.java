@@ -54,7 +54,7 @@ public class TestSpringerLinkHtmlHashFilterFactory extends LockssTestCase {
   private static final String withoutWhiteSpace =
       " ";
   
-  // this tests <head>, <input>, <script>, <noscript>, <input>
+  // this tests <head>, <input>, <script>, <noscript>, <input>, <meta>, <link>
   //      <div id="footer">, <div id="doubleclick">, <div id="header">, <div id="crossMark"
   //      <link rel="stylesheet"
   //      <!-- html comments --> , <button id="chat-widget">
@@ -66,6 +66,8 @@ public class TestSpringerLinkHtmlHashFilterFactory extends LockssTestCase {
       "<script src=\"/static/js/test/test_v3.js\"></script>" +
       "<div id=\"doubleclick-ad\" class=\"banner-advert\">foo bar</div>" +
       "<div id=\"header\" role=\"banner\">refrigerator</div>" +
+      "<meta property=\"og:image\" content=\"http://link.springer.com/pink-static/1223904338/images/png/SL-Square.png\"/>" +
+      "<link rel=\"icon\" sizes=\"48x48\" type=\"image/png\" href=\"/pink-static/1223904338/images/favicon/favicon-48x48.png\">" +
       "<link rel=\"stylesheet\" media=\"print\" href=\"/static/201602081740-1149/css/print.css\"/>" +
       "<div id=\"content\">" +
       "<input id=\"leafContentType\" type=\"hidden\" value=\"Article\"/>" +
@@ -104,18 +106,6 @@ public class TestSpringerLinkHtmlHashFilterFactory extends LockssTestCase {
     assertEquals(withoutWhiteSpace, str);
   }
   
-  /*
-   * Compare with/without crossMark plus a whole bunch of other filters
-   */
-
-  public void testCrossMark() throws Exception {
-    InputStream actIn = fact.createFilteredInputStream(mau,
-        new StringInputStream(withCrossMark), Constants.DEFAULT_ENCODING);
-    String str = StringUtil.fromInputStream(actIn);
-    assertEquals(withoutCrossMark, str);
-    
-  }
-  
   /* 
    * Compare with/without the body attributes
    */
@@ -125,4 +115,18 @@ public class TestSpringerLinkHtmlHashFilterFactory extends LockssTestCase {
     String str = StringUtil.fromInputStream(actIn);
     assertEquals(withoutBodyAttr, str);
   }
+  
+  /* 
+   * Compare with/without the body attributes
+   */
+//  public void testOldNewSite() throws Exception {
+//    InputStream newIn = fact.createFilteredInputStream(mau,
+//    	getResourceAsStream("New_Springer_Same.html"), Constants.DEFAULT_ENCODING);
+//    InputStream oldIn = fact.createFilteredInputStream(mau,
+//        	getResourceAsStream("Old_Springer_Same.html"), Constants.DEFAULT_ENCODING);
+//    
+//    String newStr = StringUtil.fromInputStream(newIn);
+//    String oldStr = StringUtil.fromInputStream(oldIn);
+//    assertEquals(newStr, oldStr);
+//  }
 }

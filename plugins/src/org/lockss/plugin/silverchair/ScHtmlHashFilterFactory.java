@@ -36,6 +36,7 @@ import java.io.*;
 import java.util.Arrays;
 
 import org.apache.commons.io.IOUtils;
+import org.apache.commons.io.input.CountingInputStream;
 import org.htmlparser.NodeFilter;
 import org.htmlparser.filters.OrFilter;
 import org.lockss.daemon.PluginException;
@@ -43,6 +44,7 @@ import org.lockss.filter.*;
 import org.lockss.filter.HtmlTagFilter.TagPair;
 import org.lockss.filter.html.*;
 import org.lockss.plugin.*;
+import org.lockss.util.Logger;
 import org.lockss.util.ReaderInputStream;
 
 public class ScHtmlHashFilterFactory implements FilterFactory {
@@ -51,9 +53,10 @@ public class ScHtmlHashFilterFactory implements FilterFactory {
    * AMA = American Medical Association (http://jamanetwork.com/)
    * SPIE = SPIE (http://spiedigitallibrary.org/)
    */
+  private static final Logger log = Logger.getLogger(ScHtmlHashFilterFactory.class);
   
   @Override
-  public InputStream createFilteredInputStream(ArchivalUnit au,
+  public InputStream createFilteredInputStream(final ArchivalUnit au,
                                                InputStream in,
                                                String encoding)
       throws PluginException {
@@ -74,6 +77,8 @@ public class ScHtmlHashFilterFactory implements FilterFactory {
             HtmlNodeFilters.tagWithAttributeRegex("div", "class", "contentColumn"),
             // KEEP proper citation of article [AMA]
             HtmlNodeFilters.tagWithAttribute("span", "class", "citationCopyPaste"),
+         // KEEP proper citation of article [AMA]
+            HtmlNodeFilters.tagWithAttributeRegex("div", "class", "content-section"),
         })),
         /*
          * DROP: filter remaining content areas
@@ -129,6 +134,10 @@ public class ScHtmlHashFilterFactory implements FilterFactory {
             HtmlNodeFilters.tagWithAttribute("div", "class", "adPortlet"), // rightside ads
             HtmlNodeFilters.tagWithAttribute("div", "class", "portletContentHolder"), // rightside
             // related content and metrics
+            //figure links
+            HtmlNodeFilters.tagWithAttribute("div", "class", "figurelinks"),
+            //figures section changes
+            HtmlNodeFilters.tagWithAttribute("div", "class", "abstractFigures"),
         }))
       )
     );
@@ -139,7 +148,24 @@ public class ScHtmlHashFilterFactory implements FilterFactory {
     Reader noTagFilter = new HtmlTagFilter(new StringFilter(reader, "<", " <"), new TagPair("<", ">"));
     
     // Remove white space
-    return new ReaderInputStream(new WhiteSpaceFilter(noTagFilter));
+    Reader whiteSpaceFilter = new WhiteSpaceFilter(noTagFilter);
+    // All instances of "Systemic Infection" have been replaced with Sepsis on AMA
+    InputStream ret =  new ReaderInputStream(new StringFilter(whiteSpaceFilter, "systemic infection", "sepsis"));
+    
+    // Instrumentation
+    return new CountingInputStream(ret) {
+      @Override
+      public void close() throws IOException {
+        long bytes = getByteCount();
+        if (bytes <= 100L) {
+          log.debug(String.format("%d byte%s in %s", bytes, bytes == 1L ? "" : "s", au.getName()));
+        }
+        if (log.isDebug2()) {
+          log.debug2(String.format("%d byte%s in %s", bytes, bytes == 1L ? "" : "s", au.getName()));
+        }
+        super.close();
+      }
+    };
   }
 
   public static void main(String[] args) throws Exception {

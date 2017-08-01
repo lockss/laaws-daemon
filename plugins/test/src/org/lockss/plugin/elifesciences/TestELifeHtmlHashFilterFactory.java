@@ -54,9 +54,14 @@ public class TestELifeHtmlHashFilterFactory extends LockssTestCase {
   //      <!-- html comments --> , <button id="chat-widget">
   //       <button class="StickySideButton_left StickySideButton_left--feedback">Support</button>
   private static final String withStuffToHashOut =
+      "<head prefix=\"og: http://ogp.me/ns#\" >" + 
+      "  <meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" />" +
+      "</head>" +
+      "<body class=\"html not-front not-logged-in page-node page-node-493560 node-type-elife-article-ver\">" +
       "<script type=\"text/javascript\" src=\"http://hello.org/sites/stuff.js\"></script>" +
       "<header id=\"section-header\" class=\"section section-header\">" +
       "</header>" +
+      "<p class=\"first-child\">" +
       "<footer id=\"section-footer\" class=\"section section-footer\">" +
       "</footer>" +
       "<div class=\"grid-31 prefix-2 region region-responsive-header\" id=\"region-responsive-header\">" +
@@ -79,16 +84,32 @@ public class TestELifeHtmlHashFilterFactory extends LockssTestCase {
       "</ul>" +
       "<div class=\"form-item hello-world-select form-item-jump\">" +
       "</div>" +
-      "<div id=\"content\">" +
-           "</div> ";
+      "<div class=\"elife-article-corrections\">" +
+      "</div>" +
+      "<div class=\"elife-article-criticalrelation\">" +
+      "</div>" +
+      "<div id=\"content\">X" +
+      "</div>" +
+      "</body>";
   private static final String withoutStuffToHashOut =
-      "<div id=\"content\">" +
-      "</div> ";
+      "<body>" + // attribute stripped class=...
+      "<p>" + // attribute stripped class=...
+      "<div>" + // attribute stripped class=\"elife-article-corrections\"
+      "</div>" +
+      "<div>X" +
+      "</div>" +
+      "</body>";
   
   private static final String withCommentSection=
-      "<div class=\"ctools-collapsible-container\">" +
+      "<div class=\"panel-separator\"></div>" +
+      "<div class=\"ctools-collapsible-container ctools-collapsible-processed\">" +
+      "<span class=\"ctools-toggle\"></span>" +
+      "<h2 class=\"pane-title ctools-collapsible-handle\">Comments</h2>" +
+      "Some comment" +
+      "</div>" +
+      "<div>" +
       "<h2 class=\"pane-title ctools-collapsible-handle\">Comments</h2>"+
-      "<div class=\"ctools-collapsible-content\">" +
+      "<div>" +
       "Blahblah"+
       "<div id=\"disqus_thread\"><noscript><p><a href=\"http://elifesciences.disqus.com/?url=http%3A%2F%2Felifesciences.org%2Fcontent%2F4%2Fe04316\">View the discussion thread.</a>"+
       "</p></noscript>" +
@@ -96,9 +117,9 @@ public class TestELifeHtmlHashFilterFactory extends LockssTestCase {
       "</div>" +
       "</div>" ;
   private static final String withoutCommentSection =
-      "<div class=\"ctools-collapsible-container\">" +
+      "<div>" +
       "<h2 class=\"pane-title ctools-collapsible-handle\">Comments</h2>"+
-      "<div class=\"ctools-collapsible-content\">" +
+      "<div>" +
       "Blahblah"+
       "</div>" +
       "</div>" ;

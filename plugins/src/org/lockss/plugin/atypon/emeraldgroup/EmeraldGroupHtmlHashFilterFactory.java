@@ -117,7 +117,7 @@ public class EmeraldGroupHtmlHashFilterFactory
         // full - section choose pulldown appeared in multiple sections
         // http://www.emeraldinsight.com/doi/full/10.1108/AAAJ-02-2013-1228
         HtmlNodeFilters.tagWithAttribute("div",  "class", "sectionJumpTo"),
-        // abs, full, ref - Article Options and Tools
+        // abs, full, ref - Article Options and Tools 
         HtmlNodeFilters.allExceptSubtree(
             HtmlNodeFilters.tagWithAttributeRegex("div", "class", "options"),
                 HtmlNodeFilters.tagWithAttributeRegex(
@@ -125,9 +125,13 @@ public class EmeraldGroupHtmlHashFilterFactory
         // abs, full, ref - random html - potential problem
         HtmlNodeFilters.tagWithAttribute("span",  "class", "Z3988"),
         // full, ref - references section - Crossref/ISI/Abstract/Infotrieve
-        // sepatated by a comma. Not easy to remove the comma, so hash out
+        // separated by a comma. Not easy to remove the comma, so hash out
         // class citation
-        HtmlNodeFilters.tagWithAttribute("div", "class", "citation")                                              
+        HtmlNodeFilters.tagWithAttribute("div", "class", "citation"),     
+        //TOC - in case icon options change
+        HtmlNodeFilters.tagWithAttributeRegex("div", "class", "icon-key"),
+        // on the full/abs/ref pages there are little style definitions that 
+        HtmlNodeFilters.tagWithAttributeRegex("style", "type", "text/css"),
     };
     return super.createFilteredInputStream(au, in, encoding, 
                                            includeNodes, excludeNodes);

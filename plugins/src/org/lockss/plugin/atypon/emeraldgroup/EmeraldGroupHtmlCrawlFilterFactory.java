@@ -46,12 +46,14 @@ public class EmeraldGroupHtmlCrawlFilterFactory
   
   static NodeFilter[] filters = new NodeFilter[] {
     
+    //BaseAtypon covers most literaturFoo (Breacrumbs, ads, etc), 
+    // but not this (journal info/nav at top of toc and article)
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "literatumSeriesNavigation"),
+    
     // toc, abs, full - panel under breadcrubs with link to Current Issue,
     // http://www.emeraldinsight.com/toc/aaaj/26/8
     HtmlNodeFilters.tagWithAttributeRegex("li", "id", "currIssue"),
-    // toc, abs, full - previous/next issue/article
-    HtmlNodeFilters.tagWithAttributeRegex("div", "class", 
-                                          "literatumBookIssueNavigation"),                                          
+                          
     // toc, abs, full -  right column
     // there are 2 data-pb-dropzone="right", one of them is part of the top ad
     // it's not unique tag, but I think it's OK for Emerald
@@ -65,6 +67,15 @@ public class EmeraldGroupHtmlCrawlFilterFactory
               HtmlNodeFilters.tagWithAttributeRegex("li", "class", "ref"),
               HtmlNodeFilters.tagWithAttributeRegex(
                   "a", "href", "^/action/showCitFormats\\?")})),
+                  
+    // tabb'd section in the right column -                
+    // can't be in parent - all tabs would get affected, even in content
+    // TODO - look at alternative, but for now the only tabs are in right column
+    HtmlNodeFilters.tagWithAttribute("div", "aria-relevant", "additions"),  
+    // toc and article page
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "pageHeader"),
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "pageFooter"),    
+                
   };
 
   @Override

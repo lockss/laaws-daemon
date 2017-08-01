@@ -120,6 +120,9 @@ public class TestMetapressPlugin extends LockssPluginTestCase {
     
     assertShouldCache(BASE_URL + "content/rt0gdjk28uhh/?sortorder=foo&p_o=0", false, au, cus);
     assertShouldCache(BASE_URL + "content/rt0gdjk28uhh/?sortorder=foo&print=true", false, au, cus);
+    assertShouldCache(BASE_URL + "content/tkhv5whb5mlq8cdp/content/h755877p17/?export=rss", false, au, cus);
+    assertShouldCache(BASE_URL + "content/tkhv5whb5mlq8cdp/content/m4882271nv33/Article+Category=Editorial&export=rss&v=condensed", false, au, cus);
+
     // html/pdf pages
     assertShouldCache(BASE_URL + "content/tkhv5whb5mlq8cdp", true, au, cus);
     assertShouldCache(BASE_URL + "content/tkhv5whb5mlq8cdp/?print=true", true, au, cus);
@@ -228,8 +231,9 @@ public class TestMetapressPlugin extends LockssPluginTestCase {
     PatternFloatMap urlPollResults = au.makeUrlPollResultWeightMap();
     assertNotNull(urlPollResults);
     for (String urlString : repairList) {
-      assertEquals(0.0, urlPollResults.getMatch(urlString), .0001);
+      assertEquals(0.0, urlPollResults.getMatch(urlString, (float) 1), .0001);
     }
+    assertEquals(1.0, urlPollResults.getMatch(notString, (float) 1), .0001);
   }
   
 }

@@ -4,7 +4,7 @@
 
 /*
 
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -58,8 +58,10 @@ public class TestEndocrineSocietyHtmlFilterFactory
   private static final String PLUGIN_NAME = 
       "org.lockss.plugin.atypon.endocrinesociety.ClockssEndocrineSocietyPlugin";
   
-  private static final String filteredStr = 
+  private static final String filteredCrawlStr = 
       "<div class=\"block\"></div>";
+  private static final String filteredStr = 
+      " <div class=\"block\"> </div>";
 
   // test for pdf and pdfplus file size
   // is in TestBaseAtyponHtmlHashFilterFactory since the html is similar
@@ -193,9 +195,9 @@ public class TestEndocrineSocietyHtmlFilterFactory
           "</li></ul>" +
           "</div>"; 
   private static final String withoutCitedby =
-      "<div class=\"block\">" + 
-          "<ul></ul>" +
-          "</div>";   
+      " <div class=\"block\">" + 
+          " <ul> </ul>" +
+          " </div>";   
   
   // right column of an article - all except Download Citations
   private static final String withRightColumnExceptDownloadCitation = 
@@ -223,24 +225,30 @@ public class TestEndocrineSocietyHtmlFilterFactory
           "</div></div></div></div></div></div>" +
           "</div>";
   
+  private static final String rightColumnCrawlFiltered =
+      // right column of an article - all except Download Citations
+          "<div class=\"block\">" +
+              "<div class=\"widget literatumRightSidebar none right-sidebar " +
+              "widget-none\" id=\"pageRightSidebar\">" +
+              "<div class=\"sidebar sidebar-right\">" +
+              "<div data-pb-dropzone=\"main\">" +
+              "<div class=\"widget-box\" id=\"yyy\">" +
+              "<div class=\"body-box \">" +
+              "<div class=\"artTools\">" +
+              "<ul class=\"linkList\">" +
+              "<li class=\"downloadCitations\">" +
+              "<a href=\"/action/showCitFormats?doi=11.1111%2Fen.2012-1111\">" +
+              "Download Citation</a>" +
+              "</li>" +
+              "</ul>" +
+              "</div></div></div></div></div></div>" +
+              "</div>";      
+  
+  
   // 'id' attributes also removed
-  private static final String rightColumnFiltered = 
-      "<div class=\"block\">" +
-      "<div class=\"widget literatumRightSidebar none right-sidebar " +
-      "widget-none\" >" +
-      "<div class=\"sidebar sidebar-right\">" +
-      "<div data-pb-dropzone=\"main\">" +
-      "<div class=\"widget-box\" >" +
-      "<div class=\"body-box \">" +
-      "<div class=\"artTools\">" +
-      "<ul class=\"linkList\">" +
-      "<li class=\"downloadCitations\">" +
-      "<a href=\"/action/showCitFormats?doi=11.1111%2Fen.2012-1111\">" +
-      "Download Citation</a>" +
-      "</li>" +
-      "</ul>" +
-      "</div></div></div></div></div></div>" +
-      "</div>";
+  private static final String rightColumnHashFiltered = 
+      " <div class=\"block\">" +
+      " </div>";
   
   // related content near Erratum
   // http://press.endocrine.org/toc/endo/154/10
@@ -335,6 +343,94 @@ public class TestEndocrineSocietyHtmlFilterFactory
           "</div></div></div></div>" +
           "</div>";     
   
+  
+  private static final String withTOCLinks = 
+      "<div class=\"art_title noLink\">" +
+          "<span class=\"hlFld-Title\">Editorial: Foo</span>" +
+          "</div>" +
+          "<div class=\"tocAuthors afterTitle\">" +
+          "<div class=\"articleEntryAuthor all\">" +
+          "<span class=\"articleEntryAuthorsLinks\">" +
+          "<a class=\"entryAuthor linkable hlFld-ContribAuthor\" href=\"/author/Schon%2C+Betty\">Betty Schon</a>" +
+          "<span class=\"entryAuthor\">" +
+          "</span>" +
+          "</span>" +
+          "</div>" +
+          "</div>" +
+          "<div class=\"art_meta citation\">" +
+          "<span class=\"issueInfo\">28(9)</span>" +
+          "<span class=\"articlePageRange\">" +
+          "<span class=\"issueInfoComma\">, </span>pp. 1403-1407</span>" +
+          "</div>" +
+          "<div class=\"tocArticleDoi\">" +
+          "<a href=\"http://dx.doi.org/10.1210/xxx\">10.1210/xxx</a>" +
+          "</div>" +
+          "<div class=\"tocListKeywords\">" +
+          "</div>" +
+          "<div class=\"tocDeliverFormatsLinks\">" +
+          "<a class=\"ref nowrap abs\" href=\"/doi/abs/10.1210/xxx\">Citation</a> " +
+          "| <a class=\"ref nowrap full\" href=\"/doi/full/10.1210/xxx\">Full Text</a> " +
+          "| <a class=\"ref nowrap references\" href=\"/doi/ref/10.1210/xxx\">References</a> " +
+          "| <a class=\"ref nowrap pdf\" target=\"_blank\" title=\"Opens new window\" href=\"/doi/pdf/10.1210/xxx\">PDF (58 KB)</a> " +
+          "| <a href=\"/servlet/linkout?type=\" class=\"rightslink\" onclick=\"newWindow(this.href);return false\">Permissions</a>" +
+          " <div id=\"Absme20141230\" class=\"previewViewSection tocPreview\">" +
+          "<div class=\"closeButton\" onclick=\"showHideTocPublicationAbs('10.1210/xxx', 'Absme20141230');\">" +
+          "</div>" +
+          "<p class=\"previewContent\">" +
+          "</p>" +
+          "</div>" +
+          "</div>" +
+          "</td>";
+  
+  private static final String withTOCLinksFiltered = 
+      " <div class=\"art_title noLink\">" +
+          " <span class=\"hlFld-Title\">Editorial: Foo </span>" +
+          " </div>" +
+          " <div class=\"tocAuthors afterTitle\">" +
+          " <div class=\"articleEntryAuthor all\">" +
+          " <span class=\"articleEntryAuthorsLinks\">" +
+          " <a class=\"entryAuthor linkable hlFld-ContribAuthor\" href=\"/author/Schon%2C+Betty\">Betty Schon </a>" +
+          " <span class=\"entryAuthor\">" +
+          " </span>" +
+          " </span>" +
+          " </div>" +
+          " </div>" +
+          " <div class=\"art_meta citation\">" +
+          " <span class=\"issueInfo\">28(9) </span>" +
+          " <span class=\"articlePageRange\">" +
+          " <span class=\"issueInfoComma\">, </span>pp. 1403-1407 </span>" +
+          " </div>" +
+          " <div class=\"tocArticleDoi\">" +
+          " <a href=\"http://dx.doi.org/10.1210/xxx\">10.1210/xxx </a>" +
+          " </div>" +
+          " <div class=\"tocListKeywords\">" +
+          " </div>" +
+          " </td>";
+
+
+  private static final String withReferenceLinks =
+      "<div class=\"references\" id=\"B13\">13. <span class=\"NLM_string-name\">Author Foo <span class=\"NLM_given-names\">" +
+          "A</span></span>, <span class=\"NLM_string-name\">Costa <span class=\"NLM_given-names\">RH</span>" +
+          "</span>, <span class=\"NLM_string-name\">Gannon <span class=\"NLM_given-names\">M</span></span>. " +
+          "<span class=\"NLM_article-title\">Article Title Goes here</span>. Diabetes. " +
+          "<span class=\"NLM_year\">2008</span>;57:" +
+          "<span class=\"NLM_fpage\">3069</span>–<span class=\"NLM_lpage\">3077</span>. , " +
+          "<a title=\"Google Scholar\" target=\"_blank\" href=\"/servlet/linkout?type=search&amp;url=http%3A%2F%2Fscholar.google.com%2Fscholar_lookup\">" +
+          "Google Scholar</a> " +
+          "<a href=\"/servlet/linkout?suffix=\">CrossRef</a>, " +
+          "<a href=\"/servlet/linkout?suffix=\" onclick=\"newWindow(this.href);return false\">Medline</a>" +
+          "</div>";
+  
+  private static final String withReferenceLinksFiltered =
+      " <div class=\"references\" > <span class=\"NLM_string-name\">Author Foo <span class=\"NLM_given-names\">" +
+          "A </span> </span> <span class=\"NLM_string-name\">Costa <span class=\"NLM_given-names\">RH </span>" +
+          " </span> <span class=\"NLM_string-name\">Gannon <span class=\"NLM_given-names\">M </span> </span>" +
+          " <span class=\"NLM_article-title\">Article Title Goes here </span>" +
+          " <span class=\"NLM_year\">2008 </span>" +
+          " <span class=\"NLM_fpage\">3069 </span> <span class=\"NLM_lpage\">3077 </span>" +
+          " </div>";
+  
+  
   protected ArchivalUnit createAu()
       throws ArchivalUnit.ConfigurationException {
     return PluginTestUtil.createAndStartAu(PLUGIN_NAME,  esAuConfig());
@@ -379,10 +475,12 @@ public class TestEndocrineSocietyHtmlFilterFactory
     public void testFiltering() throws Exception {
       variantFact = new EndocrineSocietyHtmlCrawlFilterFactory();
       doFilterTest(esau, variantFact, withLiteratumBookIssueNavigation, 
-          filteredStr);
-      doFilterTest(esau, variantFact, withRelatedLayer, filteredStr);      
-      doFilterTest(esau, variantFact, withRelatedContent, filteredStr);      
-      doFilterTest(esau, variantFact, withExtLink, filteredStr);      
+          filteredCrawlStr);
+      doFilterTest(esau, variantFact, withRightColumnExceptDownloadCitation, 
+          rightColumnCrawlFiltered);
+      doFilterTest(esau, variantFact, withRelatedLayer, filteredCrawlStr);      
+      doFilterTest(esau, variantFact, withRelatedContent, filteredCrawlStr);      
+      doFilterTest(esau, variantFact, withExtLink, filteredCrawlStr);      
     }    
   }
 
@@ -393,9 +491,9 @@ public class TestEndocrineSocietyHtmlFilterFactory
       doFilterTest(esau, variantFact, withPageHeader, filteredStr);
       doFilterTest(esau, variantFact, withNavJournal, filteredStr);
       doFilterTest(esau, variantFact, withAccessIconContainer, filteredStr);
-      doFilterTest(esau, variantFact, withGutterless, filteredStr);
       doFilterTest(esau, variantFact, withRightColumnExceptDownloadCitation, 
-                   rightColumnFiltered);
+          rightColumnHashFiltered);
+      doFilterTest(esau, variantFact, withGutterless, filteredStr);
       doFilterTest(esau, variantFact, withPageFooter, filteredStr);
       doFilterTest(esau, variantFact, withLiteratumBreadcrumbs, filteredStr);
       doFilterTest(esau, variantFact, withLiteratumBookIssueNavigation, 
@@ -407,6 +505,8 @@ public class TestEndocrineSocietyHtmlFilterFactory
       doFilterTest(esau, variantFact, withTwoColumnRightDropZoneColor, 
                    filteredStr);
       doFilterTest(esau, variantFact, withArticleMetaDrop, filteredStr);
+      doFilterTest(esau, variantFact, withTOCLinks, withTOCLinksFiltered);
+      doFilterTest(esau, variantFact, withReferenceLinks, withReferenceLinksFiltered);
     }
   }
   

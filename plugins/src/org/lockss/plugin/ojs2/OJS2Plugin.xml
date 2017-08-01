@@ -16,7 +16,7 @@
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>57</string>
+    <string>62</string>
   </entry>
 <!--
 This is a list of OJS2 Child plugins - be sure to update the child's
@@ -25,12 +25,12 @@ number:
 
 org.lockss.plugin.ojs2.ClockssOJS2Plugin
 ca.athabascau.plugin.jrp.JournalOfResearchPracticePlugin               (coppulpln, synergiespln?)
-org.lockss.plugin.biologicinstitute.ClockssBiologicInstitutePlugin
-org.lockss.plugin.coactionpublishing.CoActionPublishingPlugin
-org.lockss.plugin.coactionpublishing.ClockssCoActionPublishingPlugin
-org.lockss.plugin.universityofalberta.ClockssUniversityOfAlbertaPlugin
-org.lockss.plugin.ubiquitypress.ClockssUbiquityPressPlugin
-        
+org.lockss.plugin.biologicinstitute.ClockssBiologicInstitutePlugin     (deprecated)
+org.lockss.plugin.coactionpublishing.CoActionPublishingPlugin          (deprecated)
+org.lockss.plugin.coactionpublishing.ClockssCoActionPublishingPlugin   (deprecated)
+org.lockss.plugin.universityofalberta.ClockssUniversityOfAlbertaPlugin (deprecated)
+org.lockss.plugin.ubiquitypress.ClockssUbiquityPressPlugin             (deprecated)
+
 Note: also push this plugin to coppulpln, dkdemopln, ibictpln, italytestpln, synergiespln
 -->
   <entry>
@@ -38,7 +38,7 @@ Note: also push this plugin to coppulpln, dkdemopln, ibictpln, italytestpln, syn
     <map>
       <entry>
         <string>Poll</string>
-        <string>26</string>
+        <string>27</string>
       </entry>
       <entry>
         <string>Metadata</string>
@@ -52,7 +52,7 @@ Note: also push this plugin to coppulpln, dkdemopln, ibictpln, italytestpln, syn
   </entry>
   <entry>
     <string>required_daemon_version</string> <!-- for CrawlSeed support -->
-    <string>1.67.5</string>
+    <string>1.70.0</string>
   </entry>
   <entry>
     <string>au_name</string>
@@ -61,6 +61,13 @@ Note: also push this plugin to coppulpln, dkdemopln, ibictpln, italytestpln, syn
   <entry>
     <string>au_start_url</string>
     <string>"%sindex.php/%s/gateway/lockss?year=%d", base_url, journal_id, year</string>
+  </entry>
+  <entry>
+    <string>au_additional_url_stems</string>
+    <list>
+      <string>"%s", to_http(base_url)</string>
+      <string>"%s", to_https(base_url)</string>
+    </list>
   </entry>
   <entry>
    <string>au_feature_urls</string>
@@ -128,6 +135,7 @@ Note: also push this plugin to coppulpln, dkdemopln, ibictpln, italytestpln, syn
   <entry>
     <string>au_crawlrules</string>
     <list>
+      <string>2,"(/[^.?/]+)(\1){2,}"</string>
       <!-- all content from CDN -->
       <string>1,"^https?://(.+\.cloudfront\.net|cdn\.mathjax\.org|.+\.(gstatic|googleapis|jquery)\.com)/."</string>
       <!-- new - making index.php and journal_id optional, removed [0-9]+ for some rules -->
@@ -135,10 +143,10 @@ Note: also push this plugin to coppulpln, dkdemopln, ibictpln, italytestpln, syn
       <string>4,"^https?://%s%s", url_host(base_url), url_path(base_url)</string>
       <string>1,"^https?://%s%s(index\.php/)?(%s/)?(gateway/lockss\?year=%d|about/editorialPolicies)$", url_host(base_url), url_path(base_url), journal_id, year</string>
       <string>2,"\?acceptCookies="</string>
-      <string>2,"/([^.?/]+)/\1/\1/"</string>
       <string>2,"^https?://%s%s(index\.php/)?(%s/)?(article|issue)/viewFile/[0-9]+(/[0-9]+)?/%%20http:", url_host(base_url), url_path(base_url), journal_id</string>
       <string>1,"^https?://%s%s(index\.php/)?(%s/)?(article|issue)/(download(SuppFile)?|view(Article|File|(Download|PDF)Interstitial|RST)?)/", url_host(base_url), url_path(base_url), journal_id</string>
-      <string>1,"^https?://%s%s(index\.php/)?(%s/)?rt/(bio|findingReferences|metadata|printerFriendly|suppFileMetadata|suppFiles)/", url_host(base_url), url_path(base_url), journal_id</string>
+      <string>1,"^https?://%s%s(index\.php/)?(%s/)?rt/(bio|metadata|printerFriendly|suppFileMetadata|suppFiles)/", url_host(base_url), url_path(base_url), journal_id</string>
+      <string>2,"^https?://%s%splugins/generic/pdfJsViewer/pdf\.js/web/viewer\.html\?file=https?[%%]25", url_host(base_url), url_path(base_url)</string>
       <string>1,"^https?://%s%splugins/generic/pdfJsViewer/pdf\.js/web/viewer\.html\?file=", url_host(base_url), url_path(base_url)</string>
     </list>
   </entry>
@@ -234,11 +242,11 @@ Note: also push this plugin to coppulpln, dkdemopln, ibictpln, italytestpln, syn
   </entry>
   <entry>
     <string>plugin_url_consumer_factory</string>
-    <string>org.lockss.plugin.ojs2.HttpToHttpsUtil$HttpToHttpsUrlConsumerFactory</string>
+    <string>org.lockss.plugin.base.HttpToHttpsUrlConsumerFactory</string>
   </entry>
   <entry>
     <string>plugin_url_fetcher_factory</string>
-    <string>org.lockss.plugin.ojs2.HttpToHttpsUtil$HttpToHttpsUrlFetcherFactory</string>
+    <string>org.lockss.plugin.base.HttpToHttpsUrlFetcherFactory</string>
   </entry>
   <entry>
     <string>plugin_crawl_seed_factory</string>

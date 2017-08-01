@@ -1,7 +1,8 @@
 <map>
   <entry>
+    <!-- This plugin needs to have status changed once content is through the pipeline and tdb files updated. OUP is changing platforms  -->
     <string>plugin_status</string>
-    <string>ready</string>
+    <string>deprecated</string>
   </entry>
   <!-- compare to ClockssOUPDrupalPlugin, the added entries should be in synch -->
   <entry>
@@ -10,11 +11,11 @@
   </entry>
   <entry>
     <string>plugin_name</string>
-    <string>Oxford University Press Plugin</string>
+    <string>Oxford University Press Plugin (Legacy)</string>
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>18</string>
+    <string>26</string>
   </entry>
   <entry>
     <string>plugin_parent</string>
@@ -22,28 +23,28 @@
   </entry>
   <entry>
     <string>plugin_parent_version</string>
-    <string>38</string>
+    <string>67</string>
   </entry>
   <entry>
     <string>plugin_feature_version_map</string>
     <map>
       <entry>
         <string>Substance</string>
-        <string>1</string>
+        <string>2</string>
       </entry>
       <entry>
         <string>Poll</string>
-        <string>8</string>
+        <string>9</string>
       </entry>
       <entry>
         <string>Metadata</string>
-        <string>2</string>
+        <string>3</string>
       </entry>
     </map>
   </entry>
   <entry>
     <string>au_name</string>
-    <string>"Oxford University Press Plugin, Base URL %s, Volume %s", base_url, volume_name</string>
+    <string>"Oxford University Press Plugin (Legacy), Base URL %s, Volume %s", base_url, volume_name</string>
   </entry>
   <entry>
     <string>au_start_url</string>
@@ -51,9 +52,5 @@
       <string>"%slockss-manifest/vol_%s_manifest.html", to_http(base_url), volume_name</string>
       <string>"%slockss-manifest/vol_%s_manifest.html", to_https(base_url), volume_name</string>
     </list>
-  </entry>
-  <entry>
-    <string>text/html_crawl_filter_factory</string>
-    <string>org.lockss.plugin.highwire.oup.OUPHtmlCrawlFilterFactory</string>
   </entry>
 </map>

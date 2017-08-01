@@ -29,10 +29,12 @@ package org.lockss.metadata;
 
 import java.io.IOException;
 import java.sql.Connection;
+import java.util.List;
 import org.lockss.config.ConfigManager;
 import org.lockss.config.Configuration;
 import org.lockss.daemon.Cron;
 import org.lockss.daemon.PluginException;
+import org.lockss.exporter.biblio.BibliographicItem;
 import org.lockss.extractor.ArticleMetadata;
 import org.lockss.extractor.ArticleMetadataExtractor;
 import org.lockss.extractor.MetadataField;
@@ -50,6 +52,7 @@ import org.lockss.plugin.simulated.SimulatedPlugin;
 import org.lockss.test.*;
 import org.lockss.util.ExternalizableMap;
 import org.lockss.util.Logger;
+import org.lockss.util.MetadataUtil;
 
 /**
  * Test class for org.lockss.metadata.MetadataDatabaseUtil. 
@@ -78,6 +81,7 @@ public class TestMetadataDatabaseUtil extends LockssTestCase {
     pluginManager.setLoadablePluginsReady(true);
     theDaemon.setDaemonInited(true);
     pluginManager.startService();
+    theDaemon.getCrawlManager();
 
     sau0 = PluginTestUtil.createAndStartSimAu(MySimulatedPlugin0.class,
                                               simAuConfig(tempDirPath + "/0"));
@@ -152,6 +156,46 @@ public class TestMetadataDatabaseUtil extends LockssTestCase {
       // Write the AU metadata to the database.
       new AuMetadataRecorder(task, metadataManager, sau0)
           .recordMetadata(conn, metadata.iterator());
+
+      List<BibliographicItem> items = 
+          MetadataDatabaseUtil.getBibliographicItems(dbManager,  conn);
+      assertEquals(nTitles, items.size());
+      
+      BibliographicItem previousItem = null;
+
+      for (BibliographicItem item : items) {
+        assertEquals("journal", item.getPublicationType());
+        assertEquals("Publisher", item.getPublisherName());
+        assertEquals("fulltext", item.getCoverageDepth());
+        assertNotNull(item.getStartYear());
+        assertNotNull(item.getEndYear());
+        assertEquals(item.getStartYear(), item.getEndYear());
+        assertNull(item.getPrintIsbn());
+        assertNull(item.getEisbn());
+        assertNull(item.getIsbn());
+        assertNotNull(item.getPublicationTitle());
+        assertNotNull(item.getPrintIssn());
+        assertNotNull(item.getEissn());
+        assertNotNull(item.getIssn());
+        assertNull(item.getStartIssue());
+        assertNull(item.getEndIssue());
+        assertNotNull(item.getStartVolume());
+        assertNotNull(item.getEndVolume());
+        assertEquals(item.getStartVolume(), item.getEndVolume());
+        if (item.getProprietaryIds() != null
+            && item.getProprietaryIds().length > 0) {
+          assertNull(item.getProprietaryIds()[0]);
+        }
+        if (item.getProprietarySeriesIds() != null
+            && item.getProprietarySeriesIds().length > 0) {
+          assertNull(item.getProprietarySeriesIds()[0]);
+        }
+        assertNull(item.getSeriesTitle());
+        assertEquals("Publisher", item.getProviderName());
+
+        assertFalse(item.sameInNonProprietaryIdProperties(previousItem));
+        previousItem = item;
+      }
     } finally {
       MetadataDbManager.safeRollbackAndClose(conn);
     }
@@ -219,6 +263,47 @@ public class TestMetadataDatabaseUtil extends LockssTestCase {
       // Write the AU metadata to the database.
       new AuMetadataRecorder(task, metadataManager, sau0)
 	  .recordMetadata(conn, metadata.iterator());
+
+      List<BibliographicItem> items = 
+          MetadataDatabaseUtil.getBibliographicItems(dbManager,  conn);
+      assertEquals(nTitles, items.size());
+      
+      BibliographicItem previousItem = null;
+
+      for (BibliographicItem item : items) {
+        assertEquals("book", item.getPublicationType());
+        assertEquals("Publisher", item.getPublisherName());
+        assertEquals("fulltext", item.getCoverageDepth());
+        assertNotNull(item.getStartYear());
+        assertNotNull(item.getEndYear());
+        assertEquals(item.getStartYear(), item.getEndYear());
+        assertNotNull(item.getPrintIsbn());
+        assertNotNull(item.getEisbn());
+        assertNotNull(item.getIsbn());
+        assertEquals(  "UNKNOWN_TITLE/isbn=" 
+                     + MetadataUtil.toUnpunctuatedIsbn13(item.getPrintIsbn()),
+                     item.getPublicationTitle());
+        assertNull(item.getPrintIssn());
+        assertNull(item.getEissn());
+        assertNull(item.getIssn());
+        assertNull(item.getStartIssue());
+        assertNull(item.getEndIssue());
+        assertNull(item.getStartVolume());
+        assertNull(item.getEndVolume());
+        if (item.getProprietaryIds() != null
+            && item.getProprietaryIds().length > 0) {
+          assertNull(item.getProprietaryIds()[0]);
+        }
+        if (item.getProprietarySeriesIds() != null
+            && item.getProprietarySeriesIds().length > 0) {
+          assertNull(item.getProprietarySeriesIds()[0]);
+        }
+        assertNull(item.getSeriesTitle());
+        assertEquals("Publisher", item.getProviderName());
+
+        assertFalse(item.sameInNonProprietaryIdProperties(previousItem));
+        previousItem = item;
+      }
     } finally {
       MetadataDbManager.safeRollbackAndClose(conn);
     }
@@ -286,6 +371,46 @@ public class TestMetadataDatabaseUtil extends LockssTestCase {
       // Write the AU metadata to the database.
       new AuMetadataRecorder(task, metadataManager, sau0)
           .recordMetadata(conn, metadata.iterator());
+
+      List<BibliographicItem> items = 
+          MetadataDatabaseUtil.getBibliographicItems(dbManager,  conn);
+      assertEquals(nSeries*nTitles, items.size());
+      
+      BibliographicItem previousItem = null;
+
+      for (BibliographicItem item : items) {
+        assertEquals("bookSeries", item.getPublicationType());
+        assertEquals("Publisher", item.getPublisherName());
+        assertEquals("fulltext", item.getCoverageDepth());
+        assertNotNull(item.getStartYear());
+        assertNotNull(item.getEndYear());
+        assertEquals(item.getStartYear(), item.getEndYear());
+        assertNotNull(item.getPrintIsbn());
+        assertNotNull(item.getEisbn());
+        assertNotNull(item.getIsbn());
+        assertNotNull(item.getPublicationTitle());
+        assertNotNull(item.getPrintIssn());
+        assertNotNull(item.getEissn());
+        assertNotNull(item.getIssn());
+        assertNull(item.getStartIssue());
+        assertNull(item.getEndIssue());
+        assertNotNull(item.getStartVolume());
+        assertNotNull(item.getEndVolume());
+        assertEquals(item.getStartVolume(), item.getEndVolume());
+        if (item.getProprietaryIds() != null
+            && item.getProprietaryIds().length > 0) {
+          assertNull(item.getProprietaryIds()[0]);
+        }
+        if (item.getProprietarySeriesIds() != null
+            && item.getProprietarySeriesIds().length > 0) {
+          assertNull(item.getProprietarySeriesIds()[0]);
+        }
+        assertNotNull(item.getSeriesTitle());
+        assertEquals("Publisher", item.getProviderName());
+
+        assertFalse(item.sameInNonProprietaryIdProperties(previousItem));
+        previousItem = item;
+      }
     } finally {
       MetadataDbManager.safeRollbackAndClose(conn);
     }

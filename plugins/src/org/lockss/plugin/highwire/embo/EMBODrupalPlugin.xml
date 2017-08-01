@@ -1,7 +1,7 @@
 <map>
   <entry>
     <string>plugin_status</string>
-    <string>testing</string>
+    <string>ready</string>
   </entry>
   <entry>
     <string>plugin_identifier</string>
@@ -13,7 +13,7 @@
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>2</string>
+    <string>13</string>
   </entry>
   <entry>
     <string>plugin_parent</string>
@@ -21,14 +21,14 @@
   </entry>
   <entry>
     <string>plugin_parent_version</string>
-    <string>38</string>
+    <string>67</string>
   </entry>
   <entry>
     <string>plugin_feature_version_map</string>
     <map>
       <entry>
         <string>Substance</string>
-        <string>1</string>
+        <string>3</string>
       </entry>
       <entry>
         <string>Poll</string>
@@ -36,7 +36,7 @@
       </entry>
       <entry>
         <string>Metadata</string>
-        <string>1</string>
+        <string>2</string>
       </entry>
     </map>
   </entry>
@@ -46,6 +46,6 @@
   </entry>
   <entry>
     <string>text/html_link_extractor_factory</string>
-    <string>org.lockss.plugin.highwire.embo.EMBOHtmlLinkExtractorFactory</string>
+    <string>org.lockss.plugin.highwire.HighWireDrupalHtmlLinkExtractorFactory</string>
   </entry>
 </map>

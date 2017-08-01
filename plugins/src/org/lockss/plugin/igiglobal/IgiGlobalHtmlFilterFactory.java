@@ -66,6 +66,10 @@ public class IgiGlobalHtmlFilterFactory implements FilterFactory {
         // Header
         HtmlNodeFilters.tagWithAttribute("div", "class", "HeaderTop"),
         HtmlNodeFilters.tagWithAttribute("div", "class", "HeaderBottom"),
+        HtmlNodeFilters.tag("header"),
+        // navbar
+        HtmlNodeFilters.tag("nav"),
+        HtmlNodeFilters.tagWithAttributeRegex("div", "class", "navbar"),
         // Left column
         HtmlNodeFilters.tagWithAttribute("div", "id", "SidebarLeft"),
         HtmlNodeFilters.tagWithAttribute("div", "class", "SidebarLeft"), // (old)
@@ -73,24 +77,26 @@ public class IgiGlobalHtmlFilterFactory implements FilterFactory {
         HtmlNodeFilters.tagWithAttribute("div", "class", "SidebarRight"),
         // Footer
         HtmlNodeFilters.tagWithAttribute("div", "class", "Footer"),
+        HtmlNodeFilters.tag("footer"),
+        
         
         /*
          * Hash filter
          */
         // Contains ad-specific cookies
-        new TagNameFilter("script"),
+        HtmlNodeFilters.tag("script"),
         // Contains dynamic css URLs
-        new TagNameFilter("link"),
+        HtmlNodeFilters.tag("link"),
         // Changed from "IGI Global - Foo" to "Foo | IGI Global"
-        new TagNameFilter("title"),
+        HtmlNodeFilters.tag("title"),
         // Various <br> tags added or removed over time
-        new TagNameFilter("br"),
+        HtmlNodeFilters.tag("br"),
         //comments
         HtmlNodeFilters.comment(),
 
         HtmlNodeFilters.tagWithAttributeRegex("span", "id", "CenterContent.*Header"),
         //hidden inputs with changing keys
-        HtmlNodeFilters.tagWithAttribute("input", "id", "__VIEWSTATE"),
+        HtmlNodeFilters.tagWithAttributeRegex("input", "id", "__VIEWSTATE"),
         HtmlNodeFilters.tagWithAttribute("input", "id", "__EVENTVALIDATION"),
         // Pre-made citations of the article that include an access date
         HtmlNodeFilters.tagWithAttribute("div", "id", "citation"),
@@ -144,8 +150,13 @@ public class IgiGlobalHtmlFilterFactory implements FilterFactory {
           }
         },
         // <h3> replaced <h4> or vice versa at one point
-        new TagNameFilter("h3"),
-        new TagNameFilter("h4"),
+        HtmlNodeFilters.tag("h3"),
+        HtmlNodeFilters.tag("h4"),
+        
+        // hidden, hashed, and still not relevant
+        new AndFilter(
+            HtmlNodeFilters.tagWithAttributeRegex("div", "id", "(indices|citations|search-results)-content"),
+            HtmlNodeFilters.tagWithAttributeRegex("div", "style", "display: *none")),
         
     };
     
@@ -155,8 +166,8 @@ public class IgiGlobalHtmlFilterFactory implements FilterFactory {
 
     // Remove all inner tag content
     Reader noTagFilter = new HtmlTagFilter(new StringFilter(FilterUtil.getReader(filteredStream, encoding), "<", " <"), new TagPair("<", ">"));
-    
-    Reader noWhiteSpace = new WhiteSpaceFilter(noTagFilter);
+    Reader httpFilter = new StringFilter(noTagFilter, "http:", "https:");
+    Reader noWhiteSpace = new WhiteSpaceFilter(httpFilter);
     
     // Do WhiteSpaceFilter
     return new ReaderInputStream(noWhiteSpace);

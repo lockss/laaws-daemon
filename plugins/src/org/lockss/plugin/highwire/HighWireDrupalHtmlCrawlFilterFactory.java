@@ -4,7 +4,7 @@
 
 /*
 
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -50,6 +50,8 @@ public class HighWireDrupalHtmlCrawlFilterFactory implements FilterFactory {
     // Do not crawl for links from aside in BMJ, etc
     HtmlNodeFilters.tag("aside"),
     HtmlNodeFilters.tag("script"),
+    // filter nav tag; found outside of header tag in http://elements.geoscienceworld.org/content/8/1/76.long
+    HtmlNodeFilters.tag("nav"),
     // Do not crawl reference section, right sidebar for links; common with APS & OUP
     HtmlNodeFilters.tagWithAttribute("div", "class", "section ref-list"),
     // Title bar on toc with link to current issue
@@ -60,7 +62,17 @@ public class HighWireDrupalHtmlCrawlFilterFactory implements FilterFactory {
     HtmlNodeFilters.tagWithAttributeRegex("span", "class", "prev"),
     HtmlNodeFilters.tagWithAttributeRegex("span", "class", "next"),
     // messages now contain correction lists
-    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "messages"),
+    // do not filter issue-toc-section issue-toc-section-messages-from-munich
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "messages(?!-from-)"),
+    // do NOT crawl breadcrumbs
+    HtmlNodeFilters.tagWithAttributeRegex("div", "id", "breadcrumb"),
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "breadcrumb"),
+    // Do not crawl issue links (http://pediatrics.aappublications.org/content/137/2/e20154272 link to off-AU article with issue link
+    HtmlNodeFilters.tagWithAttributeRegex("a", "class", "issue-link"),
+    // Commentary links found inside
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "relationship-manager"),
+    // Do not crawl any links with by/year/ or by/volume
+    HtmlNodeFilters.tagWithAttributeRegex("a", "href", "by/(year|volume)"),
   };
   
   @Override

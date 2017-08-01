@@ -9,14 +9,14 @@
     </entry>
     <entry>
         <string>plugin_version</string>
-        <string>17</string>
+        <string>24</string>
     </entry>
     <entry>
         <string>plugin_feature_version_map</string>
         <map>
             <entry>
                 <string>Poll</string>
-                <string>7</string>
+                <string>12</string>
             </entry>
             <entry>
                 <string>Substance</string>
@@ -27,6 +27,10 @@
                 <string>9</string>
             </entry>
         </map>
+    </entry>
+    <entry>
+        <string>required_daemon_version</string>
+        <string>1.72.0</string> <!-- no store content validation -->
     </entry>
     <entry>
         <string>plugin_name</string>
@@ -114,6 +118,15 @@
         <string>key:Silverchair</string>
     </entry>
     <entry>
+      <!-- Validator factory for text MIME types -->
+      <string>text/*_content_validator_factory</string>
+      <string>org.lockss.plugin.silverchair.ScContentValidator$Factory</string>
+    </entry>
+    <entry>
+      <string>application/json_filter_factory</string>
+      <string>org.lockss.plugin.silverchair.ScJsonHashFilterFactory</string>
+    </entry>
+    <entry>
         <string>text/html_filter_factory</string>
         <string>org.lockss.plugin.silverchair.ScHtmlHashFilterFactory</string>
     </entry>    
@@ -167,9 +180,11 @@
         <string>org.lockss.plugin.silverchair.ScUrlFetcherFactory</string>
     </entry>
     <entry>
-        <string>plugin_cache_result_list</string>
+  <!--  temporary 500 to get in Proceedings 2016 which have a 500 on an article link -->
+          <string>plugin_cache_result_list</string>
         <list>
             <string>405=org.lockss.plugin.silverchair.ScHtmlHttpResponseHandler</string>
+            <string>500=org.lockss.util.urlconn.CacheException$NoRetryDeadLinkException</string>
             <string>org.lockss.plugin.ContentValidationException$WrongLength=org.lockss.plugin.silverchair.ScHtmlHttpResponseHandler</string>
         </list>
     </entry>
@@ -178,12 +193,24 @@
   <!-- don't count it in the poll, but do collect and share versions -->  
   <entry>
     <string>au_repair_from_peer_if_missing_url_pattern</string>
-    <string>/ScriptResource\.axd\?d=[^/]+$</string>
+    <list>
+	  <string>/ScriptResource\.axd\?d=[^/]+$</string>
+      <string>/combres.axd/[^/]+-(js|css)/-?[0-9]+$</string>
+      <string>/multimediaPlayer.aspx\?</string>
+      <string>/errors/404\.aspx\?aspxerrorpath=</string>
+      <string>silverchaircdn\.com/(CSS|Images)/</string>
+      <string>"\?v=[0-9]+$"</string>
+    </list>
   </entry>
   <entry>
     <string>au_url_poll_result_weight</string>
     <list>
       <string>"/ScriptResource\.axd\?d=[^/]+$", 0</string>
+      <string>"/combres.axd/[^/]+-(js|css)/-?[0-9]+$", 0</string>
+      <string>"/multimediaPlayer.aspx\?", 0</string>
+      <string>"/errors/404\.aspx\?aspxerrorpath=", 0</string>
+      <string>"silverchaircdn\.com/(CSS|Images)/", 0</string>
+      <string>"\?v=[0-9]+$", 0</string>
     </list>
   </entry>
 </map>

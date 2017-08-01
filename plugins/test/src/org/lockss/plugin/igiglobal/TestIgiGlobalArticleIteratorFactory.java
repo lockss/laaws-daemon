@@ -206,15 +206,15 @@ public class TestIgiGlobalArticleIteratorFactory extends ArticleIteratorTestCase
         BASE_URL + "pdf.aspx?tid%3d20212%26ptid%3d464%26ctid%3d3%26t%3dArticle+Title",
         BASE_URL + "gateway/article/55656"};
     
-    String [] af4 = {BASE_URL + "gateway/article/full-text-pdf/12345",
+    String [] af4 = {BASE_URL + "gateway/article/full-text-html/12345",
         BASE_URL + "gateway/article/full-text-pdf/12345",
         BASE_URL + "pdf.aspx?tid%3d20212%26ptid%3d464%26ctid%3d3%26t%3dArticle+Title",
         null};
     
-    expStack.push(af4);
+//    expStack.push(af4); // no abstract aspect
     expStack.push(af3);
+    expStack.push(af1); // I don't know why the AI order changed, but it did
     expStack.push(af2);
-    expStack.push(af1);
     
     for ( SubTreeArticleIterator artIter = createSubTreeIter(); artIter.hasNext(); ) 
     {

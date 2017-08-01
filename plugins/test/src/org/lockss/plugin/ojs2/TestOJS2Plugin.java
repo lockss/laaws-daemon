@@ -222,6 +222,27 @@ public class TestOJS2Plugin extends LockssTestCase {
     shouldCacheTest(ROOT_URL + "j_id/article/view/23854/Background_files/Background_files/Background_files/filelist.xml", false, au);
     shouldCacheTest(ROOT_URL + "j_id/article/view/23854/Background_files/Background_files/Background_files/Background_files/filelist.xml", false, au);
     
+    shouldCacheTest(ROOT_URL + "j_id/article/download/23854/3563_files/3563_files", true, au);
+    shouldCacheTest(ROOT_URL + "j_id/article/download/23854/3563_files/3563_files/3563_files", false, au);
+    shouldCacheTest(ROOT_URL + "j_id/article/download/23854/3563_files/3563_files/3563_files/3563_files", false, au);
+    shouldCacheTest(ROOT_URL + "j_id/article/download/23854/3563_files/3563_files/3563_files/3563_files/3563_files/foo", false, au);
+    
+    shouldCacheTest(ROOT_URL + "j_id/article/download/23854/3563_files/3563_files/1.gif", true, au);
+    shouldCacheTest(ROOT_URL + "j_id/article/download/23854/3563_files/3563_files/3563_files/1.gif", false, au);
+    
+    shouldCacheTest(ROOT_URL + "plugins/generic/pdfJsViewer/pdf.js/web/viewer.html?file=" +
+        ROOT_URL + "index.php/j_id/article/view/123/456", true, au);
+    shouldCacheTest(ROOT_URL + "plugins/generic/pdfJsViewer/pdf.js/web/viewer.html?file=" +
+        ROOT_URL + "j_id/article/view/123/456", true, au);
+    shouldCacheTest(ROOT_URL + "plugins/generic/pdfJsViewer/pdf.js/web/viewer.html?file=" +
+        URLEncoder.encode(ROOT_URL + "index.php/j_id/article/view/123/456", "UTF-8"), true, au);
+    shouldCacheTest(ROOT_URL + "plugins/generic/pdfJsViewer/pdf.js/web/viewer.html?file=" +
+        URLEncoder.encode(ROOT_URL + "j_id/article/view/123/456", "UTF-8"), true, au);
+    shouldCacheTest(ROOT_URL + "plugins/generic/pdfJsViewer/pdf.js/web/viewer.html?file=" +
+        URLEncoder.encode(URLEncoder.encode(ROOT_URL + "index.php/j_id/article/view/123/456", "UTF-8"), "UTF-8"), false, au);
+    shouldCacheTest(ROOT_URL + "plugins/generic/pdfJsViewer/pdf.js/web/viewer.html?file=" +
+        URLEncoder.encode(URLEncoder.encode(ROOT_URL + "j_id/article/view/123/456", "UTF-8"), "UTF-8"), false, au);
+    
     shouldCacheTest(ROOT_URL + "modules/user/user.css?nzdhiu", true, au);
     shouldCacheTest(ROOT_URL + "modules/user/user.css?nzdhiu&id=1", false, au);
     shouldCacheTest(ROOT_URL + "sites/all/modules/contrib/views/css/views.css?nzdhiu", true, au);
@@ -231,6 +252,9 @@ public class TestOJS2Plugin extends LockssTestCase {
     shouldCacheTest(ROOT_URL + "sites/files/styles/journals/cover%20%282%29_0.png?itok=qGTU4GfX&v=1.1", false, au);
     shouldCacheTest(ROOT_URL + "sites/themes/js/j_id.js?nzdhiu", true, au);
     shouldCacheTest(ROOT_URL + "sites/themes/js/j_id.js?nzdhiu&v=1.2", false, au);
+    
+    shouldCacheTest(ROOT_URL + "j_id/rt/printerFriendly/123/456", true, au);
+    shouldCacheTest(ROOT_URL + "j_id/rt/findingReferences/123/456", false, au);
   }
   
   // Same tests with path on base_url
@@ -346,8 +370,9 @@ public class TestOJS2Plugin extends LockssTestCase {
     PatternFloatMap urlPollResults = au.makeUrlPollResultWeightMap();
     assertNotNull(urlPollResults);
     for (String urlString : repairList) {
-      assertEquals(0.0, urlPollResults.getMatch(urlString), .0001);
+      assertEquals(0.0, urlPollResults.getMatch(urlString, (float) 1), .0001);
     }
+    assertEquals(1.0, urlPollResults.getMatch(notString, (float) 1), .0001);
   }
   
 }

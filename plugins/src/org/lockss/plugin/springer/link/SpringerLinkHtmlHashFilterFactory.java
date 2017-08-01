@@ -35,26 +35,35 @@ package org.lockss.plugin.springer.link;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
+import java.util.List;
+import java.util.regex.Pattern;
 
+import org.htmlparser.Node;
 import org.htmlparser.NodeFilter;
 import org.htmlparser.Tag;
 import org.htmlparser.filters.*;
 import org.htmlparser.tags.BodyTag;
 import org.htmlparser.tags.CompositeTag;
+import org.htmlparser.tags.Div;
 import org.htmlparser.util.NodeList;
 import org.htmlparser.util.ParserException;
 import org.htmlparser.visitors.NodeVisitor;
 import org.lockss.filter.FilterUtil;
+import org.lockss.filter.HtmlTagFilter;
 import org.lockss.filter.StringFilter;
 import org.lockss.filter.WhiteSpaceFilter;
 import org.lockss.filter.html.*;
+import org.lockss.filter.html.HtmlTags.Section;
 import org.lockss.plugin.*;
+import org.lockss.util.ListUtil;
 import org.lockss.util.ReaderInputStream;
 
 public class SpringerLinkHtmlHashFilterFactory implements FilterFactory {
   /**
    * TODO - remove after 1.70 when the daemon recognizes this as an html composite tag
    */
+	
+  private static final Pattern IMPACT_PATTERN = Pattern.compile("impact factor", Pattern.CASE_INSENSITIVE | Pattern.MULTILINE);
   public static class MyButtonTag extends CompositeTag {
     private static final String[] mIds = new String[] {"button"};
     public String[] getIds() { return mIds; }
@@ -65,20 +74,23 @@ public class SpringerLinkHtmlHashFilterFactory implements FilterFactory {
       HtmlNodeFilters.tag("noscript"),
       HtmlNodeFilters.tag("input"),
       HtmlNodeFilters.tag("head"),
+      HtmlNodeFilters.tag("aside"),
+      HtmlNodeFilters.tag("footer"),
       // filter out comments
       HtmlNodeFilters.comment(),
-      
+      // all meta and link tags - some have links with names that change
+      HtmlNodeFilters.tag("meta"),
+      HtmlNodeFilters.tag("link"),
+
       //google iframes with weird ids
       HtmlNodeFilters.tag("iframe"),
       
       //footer
       HtmlNodeFilters.tagWithAttribute("div", "id", "footer"),
+      HtmlNodeFilters.tagWithAttributeRegex("div", "class", "footer"),
       
       //more links to pdf and article
       HtmlNodeFilters.tagWithAttribute("div", "class", "bar-dock"),
-      
-      //weird meta tag
-      HtmlNodeFilters.tagWithAttribute("meta", "name", "nolard"),
       
       //adds on the side
       HtmlNodeFilters.tagWithAttribute("div", "class", "banner-advert"),
@@ -102,15 +114,28 @@ public class SpringerLinkHtmlHashFilterFactory implements FilterFactory {
       HtmlNodeFilters.tagWithAttribute("div", "id", "gimme-satisfaction"),
       HtmlNodeFilters.tagWithAttribute("div", "class", "crossmark-tooltip"),
       HtmlNodeFilters.tagWithAttribute("div", "id", "crossMark"),
-      HtmlNodeFilters.tagWithAttribute("div", "class", "banner"),   
+      HtmlNodeFilters.tagWithAttribute("div", "class", "banner"),
+      
+      HtmlNodeFilters.tagWithAttribute("p", "class", "skip-to-links"),
 
       // button - let's get rid of all of them...
       HtmlNodeFilters.tag("button"),
      /*class="StickySideButton_left StickySideButton_left--feedback"*/
       
-      //CSS links in body
-      HtmlNodeFilters.tagWithAttribute("link", "rel", "stylesheet"),
+      HtmlNodeFilters.allExceptSubtree(HtmlNodeFilters.tag("div"),
+              new OrFilter(HtmlNodeFilters.tag("section"),
+            		  HtmlNodeFilters.tag("p"))),
       
+      new NodeFilter() {
+          @Override public boolean accept(Node node) {
+            if (!(node instanceof Section)) return false;
+            if (!("features".equals(((CompositeTag)node).getAttribute("class")))) return false;
+            String allText = ((CompositeTag)node).toPlainTextString();
+            //using regex for case insensitive match on "Impact factor"
+            // the "i" is for case insensitivity; the "s" is for accepting newlines
+            return IMPACT_PATTERN.matcher(allText).matches();
+            }
+        }
   };
   
   HtmlTransform xform = new HtmlTransform() {
@@ -139,6 +164,8 @@ public class SpringerLinkHtmlHashFilterFactory implements FilterFactory {
       return nodeList;
     }
 };
+
+
   public InputStream createFilteredInputStream(ArchivalUnit au,
       InputStream in, String encoding) {
     

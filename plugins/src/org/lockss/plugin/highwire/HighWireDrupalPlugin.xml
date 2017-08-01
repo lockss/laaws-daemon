@@ -15,10 +15,34 @@
         This is a list of HighWire Drupal Child plugins - be sure to update
         the child's plugin_parent_version number to match, then
         update the child's plugin_version number:
+        aaas.ClockssAAASDrupalPlugin
+        aap.AAPDrupalPlugin
+        ada.ADADrupalPlugin
+        aha.AHADrupalPlugin
         aps.APSDrupalPlugin
-        bmj.
+        apta.APTADrupalPlugin
+        arf.ARFDrupalPlugin
+        ash.ASHDrupalPlugin
+        asm.ASMDrupalPlugin
+        besbjs.BESBJSDrupalPlugin
+        biologists.BiologistsDrupalPlugin
+        bmj.BMJDrupalPlugin
         elife.ELifeDrupalPlugin (Deprecated)
-        oup.
+        embo.EMBODrupalPlugin
+        ers.ERSDrupalPlugin
+        fsf.FSFDrupalPlugin
+        gensoc.GeneticsSocietyDrupalPlugin
+        gsl.GSLDrupalPlugin
+        gsw.GSWDrupalPlugin
+        iwa.IWADrupalPlugin
+        jbjs.JBJSDrupalPlugin
+        oup.OUPDrupalPlugin (Soon to be Deprecated)
+        portlandpress.PortlandPressDrupalPlugin
+        rcgp.RCGPDrupalPlugin
+        rcpsych.RCPsychDrupalPlugin
+        rsp.RSPDrupalPlugin
+        rup.RUPDrupalPlugin
+        sfn.SFNDrupalPlugin
         
         Note: the LOCKSS child is the parent of the CLOCKSS child plugin, therefore
         update the CLOCKSS child plugin_version & plugin_parent_version with 
@@ -27,28 +51,28 @@
    -->
   <entry>
     <string>plugin_version</string>
-    <string>38</string>
+    <string>68</string>
   </entry>
   <entry>
     <string>plugin_feature_version_map</string>
     <map>
       <entry>
         <string>Substance</string>
-        <string>5</string>
+        <string>8</string>
       </entry>
       <entry>
         <string>Poll</string>
-        <string>21</string>
+        <string>23</string>
       </entry>
       <entry>
         <string>Metadata</string>
-        <string>6</string>
+        <string>9</string>
       </entry>
     </map>
   </entry>
   <entry>
     <string>required_daemon_version</string>
-    <string>1.68.4</string> <!-- plugin_fetch_rate_limiter_source title_attribute: with default -->
+    <string>1.72.0</string> <!-- no store content validation -->
   </entry>
   <entry>
     <string>plugin_config_props</string>
@@ -79,6 +103,15 @@
   <entry>
     <string>au_start_url</string>
     <string>"%slockss-manifest/vol_%s_manifest.html", base_url, volume_name</string>
+  </entry>
+  <entry>
+    <string>au_additional_url_stems</string>
+    <list>
+      <string>"%s", to_http(base_url)</string>
+      <string>"%s", to_https(base_url)</string>
+      <string>http://static.www.bmj.com/</string>
+      <string>https://static.www.bmj.com/</string>
+    </list>
   </entry>
   <entry>
     <string>au_feature_urls</string>
@@ -113,12 +146,25 @@
   <entry>
     <string>au_crawlrules</string>
     <list>
-      <string>1,"^https?://%s/content/[0-9]+\.toc$", url_host(base_url)</string>
-      <string>1,"^https?://%s/content/[^/]+/(?:(?:[0-9]+|bmj)(?:/[^/.]+(?:\.[0-9]+)?|\.toc|\.[^/.]+)?(?:/related)?|[^/.]+)$", url_host(base_url)</string>
-      <string>1,"^https?://%s/content(?:/[^/]+)?/[^/]+/(?:(?:suppl_)?([^/]+/|bmj\.))?[^/]+\.(?:long|supplemental|data|figures-only|full(?:-text)?\.pdf)(?:\+html)?$", url_host(base_url)</string>
+      <string>1,"^https?://%s/c?lockss-manifest/[^/.]*vol_%s_manifest.html", url_host(base_url), volume_name</string>
+      <string>1,"^https?://%s/content(/[^/]+)?/suppl/", url_host(base_url)</string>
+      <string>2,"^https?://%s/content/(by/(year|volume)|current|.*/article-)", url_host(base_url)</string>
+      <!-- after content is optional jcode, required vol, optional issue, optional .toc  -->
+      <string>1,"^https?://%s/content(/[^/.]+)?/([^/.]+)(/[^/.]+)?(\.toc)?$", url_host(base_url)</string>
+      <!-- after content is required vol, optional issue, required page, then allowed extensions or EOL 
+            page may also contain roman numerals, dot, & number (iii.2)  -->
+      <string>1,"^https?://%s/content/([^/.]+)(/[^/.]+)?/(((?:(bmj|[ivx]+)\.)?[^/.]+?(\.\d+)?))(/related|/tab-figures-data|\.(?:long|supplemental|data|figures-only)|)$", url_host(base_url)</string>
+      <!-- http://msphere.asm.org/content/1/1/masthead.1-1 was excluded -->
+      <string>1,"^https?://%s/content/([^/.]+)(/[^/.]+)?/((ENEURO|wpt|masthead)\.[0-9.-]+)(|/related|/tab-figures-data|\.(?:long|supplemental|data|figures-only))$", url_host(base_url)</string>
+      <!-- after content is optional jcode, required vol, optional issue, required page, then allowed extensions -->
+      <string>1,"^https?://%s/content(/[^/.]+)?/([^/.]+)(/[^/.]+)?/(((?:(bmj|[ivx]+)\.)?[^/.]+?|\d+\.\d+))(\.(?:full(?:-text)?\.pdf(?:\+html)?))$", url_host(base_url)</string>
+      <string>1,"^https?://%s/content(/[^/.]+)?/([^/.]+)(/[^/.]+)?/((ENEURO|wpt|masthead)\.[0-9.-]+)(\.(?:full(?:-text)?\.pdf(?:\+html)?))$", url_host(base_url)</string>
       <string>1,"^https?://%s/highwire/filestream/", url_host(base_url)</string>
-      <string>1,"^https?://%s/content(?:/[^/]+)?/suppl/", url_host(base_url)</string>
-      <string>1,"^https?://%s/[^/]+/(download-pdf|download-suppl|download-video)/", url_host(base_url)</string>
+      <string>1,"^https?://%s/[^/]+/(download-(pdf|suppl|video))/", url_host(base_url)</string>
+      <!-- allow content like http://msphere.asm.org/content/msph/1/1/e00001-15/DC2/embed/inline-supplementary-material-2.pdf?download=true -->
+      <string>1,"^https?://%s/[^?]+(/embed/inline-supplementary-)", url_host(base_url)</string>
+      <!-- otherwise, all content from glencoesoftware CDN and non-(js|css) from static BMJ -->
+      <string>1,"^https?://([^/]+\.glencoesoftware\.com/.|static\.www\.bmj\.com/.(?!.+\.(css|js)?))"</string>
     </list>
   </entry>
   <entry>
@@ -131,11 +177,11 @@
   </entry>
   <entry>
     <string>plugin_url_consumer_factory</string>
-    <string>org.lockss.plugin.highwire.HttpToHttpsUtil$HttpToHttpsUrlConsumerFactory</string>
+    <string>org.lockss.plugin.highwire.HighWireDrupalUrlConsumerFactory</string>
   </entry>
   <entry>
     <string>plugin_url_fetcher_factory</string>
-    <string>org.lockss.plugin.highwire.HttpToHttpsUtil$HttpToHttpsUrlFetcherFactory</string>
+    <string>org.lockss.plugin.base.HttpToHttpsUrlFetcherFactory</string>
   </entry>
   <entry>
     <string>plugin_cache_result_list</string>
@@ -144,6 +190,11 @@
       <string>502=org.lockss.plugin.highwire.HighWireDrupalHttpResponseHandler</string>
       <string>503=org.lockss.plugin.highwire.HighWireDrupalHttpResponseHandler</string>
       <string>504=org.lockss.plugin.highwire.HighWireDrupalHttpResponseHandler</string>
+      <!-- Invalid content-type file; retry. Captures cases of html returned instead of PDF 
+        This usually was an html page with backend error message
+        Make no store/no_fail due to article html returned for http://caseconnector.jbjs.org/content/2/2/e16
+        we will count on polls to catch errors where no content was stored -->
+      <string>org.lockss.plugin.ContentValidationException=org.lockss.plugin.highwire.HighWireDrupalHttpResponseHandler</string>
     </list>
   </entry>
   <entry>
@@ -174,7 +225,8 @@
   <entry>
     <string>au_substance_url_pattern</string>
     <list>
-      <string>"^%scontent(?:/[^/]+)?/%s/[^/]+/[^/.?]+(?:[.]full(?:[.]pdf)?)?$", base_url, volume_name</string>
+      <string>"^https?://%s/content(/[^/.]+)?/([^/.]+)(/[^/.]+)?/(((?:(bmj|[ivx]+)\.)?[^/.]+?(\.\d+)?))(\.(?:full([.]pdf)?)?)$", url_host(base_url)</string>
+      <string>"^https?://%s/content(/[^/.]+)?/([^/.]+)(/[^/.]+)?/((ENEURO|wpt)\.[0-9.-]+)(\.(?:full([.]pdf)?)?)$", url_host(base_url)</string>
     </list>
   </entry>
   <entry>
@@ -186,8 +238,13 @@
     <string>org.lockss.plugin.highwire.HighWireDrupalPermissionCheckerFactory</string>
   </entry>
   <entry>
+    <!-- Validator factory for text MIME types -->
+    <string>text/*_content_validator_factory</string>
+    <string>org.lockss.plugin.highwire.HighWireContentValidator$Factory</string>
+  </entry>
+  <entry>
     <string>plugin_fetch_rate_limiter_source</string>
-    <string>title_attribute:highwire_crawl_pool:HighWire</string>
+    <string>title_attribute:highwire_crawl_pool:HighWireDrupal</string>
   </entry>
   <entry>
     <string>au_def_pause_time</string>
@@ -199,7 +256,26 @@
     <int>2</int>
   </entry>
   <entry>
+    <!-- As we want to use PDFs for agreement, also some supplementary content.
+         This excludes urls that
+        1) do not have /highwire/filestream/ nor .pdf nor /content/.../suppl/ in their path
+        2) do end with html     (for urls like .../1361.full.pdf+html)
+        3) do contain /twil. or /twis. (AAAS this week in literature|science)
+        4) do contain /findings. (AAAS findings)
+         -->
     <string>au_exclude_urls_from_polls_pattern</string>
-    <string>^http(?!.*/highwire/filestream/.*)(?!.*\.pdf)(?!.*/content/[^/]+/suppl/.*)|html$</string>
+    <list>
+      <string>^http(?!.*/highwire/filestream/.*)(?!.*\.pdf)(?!.*/content/[^/]+/suppl/.*)|html$</string>
+      <string>^http(.+)/twi[ls]\.</string>
+      <string>^http(.+)/findings\.</string>
+    </list>
+  </entry>
+  <entry>
+    <!-- the au_permitted_host_pattern must also find match in lockss-daemon config
+         org.lockss.crawler.allowedPluginPermittedHosts -->
+    <string>au_permitted_host_pattern</string>
+    <list>
+      <string>.+\.glencoesoftware\.com</string>
+    </list>
   </entry>
 </map>

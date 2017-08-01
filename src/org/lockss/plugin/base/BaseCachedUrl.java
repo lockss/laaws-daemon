@@ -77,6 +77,12 @@ public class BaseCachedUrl implements CachedUrl {
   public static final String PARAM_INCLUDED_ONLY = PREFIX + "includedOnly";
   static final boolean DEFAULT_INCLUDED_ONLY = true;
 
+  /** Check raw Content-Type property in addition to X-Lockss-content-type.
+   * Disable only for backward compatibility. */
+  public static final String PARAM_USE_RAW_CONTENT_TYPE =
+    PREFIX + "useRawContentType";
+  public static final boolean DEFAULT_USE_RAW_CONTENT_TYPE = true;
+
   public static final String DEFAULT_METADATA_CONTENT_TYPE = "text/html";
 
   /**
@@ -368,38 +374,12 @@ public class BaseCachedUrl implements CachedUrl {
   public InputStream getUncompressedInputStream(HashedInputStream.Hasher hasher) {
     InputStream in = getUnfilteredInputStream(hasher);;
     String contentEncoding = getProperty(PROPERTY_CONTENT_ENCODING);
-    if (StringUtil.isNullString(contentEncoding) ||
-	contentEncoding.equalsIgnoreCase("identity")) {
-      return in;
-    }
     // Daemon versions 1.67 and 1.68 decompressed on receipt but didn't
     // remove the Content-Encoding header.  If decompression fails return
     // the raw stream.
-    InputStream bin = new BufferedInputStream(in);
-    bin.mark(1024);
-    try {
-      InputStream res =
-	StreamUtil.getUncompressedInputStream(bin, contentEncoding);
-      if (contentEncoding.equalsIgnoreCase("deflate")) {
-	// InflaterInputStream doesn't throw on bad input until first byte
-	// is read.  (GZIPInputStream throws on construction.)
-	res = new BufferedInputStream(res);
-	res.mark(1);
-	res.read();
-	res.reset();
-      }
-      return res;
-    } catch (IOException e) {
-      logger.warning("Decompression failed, returning raw stream: " + getUrl(),
-		     e);
-      try {
-	bin.reset();
-	return bin;
-      } catch (IOException e2) {
-	logger.warning("Reset (after decompression error) failed", e2);
-	throw new RuntimeException("Internal error: please report \"Insufficient buffering for reset\".");
-      }
-    }
+    return StreamUtil.getUncompressedInputStreamOrFallback(in,
+							   contentEncoding,
+							   getUrl());
   }
 
   // Clients of CachedUrl expect InputStreams to support mark/reset
@@ -467,6 +447,11 @@ public class BaseCachedUrl implements CachedUrl {
       CIProperties props = getProperties();
       if (props != null) {
         res = props.getProperty(PROPERTY_CONTENT_TYPE);
+      }
+      if (res == null &&
+	  CurrentConfig.getBooleanParam(PARAM_USE_RAW_CONTENT_TYPE,
+	      DEFAULT_USE_RAW_CONTENT_TYPE)) {
+	res = props.getProperty("Content-Type");
       }
       if (res != null) {
         return res;

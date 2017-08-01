@@ -13,7 +13,7 @@
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>2</string>
+    <string>12</string>
   </entry>
   <entry>
     <string>plugin_feature_version_map</string>
@@ -24,7 +24,7 @@
       </entry>
       <entry>
         <string>Poll</string>
-        <string>1</string>
+        <string>5</string>
       </entry>
       <entry>
         <string>Substance</string>
@@ -34,7 +34,8 @@
   </entry>
   <entry>
     <string>required_daemon_version</string>
-    <string>1.68.0</string>
+    <!-- for no store exception-->
+    <string>1.72.0</string>
   </entry>
   <entry>
     <string>au_name</string>
@@ -118,13 +119,26 @@
     </map>
   </entry>
   <entry>
+    <string>text/html_filter_factory</string>
+    <string>org.lockss.plugin.royalsocietyofchemistry.RSCBooksHtmlHashFilterFactory</string>
+  </entry>
+  <entry>
+    <!-- Validator factory for text MIME types -->
+    <string>text/*_content_validator_factory</string>
+    <string>org.lockss.plugin.royalsocietyofchemistry.RSCContentValidator$Factory</string>
+  </entry>
+  <entry>
     <string>au_url_normalizer</string>
     <string>org.lockss.plugin.royalsocietyofchemistry.RSCBooksUrlNormalizer</string>
   </entry>
   <entry>
     <string>plugin_cache_result_list</string>
     <list>
-      <string>400=org.lockss.util.urlconn.CacheException$RetrySameUrlException</string>
+      <!--  this is okay - the map checks for the explicit class before going to the super class -->
+      <string>org.lockss.plugin.ContentValidationException$WrongLength=org.lockss.plugin.royalsocietyofchemistry.RSC2014HttpResponseHandler</string>
+      <string>org.lockss.plugin.ContentValidationException=org.lockss.plugin.royalsocietyofchemistry.RSC2014HttpResponseHandler</string>
+      <string>org.lockss.util.StreamUtil$InputException=org.lockss.plugin.royalsocietyofchemistry.RSC2014HttpResponseHandler</string>
+      <string>400=org.lockss.plugin.royalsocietyofchemistry.RSC2014HttpResponseHandler</string>
     </list>
   </entry>
   <entry>
@@ -147,5 +161,14 @@
     <list>
       <string>.+\.googleapis\.com</string>
     </list>
+  </entry>
+  <entry>
+    <string>au_repair_from_peer_if_missing_url_pattern</string>
+    <string>"%spubs-core/", graphics_url</string>
+  </entry>
+  <entry>
+    <!-- these will not count towards poll results but will replicate from peer if above 1.69.5 -->
+    <string>au_url_poll_result_weight</string>
+    <string>"%spubs-core/", graphics_url, 0</string>
   </entry>
 </map>

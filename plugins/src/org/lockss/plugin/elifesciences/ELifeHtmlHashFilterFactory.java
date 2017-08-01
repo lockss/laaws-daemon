@@ -4,7 +4,7 @@
 
 /*
 
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -32,10 +32,19 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.plugin.elifesciences;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.Vector;
 
+import org.htmlparser.Attribute;
+import org.htmlparser.Node;
 import org.htmlparser.NodeFilter;
+import org.htmlparser.Tag;
 import org.htmlparser.filters.*;
+import org.htmlparser.tags.Div;
+import org.htmlparser.util.NodeList;
+import org.htmlparser.util.ParserException;
+import org.htmlparser.visitors.NodeVisitor;
 import org.lockss.filter.html.*;
 import org.lockss.plugin.*;
 import org.lockss.util.Logger;
@@ -43,13 +52,56 @@ import org.lockss.util.Logger;
 public class ELifeHtmlHashFilterFactory implements FilterFactory {
 	
   private static final Logger log = Logger.getLogger(ELifeHtmlHashFilterFactory.class);
-
+  
+  // Transform to remove attributes from some tags
+  // some attributes changed over time, either arbitrarily or sequentially
+  protected static HtmlTransform xform = new HtmlTransform() {
+    @Override
+    public NodeList transform(NodeList nodeList) throws IOException {
+      try {
+        nodeList.visitAllNodesWith(new NodeVisitor() {
+          @Override
+          public void visitTag(Tag tag) {
+            String tagName = tag.getTagName().toLowerCase();
+            try {
+              if ("input".equals(tagName) ||
+                  "body".equals(tagName) ||
+                  "div".equals(tagName) ||
+                  "p".equals(tagName) ||
+                  "a".equals(tagName)) {
+                Attribute a = tag.getAttributeEx(tagName);
+                Vector<Attribute> v = new Vector<Attribute>();
+                v.add(a);
+                if (tag.isEmptyXmlTag()) {
+                  Attribute end = tag.getAttributeEx("/");
+                  v.add(end);
+                }
+                tag.setAttributesEx(v);
+              }
+            }
+            catch (Exception exc) {
+              log.debug2("Internal error (visitor)", exc); // Ignore this tag and move on
+            }
+            // Always
+            super.visitTag(tag);
+          }
+        });
+      }
+      catch (ParserException pe) {
+        log.debug2("Internal error (parser)", pe); // Bail
+      }
+      return nodeList;
+    }
+  };
+  
   public InputStream createFilteredInputStream(ArchivalUnit au,
                                                InputStream in,
                                                String encoding) {
     NodeFilter[] filters = new NodeFilter[] {
      //filter out script, noscript
      HtmlNodeFilters.tag("script"),
+     HtmlNodeFilters.tag("head"),
+     HtmlNodeFilters.tag("video"),
      HtmlNodeFilters.tagWithAttribute("header", "class", "section-header"),
      HtmlNodeFilters.tagWithAttribute("header", "id", "section-header"),
      HtmlNodeFilters.tagWithAttribute("footer", "id", "section-footer"),
@@ -61,6 +113,7 @@ public class ELifeHtmlHashFilterFactory implements FilterFactory {
      HtmlNodeFilters.tagWithAttributeRegex("div", "class", "sidebar-wrapper"),
      // The next filter is not needed, we care about the correction for the hash
      // HtmlNodeFilters.tagWithAttributeRegex("div", "class", "elife-article-corrections"),
+     HtmlNodeFilters.tagWithAttributeRegex("div", "class", "elife-article-(criticalrelation)"),
      // Decision-letter, author response & comments are dynamic and change
      //  http://elifesciences.org/content/3/e04094.full
      HtmlNodeFilters.tagWithAttribute("div", "id", "decision-letter"),
@@ -74,12 +127,34 @@ public class ELifeHtmlHashFilterFactory implements FilterFactory {
      // Remove from TOC 
      HtmlNodeFilters.tagWithAttributeRegex("div", "class", "form-item"),
      // Remove the changeable portion of "Comments" section
-     HtmlNodeFilters.tagWithAttribute("div", "id", "disqus_thread")
-
+     HtmlNodeFilters.tagWithAttribute("div", "id", "disqus_thread"),
+     // Found a Comments section div that did not have an id attribute of "comments"
+     HtmlNodeFilters.tagWithAttribute("div", "class", "panel-separator"),
+     new AndFilter(
+         HtmlNodeFilters.tagWithAttributeRegex("div", "class", "ctools-collapsible-"),
+         new NodeFilter() {
+           @Override
+           public boolean accept(Node node) {
+             if (!(node instanceof Div)) return false;
+             Node childNode = node.getFirstChild();
+             while (childNode != null) {
+               if (childNode instanceof Tag) {
+                 if (((Tag) childNode).getTagName().equalsIgnoreCase("h2") && 
+                     childNode.toPlainTextString().equalsIgnoreCase("comments")) {
+                   return true;
+                 }
+               }
+               childNode = childNode.getNextSibling();
+             }
+             return false;
+           }
+         }
+         ),
+     
     };
-    return new HtmlFilterInputStream(in,
-                                     encoding,
-                                     HtmlNodeFilterTransform.exclude(new OrFilter(filters)));
+    InputStream filtered =  new HtmlFilterInputStream(in, encoding,
+        new HtmlCompoundTransform(HtmlNodeFilterTransform.exclude(new OrFilter(filters)), xform));
+    return filtered;
   }
 
 }

@@ -39,11 +39,20 @@ import org.lockss.util.StringUtil;
  * Removes cookiset and handles cleanup of the citation download URLs
  * probably sufficient as is for most Atypon children 
  */
+//public class BaseAtyponUrlNormalizer extends BaseUrlHttpHttpsUrlNormalizer {
 public class BaseAtyponUrlNormalizer implements UrlNormalizer {
   protected static Logger log = 
       Logger.getLogger(BaseAtyponUrlNormalizer.class);
   protected static final String SUFFIX = "?cookieSet=1";
   protected static final String BEAN_SUFFIX = "?queryID=%24%7BresultBean.queryID%7D";
+  // on TOC used as anchor...eg http://www.euppublishing.com/toc/ajicl/23/1?widget=aboutthisjournal
+  protected static final String WIDGET_SUFFIX = "?widget=";
+  // these next two show in variants in the updated T&F skin 9/15/16
+  // doi/full/foo?scroll=top&needAccess or doi/pdf/foo?needAccess=true#BIGUGLYHASH
+  protected static final String ACCESS_SUFFIX = "?needAccess=";  
+  protected static final String SCROLL_SUFFIX = "?scroll=";  
+  // and part of the new Volume issue toc navigator
+  protected static final String VIEW_SUFFIX = "?view=tocList";  
   protected static final Pattern HASH_ARG_PATTERN = Pattern.compile("(\\.css|js)\\?\\d+$");
   protected static final String  NO_ARG_REPLACEMENT = "";
 
@@ -167,6 +176,10 @@ public class BaseAtyponUrlNormalizer implements UrlNormalizer {
     if (qmark >= 0) {
       url = StringUtils.substringBeforeLast(url, BEAN_SUFFIX);
       url = StringUtils.substringBeforeLast(url, SUFFIX);
+      url = StringUtils.substringBeforeLast(url, WIDGET_SUFFIX);
+      url = StringUtils.substringBeforeLast(url, ACCESS_SUFFIX);
+      url = StringUtils.substringBeforeLast(url, SCROLL_SUFFIX);
+      url = StringUtils.substringBeforeLast(url, VIEW_SUFFIX);
     }
     return url;
   }
@@ -202,4 +215,5 @@ public class BaseAtyponUrlNormalizer implements UrlNormalizer {
     }
     return argMap;
   }
+
 }

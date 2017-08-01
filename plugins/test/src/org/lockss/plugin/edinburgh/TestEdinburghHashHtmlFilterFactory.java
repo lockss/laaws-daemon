@@ -8,6 +8,12 @@ import java.io.*;
 import org.lockss.util.*;
 import org.lockss.test.*;
 
+/*
+ *  Edinburgh changed skins in 2016. Leaving in the old filtering so long as it doesn't
+ *  break anything. Adding in new filtering to cover new content layout
+ *  TODO: update the test once the filtering is stable
+ */
+
 public class TestEdinburghHashHtmlFilterFactory extends LockssTestCase {
   static String ENC = Constants.DEFAULT_ENCODING;
 
@@ -124,6 +130,17 @@ public class TestEdinburghHashHtmlFilterFactory extends LockssTestCase {
   
   private static final String hasTrackCitations = "<a href=\"/action/addCitationAlert?doi=10.3366%2Fjobs.2011.0020\">Track Citations</a>";
   private static final String withoutTrackCitations = "";
+  
+  
+  private static final String accessIcon = 
+      "<td class=\"accessIconContainer\"><div>" +
+      "<span class=\"icon-access-sub\"></span></div></td>";
+
+  public void testAccessIconFiltering() throws Exception {
+    InputStream actIn = fact.createFilteredInputStream(mau, new StringInputStream(accessIcon),
+        Constants.DEFAULT_ENCODING);
+    assertEquals(emptyString, StringUtil.fromInputStream(actIn));
+  }
 
   public void testCitationsFiltering() throws Exception {
     InputStream actIn = fact.createFilteredInputStream(mau, new StringInputStream(withCitations),

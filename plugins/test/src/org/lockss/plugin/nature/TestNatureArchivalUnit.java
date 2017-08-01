@@ -32,29 +32,26 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.plugin.nature;
 
-import java.io.File;
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-import junit.framework.Test;
-
+import org.apache.oro.text.regex.Perl5Compiler;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.Configuration;
-import org.lockss.crawler.CrawlRateLimiter;
 import org.lockss.daemon.*;
 import org.lockss.plugin.*;
 import org.lockss.plugin.base.*;
 import org.lockss.plugin.definable.*;
-import org.lockss.plugin.maffey.MaffeyHtmlCrawlFilterFactory;
-import org.lockss.plugin.maffey.TestMaffeyHtmlFilterFactory;
-import org.lockss.plugin.maffey.TestMaffeyHtmlFilterFactory.TestCrawl;
-import org.lockss.plugin.maffey.TestMaffeyHtmlFilterFactory.TestHash;
-import org.lockss.plugin.wrapper.WrapperUtil;
-import org.lockss.repository.LockssRepositoryImpl;
-import org.lockss.state.AuState;
+import org.lockss.repository.LockssRepository;
 import org.lockss.test.*;
 import org.lockss.util.*;
+import org.lockss.util.urlconn.CacheException;
 
 //
 // This plugin test framework is set up to run the same tests in two variants - CLOCKSS and GLN
@@ -72,12 +69,16 @@ public class TestNatureArchivalUnit extends LockssTestCase {
   
   static final String PLUGIN_ID = "org.lockss.plugin.nature.ClockssNaturePublishingGroupPlugin";
   static final String PluginName = "Nature Publishing Group Plugin (CLOCKSS)";
-  
+  private LockssRepository repo;
+
   public void setUp() throws Exception {
     super.setUp();
     setUpDiskSpace();
     theDaemon = getMockLockssDaemon();
     theDaemon.getHashService();
+    theDaemon.getRepositoryManager();
+
+    
   }
 
   public void tearDown() throws Exception {
@@ -164,6 +165,12 @@ public class TestNatureArchivalUnit extends LockssTestCase {
     shouldCacheTest(ROOT_URL+"xxxx/journal/v123/n22/full/onc2010273a.html?arg=foo&message=remove&arg2=blah", false, NAu, cus);          
     shouldCacheTest(ROOT_URL+"xxxx/journal/v123/n22/full/onc2010273a.html?arg=foo&message-global=remove&arg2=blah", false, NAu, cus);
     
+    // Do not pick up the covers/index.html pages - due to issues with content-length headers
+    // and this was the easiest solution to content already in production
+    shouldCacheTest(ROOT_URL+"xxxx/journal/v123/n22/covers/index.html", false, NAu, cus);
+    shouldCacheTest(ROOT_URL+"xxxx/journal/v123/n1/covers/index.html", false, NAu, cus);
+    
+    
     // TOC page collected as unterminated issue page - normalize to vx/ny/index.html
     shouldCacheTest(ROOT_URL+"xxxx/journal/v123/n22", false, NAu, cus);          
     shouldCacheTest(ROOT_URL+"xxxx/journal/v123/n22/index.html", true, NAu, cus);          
@@ -207,5 +214,96 @@ public class TestNatureArchivalUnit extends LockssTestCase {
 
   }
 
-}
+  // need to call quotemeta on the base/home_urls because the RegexpUtil.regexpCollection 
+  // call on the returning strings calls it (but only on the base/home_url params)
+  static final String baseRepairList[] =
+    {
+        Perl5Compiler.quotemeta(ROOT_URL)+"(pal/)?(common|images|openinnovation)/",
+        Perl5Compiler.quotemeta(ROOT_URL)+"view/[^/]+/images/",
+        "[.](css|js)$",
+    };
 
+  public void testRepairList() throws Exception {
+    URL base = new URL(ROOT_URL);
+    DefinableArchivalUnit ABAu = makeAu(base, 33, "xyz", "2016");
+
+    assertEquals(Arrays.asList(baseRepairList), RegexpUtil.regexpCollection(ABAu.makeRepairFromPeerIfMissingUrlPatterns()));
+
+    // make sure that's the regexp that will match to the expected url string
+    // this also tests the regexp (which is the same) for the weighted poll map
+    List <String> repairList = ListUtil.list(   
+        ROOT_URL+"pal/common/images/login_error.gif",
+        ROOT_URL+"common/images/icons/rss.gif",
+        ROOT_URL+"common/includes/footer/default/style/footer.css",
+        ROOT_URL+"common/includes/footer/style/global.comments.css",
+        ROOT_URL+"common/includes/footer/scripts/jquery/plugins/cookie.js",
+        ROOT_URL+"images/lightbox-next-btn.png"
+        );
+    
+    Pattern p0 = Pattern.compile(baseRepairList[0]);
+    Matcher m0;
+    for (String urlString : repairList) {
+      m0 = p0.matcher(urlString);
+      assertEquals(true, m0.find());
+    }
+    
+    //and this one should fail - it needs to be weighted correctly and repaired from publisher if possible
+    String notString =ROOT_URL+"missing_file.html";
+    m0 = p0.matcher(notString);
+    assertEquals(false, m0.find());
+
+   PatternFloatMap urlPollResults = ABAu.makeUrlPollResultWeightMap();
+   assertNotNull(urlPollResults);
+   for (String urlString : repairList) {
+     assertEquals(0.0, urlPollResults.getMatch(urlString, (float) 1), .0001);
+   }
+   assertEquals(1.0, urlPollResults.getMatch(notString, (float) 1), .0001);
+   
+  }
+  
+  private static final String TEXT = "text that is longer than reported";
+  private static final int LEN_TOOSHORT = TEXT.length() - 4;
+  public void testShouldCacheWrongSize() throws Exception {
+
+    DefinableArchivalUnit Nau = makeAu(new URL(ROOT_URL), 33, "xyz", "2016");
+    repo =
+        (LockssRepository)theDaemon.newAuManager(LockssDaemon.LOCKSS_REPOSITORY,
+            Nau);
+    theDaemon.setLockssRepository(repo, Nau);
+    repo.startService();
+
+    String url = ROOT_URL + "xyz/journal/v33/n12/abs/1111.html";
+    CIProperties props = new CIProperties();
+    props.setProperty("Content-Length", Integer.toString(LEN_TOOSHORT));
+    UrlData ud = new UrlData(new StringInputStream(TEXT), props, url);
+    NatureDefaultUrlCacher cacher = new NatureDefaultUrlCacher(Nau, ud);
+    try {
+      cacher.storeContent();
+      //fail("storeContent() should have thrown WrongLength");
+    } catch (CacheException e) {
+      fail("storeContent() shouldn't have thrown", e);
+      //        assertClass(CacheException.UnretryableException.class, e);
+    }
+    assertTrue(cacher.wasStored);
+
+  }
+
+  // DefaultUrlCacher that remembers that it stored
+  private class NatureDefaultUrlCacher extends DefaultUrlCacher {
+    boolean wasStored = false;
+
+    public NatureDefaultUrlCacher(ArchivalUnit owner, UrlData ud) {
+      super(owner, ud);
+    }
+
+
+    @Override
+    protected void storeContentIn(String url, InputStream input,
+				  CIProperties headers,
+				  boolean doValidate, List<String> redirUrls)
+            throws IOException {
+      super.storeContentIn(url, input, headers, doValidate, redirUrls);
+      wasStored = true;
+    }
+  }
+}

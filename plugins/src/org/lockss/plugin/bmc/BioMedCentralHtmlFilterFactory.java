@@ -41,6 +41,7 @@ import org.htmlparser.tags.*;
 import org.htmlparser.util.NodeList;
 import org.lockss.daemon.PluginException;
 import org.lockss.filter.*;
+import org.lockss.filter.StringFilter;
 import org.lockss.filter.html.*;
 import org.lockss.plugin.*;
 import org.lockss.util.ListUtil;
@@ -77,6 +78,7 @@ public class BioMedCentralHtmlFilterFactory implements FilterFactory {
       // Extreme Hash filtering!
       HtmlNodeFilters.tagWithAttribute("div", "class", "wrap-nav"),
       HtmlNodeFilters.tagWithAttribute("div", "class", "issuecover"),
+      HtmlNodeFilters.tagWithAttribute("div", "id", "article-references"),
       // Contains one-time names inside the page
       HtmlNodeFilters.tagWithAttribute("a", "name"),
       // Links to one-time names inside the page
@@ -136,6 +138,14 @@ public class BioMedCentralHtmlFilterFactory implements FilterFactory {
       
       // floating bottom banner announcing access to beta version of new site
       HtmlNodeFilters.tagWithAttributeRegex("div", "class",  "^banner-footer"),
+      
+      // grey item on volume issue page, missing on some pages
+      HtmlNodeFilters.tagWithAttribute("li", "class", "tooltip"),
+      // Extra links appeared on issue toc for citations
+      HtmlNodeFilters.allExceptSubtree(
+          HtmlNodeFilters.tagWithAttribute("p", "class", "nav"),
+          HtmlNodeFilters.tagWithAttributeRegex("a", "class",
+              "(abstract|fulltext|pdf.*)-link")),
       
       // Journal of Cloud Computing: Advances, Systems and Applications &
       // Boundary Value Problems some articles had clickable badge
@@ -203,7 +213,7 @@ public class BioMedCentralHtmlFilterFactory implements FilterFactory {
     InputStream filtered =  new HtmlFilterInputStream(inb, encoding, 
         new HtmlCompoundTransform(
             HtmlNodeFilterTransform.exclude(new OrFilter(filters)), xformAllTags));
-    Reader filteredReader = FilterUtil.getReader(filtered, encoding);
+    Reader filteredReader = new StringFilter(FilterUtil.getReader(filtered, encoding), ":", " ");
     // added whitespace filter
     return new ReaderInputStream(new WhiteSpaceFilter(filteredReader));
   }

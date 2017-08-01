@@ -4,7 +4,7 @@
 
 /*
 
-Copyright (c) 2000-2014 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -47,12 +47,11 @@ public class HighWireDrupalArticleIteratorFactory
   
   private static final Logger log = Logger.getLogger(HighWireDrupalArticleIteratorFactory.class);
   
-  protected static final String ROOT_TEMPLATE =
-    "\"%scontent/%s/\", base_url, volume_name";
+  protected static final String ROOT_TEMPLATE = "\"%scontent/\", base_url";
   
-  // <base_url>/content/<v>/<i>/<pg>
+  // <base_url>/content/<v>/[<i>/]<pg> required vol, optional issue, required page, then EOL
   protected static final String PATTERN_TEMPLATE =
-    "\"^%scontent/%s/(?:[^/]+/)(?:[^./?&]+)$\", base_url, volume_name";
+    "\"^%scontent/(?!.*[.]toc$)([^/]+/)([^/]+/)?([^./?&]+([.]\\d{1,4})?)$\", base_url, volume_name";
   
   // various aspects of a HighWire article
   // http://ajpcell.physiology.org/content/302/1/C1
@@ -62,6 +61,12 @@ public class HighWireDrupalArticleIteratorFactory
   // http://ajpcell.physiology.org/content/302/1/C1.full
   // http://ajpcell.physiology.org/content/302/1/C1.abstract
   // http://bjo.bmj.com/content/96/1/1.extract
+  // http://apt.rcpsych.org/content/21/2/74.1
+  // http://msb.embopress.org/content/1/1/2005.0001
+  // http://essays.biochemistry.org/content/59/1
+  // http://essays.biochemistry.org/content/59/1.full.pdf
+  // http://rimg.geoscienceworld.org/content/81/1/iii.2
+  // http://rimg.geoscienceworld.org/content/81/1/iii.2.full.pdf
   
   // these kinds of urls are not used as part of the AI
   // http://ajpcell.physiology.org/content/302/1/C1.full-text.pdf+html (normalized)
@@ -71,7 +76,7 @@ public class HighWireDrupalArticleIteratorFactory
   // http://bjo.bmj.com/content/96/1/1.citation (usually no links)
   
   protected static final Pattern LANDING_PATTERN = Pattern.compile(
-      "/([^./?&]+)$", Pattern.CASE_INSENSITIVE);
+      "/([^./?&]+([.]\\d{1,4})?)$", Pattern.CASE_INSENSITIVE);
   
   // how to change from one form (aspect) of article to another
   protected static final String LANDING_REPLACEMENT = "/$1";
@@ -86,7 +91,24 @@ public class HighWireDrupalArticleIteratorFactory
   public Iterator<ArticleFiles> createArticleIterator(ArchivalUnit au,
                                                       MetadataTarget target)
       throws PluginException {
-    SubTreeArticleIteratorBuilder builder = new SubTreeArticleIteratorBuilder(au);
+    SubTreeArticleIteratorBuilder builder = new SubTreeArticleIteratorBuilder(au) {
+      
+      @Override
+      protected BuildableSubTreeArticleIterator instantiateBuildableIterator() {
+        return new BuildableSubTreeArticleIterator(au, spec) {
+          
+          @Override
+          protected ArticleFiles createArticleFiles(CachedUrl cu) {
+            ArchivalUnit au = cu.getArchivalUnit();
+            CachedUrl toc = au.makeCachedUrl(cu.getUrl() + ".toc");
+            if ((toc != null) && toc.hasContent()) {
+              return null;
+            }
+            return super.createArticleFiles(cu);
+          }
+        };
+      }
+    };
     
     builder.setSpec(target,
         ROOT_TEMPLATE, PATTERN_TEMPLATE, Pattern.CASE_INSENSITIVE);
@@ -119,9 +141,9 @@ public class HighWireDrupalArticleIteratorFactory
     
     // set up figures-only to be an aspect
     builder.addAspect(FIGURES_REPLACEMENT,
-        ArticleFiles.ROLE_FIGURES_TABLES);
+        ArticleFiles.ROLE_FIGURES);
     
-    // add metadata role from abstract, html, or pdf (NOTE: pdf metadata gets DOI from filename)
+    // add metadata role from abstract, html or pdf landing page
     builder.setRoleFromOtherRoles(ArticleFiles.ROLE_ARTICLE_METADATA, Arrays.asList(
         ArticleFiles.ROLE_ABSTRACT,
         ArticleFiles.ROLE_FULL_TEXT_PDF_LANDING_PAGE,

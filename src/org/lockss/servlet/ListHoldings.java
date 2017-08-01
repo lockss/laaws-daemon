@@ -38,7 +38,6 @@ import java.util.*;
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import org.apache.commons.lang3.StringUtils;
-import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.config.*;
 import org.lockss.config.TdbUtil.ContentScope;
@@ -52,7 +51,6 @@ import org.lockss.exporter.kbart.CoverageNotesFormat;
 import static org.lockss.exporter.kbart.KbartExportFilter.*;
 import org.lockss.exporter.kbart.KbartTitle.Field;
 import org.lockss.metadata.MetadataDatabaseUtil;
-import org.lockss.metadata.MetadataManager;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.util.Logger;
 import org.lockss.util.StringUtil;
@@ -965,7 +963,7 @@ public class ListHoldings extends LockssServlet {
         // use number of publications in the metadata database if greater
         // to account for file transfer content titles; this also handles
         // cases where indexing is disabled or is not yet complete
-        total = Math.max(total,
+        total = Math.max(total, 
                          LockssDaemon.getLockssDaemon()
                                      .getMetadataManager()
                                      .getPublicationCount());

@@ -36,19 +36,15 @@ import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
-import java.util.Vector;
 
-import org.htmlparser.Attribute;
 import org.htmlparser.Node;
 import org.htmlparser.NodeFilter;
-import org.htmlparser.Tag;
 import org.htmlparser.filters.*;
 import org.htmlparser.nodes.TextNode;
 import org.htmlparser.tags.CompositeTag;
+import org.htmlparser.tags.BulletList;
 import org.htmlparser.tags.Div;
 import org.htmlparser.util.NodeList;
-import org.htmlparser.util.ParserException;
-import org.htmlparser.visitors.NodeVisitor;
 import org.lockss.daemon.PluginException;
 import org.lockss.filter.FilterUtil;
 import org.lockss.filter.HtmlTagFilter;
@@ -108,6 +104,15 @@ public class HighWirePressH20HtmlFilterFactory implements FilterFactory {
       // PNAS (aggressive filtering)
       HtmlNodeFilters.tagWithAttribute("div", "id", "sidebar"),
       HtmlNodeFilters.tagWithAttribute("ul", "id", "drop_menu"),
+      new NodeFilter() {
+        @Override public boolean accept(Node node) {
+          if (!(node instanceof BulletList)) return false;
+          String allText = ((CompositeTag)node).toPlainTextString();
+          //using regex for case insensitive match on "current issue"
+          // the "i" is for case insensitivity; the "s" is for accepting newlines
+          return allText.matches("(?is).*current issue.*");
+          }
+      },
       // e.g. BMJ (optional 'sid' query arg in URLs)
       HtmlNodeFilters.tagWithAttribute("div", "id", "cb-art-rel"),
       HtmlNodeFilters.tagWithAttribute("div", "id", "cb-art-soc"),
@@ -124,6 +129,9 @@ public class HighWirePressH20HtmlFilterFactory implements FilterFactory {
       HtmlNodeFilters.tagWithAttribute("div", "class", "cit-form-select"),
       // and <div id="cit-extra">
       HtmlNodeFilters.tagWithAttribute("div", "class", "cit-extra"),
+      // Extreme filtering for http://aapnews.aappublications.org/content/34/3/22.short
+      //  Some citation text changes over time
+      HtmlNodeFilters.tagWithAttribute("span", "class", "cit-extra"),
       // For JBC pages
       HtmlNodeFilters.tagWithAttribute("div", "id", "ad-top"),
       HtmlNodeFilters.tagWithAttribute("div", "id", "ad-top2"),
@@ -216,11 +224,24 @@ public class HighWirePressH20HtmlFilterFactory implements FilterFactory {
       // Beginning and end markers were added, e.g. Royal Society Interface
       HtmlNodeFilters.tagWithAttribute("span", "class", "highwire-journal-article-marker-start"),
       HtmlNodeFilters.tagWithAttribute("span", "class", "highwire-journal-article-marker-end"),
-      //sage - toc may have extra div block within this <div class="gca-buttons">
-      HtmlNodeFilters.tagWithAttribute("div", "class", "gca-buttons"),
+      // sage - toc may have extra div block within this <div class="gca-buttons">
+      // oup - <div class="gca-buttons-bulk-cit-toc">
+      HtmlNodeFilters.tagWithAttributeRegex("div", "class", "gca-buttons"),
       // <div id="trendmd-suggestions"> http://cjasn.asnjournals.org/content/10/1/111.short
       HtmlNodeFilters.tagWithAttributeRegex("div", "id", "trend"),
+      // Extreme filtering for http://heart.bmj.com/content/101/16/1309
+      // 
+      HtmlNodeFilters.tagWithAttributeRegex("ol", "class", "eletter"),
+      HtmlNodeFilters.tagWithAttributeRegex("div", "id", "-nav"),
+      HtmlNodeFilters.tagWithAttributeRegex("div", "id", "cookie"),
+      HtmlNodeFilters.tagWithAttributeRegex("div", "id", "breadcrumbs"),
+      HtmlNodeFilters.tagWithAttributeRegex("div", "id", "oas-ad"),
+      HtmlNodeFilters.tagWithAttribute("div", "id", "rss"),
+      HtmlNodeFilters.tagWithAttribute("div", "id", "responses"),
+      HtmlNodeFilters.tagWithAttribute("div", "class", "crossmark-logo"),
       
+      // found in http://mnrasl.oxfordjournals.org/content/433/1/25.full
+      HtmlNodeFilters.tagWithAttribute("ul", "class", "history-list"),
       // There is an "Impact factor" but it is only ctext in an H3 tag
       // and the parent <div> is generic. Use a combination of the grandparent <div> plus the ctext
       // It's not ideal, but there is no better solution. Seen in occmed.oxfordjournals.org

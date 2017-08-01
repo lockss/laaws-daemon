@@ -46,7 +46,10 @@ import org.htmlparser.util.ParserException;
 import org.htmlparser.visitors.NodeVisitor;
 import org.lockss.daemon.PluginException;
 import org.lockss.filter.FilterUtil;
+import org.lockss.filter.HtmlTagFilter;
+import org.lockss.filter.StringFilter;
 import org.lockss.filter.WhiteSpaceFilter;
+import org.lockss.filter.HtmlTagFilter.TagPair;
 import org.lockss.filter.html.*;
 import org.lockss.plugin.*;
 import org.lockss.util.Logger;
@@ -104,6 +107,7 @@ public class RSC2014HtmlHashFilterFactory implements FilterFactory {
   public InputStream createFilteredInputStream(ArchivalUnit au, InputStream in,
                                                String encoding)
       throws PluginException {
+    // String gurl = au.getConfiguration().get("graphics_url");
     NodeFilter[] filters = new NodeFilter[] {
         // Contains the current year.
         HtmlNodeFilters.tagWithAttributeRegex("div", "class", "footer"),
@@ -115,12 +119,22 @@ public class RSC2014HtmlHashFilterFactory implements FilterFactory {
         HtmlNodeFilters.tag("head"),
         // <div id="top" class="navigation"  access links intermittent http://xlink.rsc.org/?doi=c3dt52391h
         HtmlNodeFilters.tagWithAttribute("div", "class", "navigation"),
+        // Contains images that can change
+        HtmlNodeFilters.tagWithAttributeRegex("img", "src", "https?://[^/]+/pubs-core/"),
+        // remove abstract links which disappeared from content crawled more recently
+        HtmlNodeFilters.tagWithAttribute("div", "class", "absract_links"),
+        // more aggressive filtering, the next step would be to remove all remaining tags
+        HtmlNodeFilters.tagWithAttribute("div", "class", "page_anchor"),
+        HtmlNodeFilters.comment(),
+        HtmlNodeFilters.tag("noscript"),
     };
     
     InputStream filtered =  new HtmlFilterInputStream(in, encoding,
         new HtmlCompoundTransform(HtmlNodeFilterTransform.exclude(new OrFilter(filters)), xform));
     Reader filteredReader = FilterUtil.getReader(filtered, encoding);
-    return new ReaderInputStream(new WhiteSpaceFilter(filteredReader));
+    // add a space before the tag "<", then remove from "<" to ">"
+    Reader addFilteredReader = new HtmlTagFilter(new StringFilter(filteredReader,"<", " <"), new TagPair("<",">"));
+    return new ReaderInputStream(new WhiteSpaceFilter(addFilteredReader));
   }
   
 }

@@ -3,7 +3,7 @@
 <map>
   <entry>
     <string>plugin_status</string>
-    <string>ready</string>
+    <string>deprecated</string>
   </entry>
   <entry>
     <string>plugin_identifier</string>
@@ -15,7 +15,7 @@
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>53</string>
+    <string>61</string>
   </entry>
   <entry>
     <string>plugin_feature_version_map</string>
@@ -30,7 +30,7 @@
       </entry>
       <entry>
         <string>Poll</string>
-        <string>26</string>
+        <string>31</string>
       </entry>
     </map>
   </entry>
@@ -47,16 +47,25 @@
     <string>1.68.4</string> <!-- Daemon version at time of update -->
   </entry>
   <entry>
-<!--  supplements now start from their own page; crawl rules limit to just the correct volume -->  
     <string>au_start_url</string>
-    <list>
     <string>"%s%s/%s", base_url, journal_issn, volume_name</string>
-    <string>"%s%s/supplements/all", base_url, journal_issn</string>
-    </list>
   </entry>
   <entry>
     <string>au_permission_url</string>
     <string>"%slockss/", base_url</string>
+  </entry>
+  <entry>
+    <string>au_redirect_to_login_url_pattern</string>
+    <string>"%srender/render\.asp\?.*access=denied", base_url</string>
+  </entry>
+  <!-- Remove login checker as caused "Not in GZIP format" for some content (PDF, epub, etc.) -->
+  <!-- entry>
+    <string>au_login_page_checker</string>
+    <string>org.lockss.plugin.bmc.BMCLoginPageChecker</string>
+  </entry> -->
+  <entry>
+    <string>text/html_link_extractor_factory</string>
+    <string>org.lockss.plugin.bmc.BMCHtmlLinkExtractor$Factory</string>
   </entry>
 
   <entry>
@@ -112,7 +121,7 @@
            http://www.biomedcentral.com/1471-20164/14/S8/S2(/abstract)?  
            but we don't know the specific journal_id so we have to wildcard 
            risk of going to other journal supplement if they have same volume -->
-      <string>1, "^%s[^/]+/supplements/%s/", base_url, volume_name</string>        
+      <string>1, "^%s[^/]+/supplements/(%s/|all)", base_url, volume_name</string>        
     </list>
   </entry>
   <entry>
@@ -167,8 +176,13 @@
     <string>key:BioMed Central</string>
   </entry>
   <entry>
+    <!-- au_start_url to issue -->
+    <string>au_refetch_depth</string>
+    <int>2</int>
+  </entry>
+  <entry>
     <string>au_def_pause_time</string>
-    <long>5000</long> <!-- Increasing progressively -->
+    <long>3000</long>
   </entry>
   <entry>
     <string>au_def_new_content_crawl</string>
@@ -197,11 +211,16 @@
   </entry>
   <entry>
     <string>au_repair_from_peer_if_missing_url_pattern</string>
-    <string>(\.(css|js)|-toc.gif|/images/.+\.(png|gif))$</string>
+    <list>
+      <string>(\.(css|js)|-toc.gif|/images/.+\.(png|gif))(\?\d+)?$</string>
+    </list>
   </entry>
   <entry>
     <!-- these will not count towards poll results but will replicate from peer if above 1.69.5 -->
     <string>au_url_poll_result_weight</string>
-    <string>"(\.(css|js)|-toc.gif|/images/.+\.(png|gif))$", 0</string>
+    <list>
+      <string>"(\.(css|js)|-toc.gif|/images/.+\.(png|gif))(\?\d+)?$", 0</string>
+      <string>"/supplements/all$", 0</string>
+    </list>
   </entry>
 </map>

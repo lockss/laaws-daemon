@@ -1,6 +1,6 @@
 /*
 
- Copyright (c) 2013-2016 Board of Trustees of Leland Stanford Jr. University,
+ Copyright (c) 2013-2017 Board of Trustees of Leland Stanford Jr. University,
  all rights reserved.
 
  Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -35,8 +35,6 @@ import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-
-import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.db.DbException;
 import org.lockss.exporter.biblio.BibliographicItem;
@@ -116,6 +114,7 @@ final public class MetadataDatabaseUtil {
       provider = resultSet.getString(14);
     }
 
+    @Override
     public String getPublicationType() {
       if (publicationType == null) {
         return MetadataField.PUBLICATION_TYPE_JOURNAL;
@@ -124,10 +123,12 @@ final public class MetadataDatabaseUtil {
           ? MetadataField.PUBLICATION_TYPE_BOOKSERIES : publicationType;
     }
 
+    @Override
     public String getCoverageDepth() {
       return (coverageDepth == null) ? "fulltext" : coverageDepth;
     }
 
+    @Override
     public String getIsbn() {
       String isbn = getPrintIsbn();
       if (!MetadataUtil.isIsbn(isbn)) {
@@ -139,14 +140,17 @@ final public class MetadataDatabaseUtil {
       return isbn;
     }
 
+    @Override
     public String getPrintIsbn() {
       return printisbn;
     }
 
+    @Override
     public String getEisbn() {
       return eisbn;
     }
 
+    @Override
     public String getIssn() {
       String issn = getIssnL();
       if (!MetadataUtil.isIssn(issn)) {
@@ -161,78 +165,97 @@ final public class MetadataDatabaseUtil {
       return issn;
     }
 
+    @Override
     public String getPrintIssn() {
       return printissn;
     }
 
+    @Override
     public String getEissn() {
       return eissn;
     }
 
+    @Override
     public String getIssnL() {
       return null;
     }
 
+    @Override
     public String[] getProprietaryIds() {
       return proprietaryIds;
     }
 
+    @Override
     public String[] getProprietarySeriesIds() {
       return proprietarySeriesIds;
     }
 
+    @Override
     public String getPublicationTitle() {
       return publicationTitle;
     }
 
+    @Override
     public String getSeriesTitle() {
       return seriesTitle;
     }
 
+    @Override
     public String getPublisherName() {
       return publisher;
     }
 
+    @Override
     public String getProviderName() {
       return provider;
     }
 
+    @Override
     public String getName() {
       return null;
     }
 
+    @Override
     public String getVolume() {
       return volume;
     }
 
+    @Override
     public String getYear() {
       return year;
     }
 
+    @Override
     public String getIssue() {
       return null;
     }
 
+    @Override
     public String getStartVolume() {
-      return null;
+      return BibliographicUtil.getRangeSetStart(getVolume());
     }
 
+    @Override
     public String getEndVolume() {
-      return null;
+      return BibliographicUtil.getRangeSetEnd(getVolume());
     }
 
+    @Override
     public String getStartYear() {
-      return null;
+      return BibliographicUtil.getRangeSetStart(getYear());
     }
 
+    @Override
     public String getEndYear() {
-      return null;
+      return BibliographicUtil.getRangeSetEnd(getYear());
     }
 
+    @Override
     public String getStartIssue() {
       return null;
     }
 
+    @Override
     public String getEndIssue() {
       return null;
     }
@@ -277,7 +300,7 @@ final public class MetadataDatabaseUtil {
       return ((property1 == null && property2 == null)
 	  || (property1 != null && property1.equals(property2)));
     }
-}
+  }
     
   /**
    * This query generates information to populate BibliographicItem records.
@@ -443,8 +466,7 @@ where
     List<BibliographicItem> items = Collections.<BibliographicItem>emptyList();
     Connection conn = null;
     try {
-      MetadataDbManager dbManager =
-	  LockssDaemon.getLockssDaemon().getMetadataDbManager();
+      MetadataDbManager dbManager = getDaemon().getMetadataDbManager();
       conn = dbManager.getConnection();
       items = getBibliographicItems(dbManager, conn);
     } catch (DbException ex) {

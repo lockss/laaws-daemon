@@ -9,11 +9,11 @@
   </entry>
   <entry>
     <string>plugin_name</string>
-    <string>Georg Thieme Verlag Plugin</string>
+    <string>Georg Thieme Verlag Journals Plugin</string>
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>20</string>
+    <string>24</string>
   </entry>
   <entry>
     <string>plugin_feature_version_map</string>
@@ -24,21 +24,21 @@
       </entry>
       <entry>
         <string>Poll</string>
-        <string>12</string>
+        <string>13</string>
       </entry>
       <entry>
         <string>Substance</string>
-        <string>3</string>
+        <string>4</string>
       </entry>
     </map>
   </entry>
   <entry>
     <string>required_daemon_version</string>
-    <string>1.67.0</string> <!-- Daemon version at time of creation -->
+    <string>1.70.0</string> <!-- requires overridable PdfDocumentFactory -->
   </entry>
   <entry>
     <string>au_name</string>
-    <string>"Georg Thieme Verlag Plugin, Base URL %s, Journal ID %s, Volume %s", base_url, journal_id, volume_name</string>
+    <string>"Georg Thieme Verlag Journals Plugin, Base URL %s, Journal ID %s, Volume %s", base_url, journal_id, volume_name</string>
   </entry>
   <entry>
     <string>au_start_url</string>
@@ -67,12 +67,13 @@
       <!-- Do not collect these images, they were not served consistently and images of content -->
       <string>2,"^https?://%s/media/[^?]+/lookinside/[^?]+\.jpg$", url_host(base_url)</string>
       <!-- all fonts, images, resources, css, js, etc. -->
-      <string>1,"^https?://%s/[^?]+[.](bmp|gif|ico|jpe?g|png|tif?f|(css|js|eot|svg|ttf|woff)([?].*)?)$", url_host(base_url)</string>
+      <string>1,"^https?://%s/[^?]+[.](bmp|gif|ico|jpe?g|png|tif?f|(css|js|eot|svg|ttf|woff.?)([?].*)?)$", url_host(base_url)</string>
       <string>1,"^%smedia/.*/supmat/", base_url</string>
       <string>4,"^%s.*/10[.][0-9a-z]{4,6}/", base_url</string>
       <string>2,"^%s.*/10[.][0-9a-z]{4,6}/www[.]", base_url</string>
       <string>2,"^%s(?:[^/]+/)?(?:rss/thieme|ejournals/(?:journal|issues|sample|recommend|topten|linkout))", base_url</string>
       <string>1,"^%s(?:[^/]+/)?ejournals/(?:issue|abstract|html|pdf|ris)/10[.][0-9a-z]{4,6}/[.a-z0-9-]+(?:[.]pdf|/BIB|[?]issue=.+)?$", base_url</string>
+      <string>1,"^%s(?:[^/]+/)?ejournals(/confauthlist)?/issue/10[.][0-9a-z]{4,6}/[.a-z0-9-]+/grouping/[0-9]+/10[.][0-9a-z]{4,6}/[.a-z0-9-]+$", base_url</string>
     </list>
   </entry>
   <entry>
@@ -109,8 +110,8 @@
   <entry>
     <string>au_substance_url_pattern</string>
     <list>
-      <string>"^%s(?:[^/]+/)?ejournals/html/10[.][0-9a-z]{4,6}/[a-z0-9-]+$", base_url</string>
-      <string>"^%s(?:[^/]+/)?ejournals/pdf/10[.][0-9a-z]{4,6}/[a-z0-9-]+[.]pdf$", base_url</string>
+      <string>"^%s(?:[^/]+/)?ejournals/html/10[.][0-9a-z]{4,6}/[.a-z0-9-]+$", base_url</string>
+      <string>"^%s(?:[^/]+/)?ejournals/pdf/10[.][0-9a-z]{4,6}/[.a-z0-9-]+[.]pdf$", base_url</string>
     </list>
   </entry>
   <entry>

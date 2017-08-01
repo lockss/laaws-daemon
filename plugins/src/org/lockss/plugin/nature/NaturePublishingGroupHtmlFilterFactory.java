@@ -4,7 +4,7 @@
 
 /*
 
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2000-2016 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -68,6 +68,7 @@ public class NaturePublishingGroupHtmlFilterFactory implements FilterFactory {
         HtmlNodeFilters.tag("noscript"),
         // Header
         HtmlNodeFilters.tagWithAttributeRegex("div", "id", "constrain-header"),
+        HtmlNodeFilters.tagWithAttribute("div", "id", "hdr"),
         // Right column (advertising, jobs ticker, news ticker...)
         HtmlNodeFilters.tagWithAttribute("div", "id", "extranav"),
         // Footer
@@ -137,6 +138,8 @@ public class NaturePublishingGroupHtmlFilterFactory implements FilterFactory {
         HtmlNodeFilters.tagWithAttribute("div", "class", "baseline-wrapper"),
         // global message on pages - e.g. request to fill out a survey
         HtmlNodeFilters.tagWithAttributeRegex("div", "class", "^global-message"),
+        // http://www.nature.com/jhg/journal/v61/n8/index.html 
+        HtmlNodeFilters.tagWithAttribute("span", "class", "free"),
     };
     
     HtmlTransform xform = new HtmlTransform() {

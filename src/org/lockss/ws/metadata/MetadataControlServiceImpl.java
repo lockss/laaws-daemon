@@ -28,7 +28,6 @@
 package org.lockss.ws.metadata;
 
 import javax.jws.WebService;
-import org.lockss.app.LockssApp;
 import org.lockss.app.LockssDaemon;
 import org.lockss.metadata.MetadataManager;
 import org.lockss.util.Logger;

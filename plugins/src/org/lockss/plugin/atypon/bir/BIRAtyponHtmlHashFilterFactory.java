@@ -32,11 +32,16 @@ in this Software without prior written authorization from Stanford University.
 
 package org.lockss.plugin.atypon.bir;
 
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.InputStream;
+
+import org.apache.commons.io.IOUtils;
 import org.htmlparser.NodeFilter;
 import org.lockss.filter.html.HtmlNodeFilters;
 import org.lockss.plugin.ArchivalUnit;
 import org.lockss.plugin.atypon.BaseAtyponHtmlHashFilterFactory;
+import org.lockss.plugin.atypon.nrcresearchpress.NrcPdfFilterFactory;
 import org.lockss.util.Logger;
 
 public class BIRAtyponHtmlHashFilterFactory 
@@ -101,6 +106,16 @@ public class BIRAtyponHtmlHashFilterFactory
                 "div", "class", "literatumArticleToolsWidget"),
                 HtmlNodeFilters.tagWithAttributeRegex(
                     "a", "href", "/action/showCitFormats\\?")),
+        // on full text and referenes page the ways to linkout to the reference get                                                                                                                   
+        // added to (GoogleScholar, Medline, ISI, abstract, etc)                                                                                                                                      
+        // leave the content (NLM_article-title, NLM_year, etc),                                                                                                                                      
+        // but remove everything else (links and punctuation between options)  
+        HtmlNodeFilters.allExceptSubtree(
+            HtmlNodeFilters.tagWithAttribute(
+                "table", "class", "references"),
+                HtmlNodeFilters.tagWithAttributeRegex(
+                    "span", "class", "NLM_")),
+                    
  
     };
     // super.createFilteredInputStream adds bir filter to the baseAtyponFilters
@@ -109,8 +124,8 @@ public class BIRAtyponHtmlHashFilterFactory
     return super.createFilteredInputStream(au, in, encoding, filters);
   }
 
-  @Override
-  public boolean doTagIDFiltering() {
+  
+  public boolean doTagRemovalFiltering() {
     return true;
   }
    
@@ -118,7 +133,7 @@ public class BIRAtyponHtmlHashFilterFactory
   public boolean doWSFiltering() {
     return true;
   }
-  
+
 }
 
 

@@ -88,18 +88,37 @@ public class BaseAtyponHtmlHashFilterFactory implements FilterFactory {
     HtmlNodeFilters.tag("head"),
     // filter out javascript
     HtmlNodeFilters.tag("script"),
+    HtmlNodeFilters.tag("noscript"),
     //filter out comments
     HtmlNodeFilters.comment(),
     
     HtmlNodeFilters.tagWithAttribute("div", "id", "header"),
     HtmlNodeFilters.tagWithAttribute("div", "id", "footer"),
-
+    
+    // sections that may show up with this skin - from CRAWL filter   
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "literatumBookIssueNavigation"),
+    // http://www.birpublications.org/toc/bjr/88/1052
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "literatumMostReadWidget"),    
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "literatumMostCitedWidget"),
+    HtmlNodeFilters.tagWithAttributeRegex("div",  "class","literatumMostRecentWidget"),                                      
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "literatumListOfIssuesWidget"),
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "literatumBreadcrumbs"),
+    //seen in TandF but likely to spread
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "literatumArticleMetricsWidget"),
+    // additional just for hashing - may or may not be necessary
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "literatumAd"),
+    //http://press.endocrine.org/doi/full/10.1210/en.2013-1159
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "doubleClickAdWidget"),    
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "literatumInstitutionBanner"),    
+    
     // crossref to site library
     HtmlNodeFilters.tagWithAttribute("a", "class", "sfxLink"),
     // stylesheets
     HtmlNodeFilters.tagWithAttribute("link", "rel", "stylesheet"),
     // these are only on issue toc pages
     HtmlNodeFilters.tagWithAttributeRegex("img", "class", "^accessIcon"),
+    // first seen in Edinburgh august 2016 toc
+    HtmlNodeFilters.tagWithAttribute("td", "class", "accessIconContainer"),
     // Contains the changeable list of citations
     HtmlNodeFilters.tagWithAttribute("div", "class", "citedBySection"),
     // some size notes are within an identifying span
@@ -245,14 +264,14 @@ public class BaseAtyponHtmlHashFilterFactory implements FilterFactory {
       combinedFiltered = new HtmlFilterInputStream(in, encoding,
           new HtmlCompoundTransform(HtmlNodeFilterTransform.exclude(new OrFilter(bothFilters)), xform_spanID));
     }
-    if (!doTagRemovalFiltering() && !doWS) {
+    if (!doTagRemovalFiltering() && !doWS && !doHttpsConversion()) {
       // already done, return without converting back to a reader
       return combinedFiltered;
     }
     
     /* 
      * optional additional processing - 
-     *    removal of all tags and/or removal of WS
+     *    removal of all tags and/or removal of WS & https conversion
      */
     Reader tagFilter = FilterUtil.getReader(combinedFiltered, encoding);
     // if removing both tags and WS, add a space before each tag
@@ -262,8 +281,23 @@ public class BaseAtyponHtmlHashFilterFactory implements FilterFactory {
     if (doTagRemovalFiltering()) {
       tagFilter = new HtmlTagFilter(tagFilter, new TagPair("<", ">"));
     }
+    if (doHttpsConversion()) {
+      tagFilter = new StringFilter(tagFilter, "http:", "https:");
+    }
     if (doWS) {
-      return new ReaderInputStream(new WhiteSpaceFilter(tagFilter)); 
+      // first subsitute plain white space for &nbsp;   
+      // add spaces before all "<"
+      // consolidate spaces down to 1
+      // If the tags were removed above (with space added) it will not find tags
+      // to add the space before. This is fine.
+      String[][] unifySpaces = new String[][] {
+          // inconsistent use of nbsp v empty space - do this replacement first                                                                        
+          {"&nbsp;", " "},
+          {"<", " <"},
+      };
+      Reader NBSPFilter = StringFilter.makeNestedFilter(tagFilter,
+          unifySpaces, false);
+      return new ReaderInputStream(new WhiteSpaceFilter(NBSPFilter)); 
     } else { 
       return new ReaderInputStream(tagFilter); 
     }
@@ -303,11 +337,29 @@ public class BaseAtyponHtmlHashFilterFactory implements FilterFactory {
             HtmlNodeFilterTransform.exclude(new OrFilter(allExcludeNodes)))
         );
     }
+    // as Atyon publishers move to https this will support them. 
+    // It doesn't matter if it changes http to http unnecessarily for hash purposes
+    Reader freader;
+    if (doHttpsConversion()) {
+      freader = FilterUtil.getReader(combinedFiltered, encoding);
+      freader = new StringFilter(freader, "http:", "https:");
+    } else {
+      freader = FilterUtil.getReader(combinedFiltered, encoding);
+    }
     if (doWSFiltering()) {
-      Reader reader = FilterUtil.getReader(combinedFiltered, encoding);
-      return new ReaderInputStream(new WhiteSpaceFilter(reader)); 
+      // first subsitute plain white space for &nbsp;                                                                                                  
+      // add spaces before all "<"
+      // consolidate spaces down to 1
+      String[][] unifySpaces = new String[][] {
+          // inconsistent use of nbsp v empty space - do this replacement first                                                                        
+          {"&nbsp;", " "},
+          {"<", " <"},
+      };
+      Reader NBSPFilter = StringFilter.makeNestedFilter(freader,
+          unifySpaces, false);
+      return new ReaderInputStream(new WhiteSpaceFilter(NBSPFilter)); 
     } else { 
-      return combinedFiltered;
+      return new ReaderInputStream(freader);
     }
   }
 
@@ -347,7 +399,9 @@ public class BaseAtyponHtmlHashFilterFactory implements FilterFactory {
    * BaseAtypon children can turn on/off extra levels of filtering
    * by overriding the getting/setter methods.
    * The BaseAtypon filter will query this method and if it is true,
-   * will remove extra WS
+   * will remove extra WS, 
+   * Specifically &nbsp; becomes ascii space, multiple spaces become one space
+   * and all "<" have a leading space before them.
    * default is false;
    */
   public boolean doWSFiltering() {
@@ -367,6 +421,16 @@ public class BaseAtyponHtmlHashFilterFactory implements FilterFactory {
    * default is false;
    */
   public boolean doTagRemovalFiltering() {
+    return false;
+  }
+  
+  /*
+   * BaseAtypon children can turn on/off extra levels of filtering
+   * by overriding the getting/setter methods.
+   * The BaseAtypon filter will query this method and if it is true,
+   * will turn all http to https as part of handling an http to https conversion
+   */
+  public boolean doHttpsConversion() {
     return false;
   }
 

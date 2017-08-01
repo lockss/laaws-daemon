@@ -13,14 +13,14 @@
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>14</string>
+    <string>22</string>
   </entry>
   <entry>
     <string>plugin_feature_version_map</string>
     <map>
       <entry>
         <string>Poll</string>
-        <string>10</string>
+        <string>14</string>
       </entry>
       <entry>
         <string>Substance</string>
@@ -34,7 +34,7 @@
   </entry>
   <entry>
     <string>required_daemon_version</string>
-    <string>1.68.4</string>
+    <string>1.70.0</string>
   </entry>
   <entry>
     <string>plugin_config_props</string>
@@ -92,6 +92,7 @@
     <list>
       <string>1,"^https?://(%s|%s|(rd|static-content)\.springer\.com)/.*\.(bmp|css|eot|gif|ico|jpe?g|js|otf|png|svg|tif?f|ttf|woff)(\?config=[^/]*)?$", url_host(base_url), url_host(download_url)</string>
       <string>2,"^https?://%s/content/pdf/(bbm|bfm)",  url_host(base_url)</string>
+      <string>1,"^%sauid=.*$", base_url</string>
       <string>1,"^https?://%s/download/epub/",  url_host(base_url)</string>
       <string>1,"^https?://%s/(content|chapter|book|article)/",  url_host(base_url)</string>
       <string>1,"^https?://%s/static/", url_host(download_url)</string>
@@ -107,10 +108,6 @@
     </list>
   </entry>
   <entry>
-    <string>au_repair_from_peer_if_missing_url_pattern</string>
-    <string>"^%sstatic/[^/]+/.+[.](png|js|css|gif)$", base_url</string>
-  </entry>
-  <entry>
     <string>au_url_normalizer</string>
     <string>org.lockss.plugin.springer.link.SpringerLinkUrlNormalizer</string>
   </entry>
@@ -120,7 +117,7 @@
   </entry>
   <entry>
     <string>plugin_url_fetcher_factory</string>
-    <string>org.lockss.plugin.springer.link.HttpToHttpsUtil$HttpToHttpsUrlFetcherFactory</string>
+    <string>org.lockss.plugin.base.HttpToHttpsUrlFetcherFactory</string>
   </entry>
   <entry>
     <string>text/html_crawl_filter_factory</string>
@@ -129,6 +126,10 @@
   <entry>
     <string>text/html_filter_factory</string>
     <string>org.lockss.plugin.springer.link.SpringerLinkHtmlHashFilterFactory</string>
+  </entry>
+  <entry>
+    <string>application/pdf_filter_factory</string>
+    <string>org.lockss.plugin.springer.link.SpringerLinkPdfFilterFactory</string>
   </entry>
   <entry>
     <string>plugin_article_iterator_factory</string>
@@ -171,13 +172,16 @@
   </entry>
   <entry>
     <string>au_repair_from_peer_if_missing_url_pattern</string>
-    <string>"^%sstatic/[^/]+/.+[.](png|js|css|gif)$", base_url</string>
+    <list>
+      <string>/static/.*\.(png|css|js|gif)$</string>
+    </list>
   </entry>
   <entry>
     <!-- these will not count towards poll results but will replicate from peer if above -->
     <string>au_url_poll_result_weight</string>
     <list>
-      <string>"^%sstatic/[^/]+/.+[.](png|js|css|gif)$", base_url, 0</string>
+      <string>"/static/.*\.(png|css|js|gif)$", 0</string>
+      <string>"auid=.*$", 0</string>
     </list>
   </entry>
 </map>

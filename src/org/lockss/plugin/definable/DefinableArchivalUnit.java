@@ -33,6 +33,7 @@ package org.lockss.plugin.definable;
 
 import java.net.*;
 import java.util.*;
+import java.io.IOException;
 
 import org.apache.commons.collections.*;
 import org.apache.oro.text.regex.*;
@@ -491,7 +492,11 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
 
   Map<String,List<String>> featureUrlMap;
 
-  /** Return URLs expanded from au_feature_urls. */
+  /** Return URLs expanded from au_feature_urls.
+   *
+   * XXX This is unused.  OpenUrlResolver processes au_feature_urls
+   * directly, as those printfs refer to params other than AU config
+   * params and can't be processed in the normal way. */
   public List<String> getAuFeatureUrls(String auFeature) {
     if (featureUrlMap == null) {
       featureUrlMap = makeAuFeatureUrlMap();
@@ -736,6 +741,22 @@ public class DefinableArchivalUnit extends BaseArchivalUnit
       ret = new BaseCrawlSeed(this);
     }
     return ret;
+  }
+
+  @Override
+  public Collection<String> getAccessUrls() {
+    FeatureUrlHelper helper = getDefinablePlugin().getFeatureUrlHelper(this);
+    if (helper != null) {
+      try {
+	return helper.getAccessUrls(this);
+      } catch (PluginException | IOException e) {
+	log.warning("Error generating access URLs, using start URLs instead",
+		    e);
+	return getStartUrls();
+      }
+    } else {
+      return super.getAccessUrls();
+    }
   }
 
   public List<PermissionChecker> makePermissionCheckers() {

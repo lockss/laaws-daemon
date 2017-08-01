@@ -99,7 +99,7 @@ public class TestOUPDrupalPlugin extends LockssTestCase {
         "https://www.example.com/lockss-manifest/vol_303_manifest.html", 
     };
     DefinableArchivalUnit au = makeAuFromProps(props);
-    assertEquals("Oxford University Press Plugin, Base URL http://www.example.com/, Volume 303",
+    assertEquals("Oxford University Press Plugin (Legacy), Base URL http://www.example.com/, Volume 303",
         au.getName());
     assertEquals(ListUtil.list(starturl[0],starturl[1]), au.getStartUrls());
   }
@@ -159,14 +159,15 @@ http://jinsectscience.oxfordjournals.org/highwire/article_citation_preview/61258
     // Test for pages that should get crawled or not
     // permission page/start url
     shouldCacheTest(ROOT_URL + "lockss-manifest/vol_303_manifest.html", true, au);
-    shouldCacheTest(ROOT_URL + "clockss-manifest/vol_303_manifest.html", false, au);
+    shouldCacheTest(ROOT_URL + "clockss-manifest/vol_303_manifest.html", true, au);
     shouldCacheTest(ROOT_URL + "manifest/year=2013", false, au);
     // vol and issue
-    shouldCacheTest(ROOT_URL + "content/303", false, au);
+    // shouldCacheTest(ROOT_URL + "content/303", false, au); changed crawl rule as there are some volume only tocs (iwa) so this test is true
     shouldCacheTest(ROOT_URL + "content/303/2", true, au);
     shouldCacheTest(ROOT_URL + "content/303/2.toc", true, au);
     // article files
     shouldCacheTest(ROOT_URL + "content/303/2/X3", true, au);
+    shouldCacheTest(ROOT_URL.replace("http:", "https:") + "content/303/2/X3", true, au);
     shouldCacheTest(ROOT_URL + "content/303/2/X3.abstract", false, au);
     shouldCacheTest(ROOT_URL + "content/303/2/X3.extract", false, au);
     shouldCacheTest(ROOT_URL + "content/303/2/X3.full", false, au);

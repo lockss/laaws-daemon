@@ -4,7 +4,7 @@
 
 /*
 
-Copyright (c) 2000-2015 Board of Trustees of Leland Stanford Jr. University,
+Copyright (c) 2017 Board of Trustees of Leland Stanford Jr. University,
 all rights reserved.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
@@ -86,8 +86,11 @@ public class HighWireDrupalHttpResponseHandler implements CacheResultHandler {
         
       case 503:
         // http://d1gqps90bl2jsp.cloudfront.net/content/brain/137/12/3284/F7.medium.gif 503 Service Unavailable
+        // http://www.bmj.com/content/351/bmj.h6193/related             503 Service Unavailable
         logger.debug2("503: " + url);
         if (url.contains(".cloudfront.net/")) {
+          return new NoFailRetryableNetworkException_2_10S("503 Service Unavailable (non-fatal)");
+        } else if (url.contains("bmj.") && url.endsWith("/related")) {
           return new NoFailRetryableNetworkException_2_10S("503 Service Unavailable (non-fatal)");
         }
         return new CacheException.RetryableNetworkException_2_10S("503 Service Unavailable");
@@ -109,6 +112,11 @@ public class HighWireDrupalHttpResponseHandler implements CacheResultHandler {
   public CacheException handleResult(ArchivalUnit au,
                                      String url,
                                      Exception ex) {
+    if (ex instanceof ContentValidationException) {
+      logger.debug3("Warning - not storing file " + url);
+      // no store cache exception and continue
+      return new org.lockss.util.urlconn.CacheException.NoStoreWarningOnly("ContentValidationException" + url);
+    } 
     logger.warning("Unexpected call to handleResult(): AU " + au.getName() + "; URL " + url, ex);
     throw new UnsupportedOperationException("Unexpected call to handleResult(): AU " + au.getName() + "; URL " + url, ex);
   }

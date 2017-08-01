@@ -37,14 +37,7 @@ import org.lockss.plugin.*;
 
 public class MsHtmlHashFilterFactory implements FilterFactory {
   
-  /**
-   * TODO - remove after 1.70 when this is identified composite in the daemon
-   */
-  public static class MyMainTag extends CompositeTag {
-    private static final String[] mIds = new String[] {"main"};
-    public String[] getIds() { return mIds; }
-  }
-  
+
   protected static NodeFilter[] infilters = new NodeFilter[] {
     // You need the main-content-container to get the manifest page listing
     // this is also the main container for the article landing page
@@ -69,6 +62,9 @@ public class MsHtmlHashFilterFactory implements FilterFactory {
     HtmlNodeFilters.tagWithAttribute("ol",  "class", "breadcrumb"),
     HtmlNodeFilters.tagWithAttributeRegex("a",  "class", "banner-container journal-banner"),
     HtmlNodeFilters.tagWithAttribute("nav",  "class", "pillscontainer"),
+    //the "Cited by" tab lists a number that can change
+    HtmlNodeFilters.tagWithAttribute("li",  "id", "cite"),
+    
     //remove the TOC navigation links except the full TOC pdf
 
     //remove article landing page navigation links
@@ -87,6 +83,8 @@ public class MsHtmlHashFilterFactory implements FilterFactory {
     HtmlNodeFilters.tagWithAttribute("div",  "class", "contentTypeOptions"),
     //every now and then the server fails to serve the next/prev link...what? - on journals
     HtmlNodeFilters.tagWithAttribute("div",  "class", "articlenav"),
+    HtmlNodeFilters.tagWithAttribute("div",  "id", "relatedcontent"), //tab contents, not the header
+    HtmlNodeFilters.tagWithAttribute("div",  "id", "otherJournals"), // tab contents
 
     };
 
@@ -94,14 +92,12 @@ public class MsHtmlHashFilterFactory implements FilterFactory {
   public InputStream createFilteredInputStream(ArchivalUnit au,
       InputStream in, String encoding) {
     
-    HtmlFilterInputStream fstream = new HtmlFilterInputStream(in,
+    return new HtmlFilterInputStream(in,
         encoding,
         new HtmlCompoundTransform(
             HtmlNodeFilterTransform.include(new OrFilter(infilters)),
             HtmlNodeFilterTransform.exclude(new OrFilter(xfilters))
             ));
-    fstream.registerTag(new MyMainTag());
-    return fstream;
   }
     
 }

@@ -54,14 +54,12 @@ public class MarkAllenHtmlCrawlFilterFactory
     
     // from toc - below pageHeader, ad panel has link to other issue
     // http://www.magonlinelibrary.com/toc/bjom/21/10
-    HtmlNodeFilters.tagWithAttributeRegex("div", "class", 
-                                          "genericSlideshow"),
-    
-    // toc, abs, full, text and ref right column - most read 
-    // http://www.magonlinelibrary.com/doi/full/10.12968/bjom.2013.21.10.688
-    HtmlNodeFilters.tagWithAttributeRegex("div", "class", 
-                                          "literatumMostReadWidget")                     
-                
+    HtmlNodeFilters.tagWithAttributeRegex("div", "class", "genericSlideshow"),
+                                          
+    // tabb'd section in the right column -                
+    // can't be in parent - all tabs would get affected, even in content
+    // TODO - look at alternative, but for now the only tabs are in right column
+    HtmlNodeFilters.tagWithAttribute("div", "aria-relevant", "additions"),                  
   };
 
   @Override

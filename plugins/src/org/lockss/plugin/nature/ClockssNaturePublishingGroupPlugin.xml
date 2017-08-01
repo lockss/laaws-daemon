@@ -9,19 +9,19 @@
   </entry>
   <entry>
     <string>required_daemon_version</string>
-    <!--  for JsoupLinkExtractor 1.62 and use of HtmlNodeFilter.comment() 1.64 -->
-    <string>1.64.0</string>
+    <!--  for content validation-->
+    <string>1.70.2</string>
   </entry>
   <entry>
     <string>plugin_version</string>
-    <string>50</string>
+    <string>56</string>
   </entry>
   <entry>
     <string>plugin_feature_version_map</string>
     <map>
       <entry>
         <string>Poll</string>
-        <string>15</string>
+        <string>19</string>
       </entry>
       <entry>
         <string>Metadata</string>
@@ -59,7 +59,7 @@
       <string>1,"^%s%s/clockss/%s_clockss_%d.html$", base_url, journal_id, journal_id, year</string>
       <string>2,"^%s%s/journal/v%s/.*(/metrics|\?(lang=[a-z]{2}$|.*message(-global)?=remove))", base_url, journal_id, volume_name</string>
       <string>2,"^%s%s/journal/v%s/[^/]+/[^/]+/[^/]+_ja\.html$", base_url, journal_id, volume_name</string>
-      <string>2,"^%s%s/journal/v%s/[^/]+/(products|pubmed)/", base_url, journal_id, volume_name</string>
+      <string>2,"^%s%s/journal/v%s/[^/]+/(covers|products|pubmed)/", base_url, journal_id, volume_name</string>
       <string>2,"^%s.*url_ver=",base_url</string>
       <string>2,"^%s%s/journal/v%s/n\d{1,2}$", base_url, journal_id, volume_name</string>
       <string>1,"^%s%s/journal/v%s/", base_url, journal_id, volume_name</string>
@@ -147,6 +147,13 @@
     <string>org.lockss.plugin.nature.NaturePublishingGroupLoginPageChecker</string>
   </entry>
   <entry>
+    <string>plugin_cache_result_list</string>
+    <list>
+      <!-- Mismatched actual length from Content-Length header should be ignored for Nature-->
+      <string>org.lockss.plugin.ContentValidationException$WrongLength=org.lockss.util.urlconn.CacheSuccess</string>
+    </list>
+  </entry> 
+  <entry>
   <!--  default link extractor is Gosling. Use Jsoup to handle titles with unencoded greaterthan in them -->
     <string>text/html_link_extractor_factory</string>
     <string>org.lockss.extractor.JsoupHtmlLinkExtractor$Factory</string>
@@ -180,6 +187,23 @@
     <string>au_url_normalizer</string>
     <string>org.lockss.plugin.nature.NaturePublishingGroupUrlNormalizer</string>
   </entry>  
+  <!-- don't count it in the poll, but do collect and share versions -->  
+  <entry>
+    <string>au_repair_from_peer_if_missing_url_pattern</string>
+    <list>
+      <string>"%s(pal/)?(common|images|openinnovation)/", base_url</string>
+      <string>"%sview/[^/]+/images/", base_url</string>
+      <string>"[.](css|js)$"</string>
+    </list>
+  </entry>
+  <entry>
+    <string>au_url_poll_result_weight</string>
+    <list>
+      <string>"%s(pal/)?(common|images|openinnovation)/", base_url, 0</string>
+      <string>"%sview/[^/]+/images/", base_url, 0</string>
+      <string>"[.](css|js)$", 0</string>
+    </list>
+  </entry> 
   <entry>
     <string>au_def_pause_time</string>
     <long>3000</long>

@@ -181,18 +181,18 @@ public class ServeContent extends LockssServlet {
   /** Determines how original URLs are represented in ServeContent URLs.
    */
   public static enum RewriteStyle {
-    /** Encode the origianl URL as a query arg in the ServeContent URL */
+    /** Encode the original URL as a query arg in the ServeContent URL */
     QueryArg,
-    /** Append the origianl URL to the ServeContent URL as extra path info. */
+    /** Append the original URL to the ServeContent URL as extra path info. */
     PathInfo,
   }
 
   /** Determines how original URLs are represented in ServeContent URLs.
    * Can be set to one of:
    *  <ul>
-   *   <li><tt>QueryArg</tt>: The origianl URL is encoded as a query arg
+   *   <li><tt>QueryArg</tt>: The original URL is encoded as a query arg
    *   in the ServeContent URL.</li>
-   *   <li><tt>PathInfo</tt>: The origianl URL is appended to the
+   *   <li><tt>PathInfo</tt>: The original URL is appended to the
    *   ServeContent URL as extra path info.
    */
   public static final String PARAM_REWRITE_STYLE =
@@ -221,6 +221,12 @@ public class ServeContent extends LockssServlet {
   static final String PARAM_MINIMALLY_ENCODE_URLS =
       PREFIX + "minimallyEncodeUrlArg";
   static final boolean DEFAULT_MINIMALLY_ENCODE_URLS = true;
+
+  /** When rewriting a page that was redirected elsewhere, use the final
+   * URL in the redirect chain as the base URL. */
+  static final String PARAM_USE_REDIRECTED_BASE_URL =
+      PREFIX + "useRedirectedBaseUrl";
+  static final boolean DEFAULT_USE_REDIRECTED_BASE_URL = true;
 
   /** If true, the url arg to ServeContent will be normalized before being
    * looked up. */
@@ -283,6 +289,7 @@ public class ServeContent extends LockssServlet {
   private static boolean normalizeForwardedUrl =
     DEFAULT_NORMALIZE_FORWARDED_URL;
   private static boolean minimallyEncodeUrl = DEFAULT_MINIMALLY_ENCODE_URLS;
+  private static boolean useRedirectedBaseUrl = DEFAULT_USE_REDIRECTED_BASE_URL;
   private static List<String> excludePlugins = DEFAULT_EXCLUDE_PLUGINS;
   private static List<String> includePlugins = DEFAULT_INCLUDE_PLUGINS;
   private static boolean includeInternalAus = DEFAULT_INCLUDE_INTERNAL_AUS;
@@ -302,7 +309,11 @@ public class ServeContent extends LockssServlet {
   private String url;
   private String cuUrl;	// CU's url (might differ from incoming url due to
 			// normalizaton)
-  private String versionStr; // non-null iff handling a (possibly-invalid) Memento request
+  private String baseUrl; // The base URL to use for resolving relative
+			  // links when rewriting.  If redirected, this is
+			  // the URL from which the content was served.
+  private String versionStr; // non-null iff handling a (possibly-invalid)
+			     // Memento request
   private CachedUrl cu;
   private boolean enabledPluginsOnly;
   private String accessLogInfo;
@@ -381,6 +392,9 @@ public class ServeContent extends LockssServlet {
       
       minimallyEncodeUrl = config.getBoolean(PARAM_MINIMALLY_ENCODE_URLS,
           DEFAULT_MINIMALLY_ENCODE_URLS);
+      useRedirectedBaseUrl =
+	config.getBoolean(PARAM_USE_REDIRECTED_BASE_URL,
+			  DEFAULT_USE_REDIRECTED_BASE_URL);
       neverProxy = config.getBoolean(PARAM_NEVER_PROXY,
           DEFAULT_NEVER_PROXY);
       maxBufferedRewrite = config.getInt(PARAM_MAX_BUFFERED_REWRITE,
@@ -489,6 +503,11 @@ public class ServeContent extends LockssServlet {
     String auid = null;
     String pathInfo = req.getPathInfo();
 
+    // If true, redirect auid-only request to OpenURL for that content.
+    // (This is what the Serve AU link has historically done.)  If false,
+    // serve just the access page(s) for the specific AU
+    boolean useOpenUrlForAuid = false;
+
     if (pathInfo != null && pathInfo.length() >= 1) {
       String query = req.getQueryString();
       if (query != null) {
@@ -499,6 +518,7 @@ public class ServeContent extends LockssServlet {
     } else {
       url = getParameter("url");
       auid = getParameter("auid");
+      useOpenUrlForAuid = Boolean.parseBoolean(getParameter("use_openurl"));
     }
     versionStr = getParameter("version");
 
@@ -545,6 +565,7 @@ public class ServeContent extends LockssServlet {
         helper.sortKeyValues();
         org.mortbay.util.URI postUri =
             new org.mortbay.util.URI(helper.toEncodedString());
+	log.debug2("POST URL: " + postUri);
         // We only want to override the post request by proxy if we cached it during crawling.
         CachedUrl cu = pluginMgr.findCachedUrl(postUri.toString());
         if (cu != null) {
@@ -594,13 +615,14 @@ public class ServeContent extends LockssServlet {
 
     // perform special handling for an OpenUrl
     try {
-      OpenUrlInfo resolved = OpenUrlResolver.noOpenUrlInfo;
+      OpenUrlInfo resolved = OpenUrlResolver.OPEN_URL_INFO_NONE;
 
       // If any params, pass them all to OpenUrl resolver
       Map<String,String> pmap = getParamsAsMap();
       if (!pmap.isEmpty()) {
         if (log.isDebug3()) log.debug3("Resolving OpenUrl: " + pmap);
         resolved = openUrlResolver.resolveOpenUrl(pmap);
+	log.debug3("Resolved to: " + resolved);
         requestType = AccessLogType.OpenUrl;
       }
 
@@ -620,6 +642,12 @@ public class ServeContent extends LockssServlet {
         return;
       }
 
+      if (!useOpenUrlForAuid) {
+	if (serveFromAuid(auid)) {
+	  return;
+	}
+
+      }
       // redirect to the OpenURL corresponding to the specified auid;
       // ensures that the corresponding OpenURL is available to the client.
       if (auid != null) {
@@ -632,15 +660,9 @@ public class ServeContent extends LockssServlet {
           resp.sendRedirect(sb.toString());
           return;
         }
-	// If open URL resultion fails fall back to first start page
-        au = pluginMgr.getAuFromId(auid);
-	if (au != null) {
-	  Collection<String> starts = au.getStartUrls();
-	  if (!starts.isEmpty()) {
-	    url = starts.iterator().next();
-	    handleUrlRequest();
-	    return;
-	  }
+	// If open URL resolution fails fall back to first start page
+	if (serveFromAuid(auid)) {
+	  return;
 	}
       }
 
@@ -654,6 +676,19 @@ public class ServeContent extends LockssServlet {
     displayIndexPage();
     requestType = AccessLogType.None;
     logAccess("200 index page");
+  }
+
+  boolean serveFromAuid(String auid) throws IOException {
+    au = pluginMgr.getAuFromId(auid);
+    if (au != null) {
+      Collection<String> starts = au.getAccessUrls();
+      if (!starts.isEmpty()) {
+	url = starts.iterator().next();
+	handleUrlRequest();
+	return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -733,7 +768,11 @@ public class ServeContent extends LockssServlet {
         logAccess("AU not present, 404");
         return;
       }
-
+      if (cu != null && useRedirectedBaseUrl) {
+	baseUrl = PluginUtil.getBaseUrl(cu);
+      } else {
+	baseUrl = url;
+      }
       if (au != null) {
         handleAuRequest();
       } else {
@@ -1210,15 +1249,16 @@ public class ServeContent extends LockssServlet {
       if (log.isDebug3())
 	log.debug3("Wrapping for login page checker Content-Encoding: " +
 		   contentEncoding);
-      try {
-	input = StreamUtil.getUncompressedInputStream(input, contentEncoding);
-	// Rewritten response is not encoded, and we don't know its length
+      InputStream uncin =
+	StreamUtil.getUncompressedInputStreamOrFallback(input,
+							contentEncoding,
+							url);
+      if (uncin != input) {
+	// Stream is no longer encoded, and we don't know its length
 	// (not that the login page checker is likely to care)
 	headers.remove(HttpFields.__ContentEncoding);
 	headers.remove(HttpFields.__ContentLength);
-      } catch (UnsupportedEncodingException e) {
-	log.warning("Unsupported Content-Encoding: " + contentEncoding +
-		    ", not decoding before checking for login page " + url);
+	input = uncin;
       }
     }
     // create reader for input stream
@@ -1280,7 +1320,8 @@ public class ServeContent extends LockssServlet {
    * @param conn the connection
    * @throws IOException if cannot read content
    */
-  protected void serveFromPublisher(LockssUrlConnection conn) throws IOException {
+  protected void serveFromPublisher(LockssUrlConnection conn)
+      throws IOException {
     String ctype = conn.getResponseContentType();
     String mimeType = HeaderUtil.getMimeTypeFromContentType(ctype);
     log.debug2(  "Serving publisher content for: " + url
@@ -1331,17 +1372,16 @@ public class ServeContent extends LockssServlet {
       if (contentEncoding != null) {
         if (log.isDebug2())
           log.debug2("Wrapping Content-Encoding: " + contentEncoding);
-        try {
-          respStrm =
-              StreamUtil.getUncompressedInputStream(respStrm, contentEncoding);
-          // Rewritten response is not encoded, and we don't know its length
-          contentEncoding = null;
+	InputStream uncResp =
+	  StreamUtil.getUncompressedInputStreamOrFallback(respStrm,
+							  contentEncoding,
+							  url);
+	if (uncResp != respStrm) {
+	  // Uncompressed response is not encoded, and we don't know its length
+	  contentEncoding = null;
 	  responseContentLength = -1;
-        } catch (UnsupportedEncodingException e) {
-          log.warning("Unsupported Content-Encoding: " + contentEncoding +
-                      ", not rewriting " + url);
-          lrf = null;
-        }
+	  respStrm = uncResp;
+	}
       }
     }
     if (contentEncoding != null) {
@@ -1535,17 +1575,33 @@ public class ServeContent extends LockssServlet {
     try {
       if (lrf == null || (isMementoRequest() && !rewriteMementoResponses)) {
         // No rewriting, set length and copy
+	if (log.isDebug3()) {
+	  if (lrf == null) {
+	    log.debug2("Not rewriting, no LinkRewriterFactory: " + url);
+	  } else {
+	    log.debug2("Not rewriting, memento request: " + url);
+	  }
+	}
         setContentLength(length);
         outStr = resp.getOutputStream();
         StreamUtil.copy(original, outStr);
       } else {
+	if (log.isDebug2()) {
+	  log.debug2("Rewriting: " + url);
+	}
         try {
+	  if (baseUrl == null) {
+	    baseUrl = url;
+	  }
+	  if (!baseUrl.equals(url)) {
+	    log.debug("Rewriting " + url + " using base URL " + baseUrl);
+	  }
           rewritten =
               lrf.createLinkRewriter(mimeType,
                   au,
                   original,
                   charset,
-                  url,
+                  baseUrl,
 		  makeLinkTransform());
         } catch (PluginException e) {
           log.error("Can't create link rewriter, not rewriting", e);

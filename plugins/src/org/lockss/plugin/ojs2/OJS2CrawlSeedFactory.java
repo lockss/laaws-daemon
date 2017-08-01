@@ -60,6 +60,12 @@ public class OJS2CrawlSeedFactory implements CrawlSeedFactory {
   protected static final HashSet<String> dualBaseUrlHosts = new HashSet<String>();
   static {
     dualBaseUrlHosts.add("ejournals.library.ualberta.ca");
+    dualBaseUrlHosts.add("scholarworks.iu.edu");
+  }
+
+  protected static final HashSet<String> noIndexBaseUrlHosts = new HashSet<String>();
+  static {
+   noIndexBaseUrlHosts.add("mulpress.mcmaster.ca");
   }
   
   
@@ -72,26 +78,62 @@ public class OJS2CrawlSeedFactory implements CrawlSeedFactory {
     @Override
     public Collection<String> doGetPermissionUrls() throws ConfigurationException,
         PluginException, IOException {
-      return dupUrls(super.doGetPermissionUrls());
+      Collection<String> uUrls = dupUrls(super.doGetPermissionUrls());
+      return uUrls;
     }
     
     @Override
     public Collection<String> doGetStartUrls() throws ConfigurationException,
         PluginException, IOException {
-      return dupUrls(super.doGetStartUrls());
+      Collection<String> uUrls = dupUrls(super.doGetStartUrls());
+      return uUrls;
     }
 
     private Collection<String> dupUrls(Collection<String> sUrls) {
       Collection<String> uUrls = new ArrayList<String>(sUrls.size() * 2);
       for (Iterator<String> iter = sUrls.iterator(); iter.hasNext();) {
         String url = iter.next();
-        uUrls.add(HttpToHttpsUtil.UrlUtil.replaceScheme(url, "https", "http"));
-        uUrls.add(HttpToHttpsUtil.UrlUtil.replaceScheme(url, "http", "https"));
+        uUrls.add(UrlUtil.replaceScheme(url, "https", "http"));
+        uUrls.add(UrlUtil.replaceScheme(url, "http", "https"));
       }
       return uUrls;
     }
-    
+
   }
+
+  public static class NoIndexBaseUrlCrawlSeed extends BaseCrawlSeed {
+    
+    public NoIndexBaseUrlCrawlSeed(CrawlerFacade crawlerFacade) {
+      super(crawlerFacade);
+    }
+    
+    @Override
+    public Collection<String> doGetPermissionUrls() throws ConfigurationException,
+        PluginException, IOException {
+      Collection<String> uUrls = removeIndex(super.doGetPermissionUrls());
+      return uUrls;
+    }
+    
+    @Override
+    public Collection<String> doGetStartUrls() throws ConfigurationException,
+        PluginException, IOException {
+      Collection<String> uUrls = removeIndex(super.doGetStartUrls());
+      return uUrls;
+    }
+
+    private Collection<String> removeIndex(Collection<String> sUrls) {
+      Collection<String> uUrls = new ArrayList<String>(sUrls.size());
+      for (Iterator<String> iter = sUrls.iterator(); iter.hasNext();) {
+        String url = iter.next();
+        // we know these will contain index.php
+        uUrls.add(url.replace("index.php/", ""));
+      }
+      return uUrls;
+    }
+
+  }
+  
+  
   
   @Override
   public CrawlSeed createCrawlSeed(CrawlerFacade facade) {
@@ -100,9 +142,12 @@ public class OJS2CrawlSeedFactory implements CrawlSeedFactory {
       if (baseUrl != null) {
         if (dualBaseUrlHosts.contains(UrlUtil.getHost(baseUrl))) {
           return new DualBaseUrlCrawlSeed(facade);
+        } else if (noIndexBaseUrlHosts.contains(UrlUtil.getHost(baseUrl))) {
+          return new NoIndexBaseUrlCrawlSeed(facade);
         }
       }
     } catch (Exception e) {
+      log.warning("createCrawlSeed e= ", e);
       // Fall-thru
     }
     return new BaseCrawlSeed(facade);
