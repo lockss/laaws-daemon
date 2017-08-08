@@ -27,14 +27,20 @@
  */
 package org.lockss.config;
 
-import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import java.util.Properties;
-import java.util.concurrent.TimeUnit;
-import org.jboss.resteasy.client.jaxrs.BasicAuthentication;
-import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
+import java.nio.charset.Charset;
+import java.util.Base64;
+import java.util.Map;
+import org.lockss.laaws.config.model.ConfigExchange;
 import org.lockss.util.Logger;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
 
 /**
  * A client for the Configuration REST web service operation that provides the
@@ -88,25 +94,33 @@ public class GetAuConfigClient {
       log.debug2(DEBUG_HEADER + "auId = " + auId);
     }
 
-    String encodedAuId = URLEncoder.encode(auId, "UTF-8");
-    if (log.isDebug3())
-      log.debug3(DEBUG_HEADER + "encodedAuId = " + encodedAuId);
+    // Initialize the request to the REST service.
+    RestTemplate restTemplate = new RestTemplate();
+    SimpleClientHttpRequestFactory requestFactory =
+	(SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
 
-    // Build the basic JSON client.
-    ResteasyClientBuilder builder = new ResteasyClientBuilder()
-	.register(JacksonJsonProvider.class);
+    requestFactory.setReadTimeout(1000*serviceTimeout);
+    requestFactory.setConnectTimeout(1000*serviceTimeout);
 
-    // Specify the timeout values, if necessary.
-    if (serviceTimeout != null) {
-      builder.establishConnectionTimeout(serviceTimeout, TimeUnit.SECONDS)
-	.socketTimeout(serviceTimeout, TimeUnit.SECONDS);
-    }
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+
+    String credentials = serviceUser + ":" + servicePassword;
+    String authHeaderValue = "Basic " + Base64.getEncoder()
+    .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
+    headers.set("Authorization", authHeaderValue);
 
     // Make the request to the REST service and get its response.
-    Properties result = (Properties)builder.build().target(serviceLocation)
-	.register(new BasicAuthentication(serviceUser, servicePassword))
-	.path("aus").path(encodedAuId).request().get(Properties.class);
-    if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+    ResponseEntity<ConfigExchange> response =
+	restTemplate.exchange(serviceLocation + "/aus/" + auId,
+	    HttpMethod.GET, new HttpEntity<String>(null, headers),
+	    ConfigExchange.class);
+
+    HttpStatus statusCode = response.getStatusCode();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+
+    Map<String, String> result = response.getBody().getProps();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result = " + result);
 
     // Convert the response into a the expected result.
     Configuration config = ConfigManager.newConfiguration();

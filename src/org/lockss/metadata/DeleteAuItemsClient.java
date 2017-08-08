@@ -28,13 +28,18 @@
 package org.lockss.metadata;
 
 import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
-import java.util.concurrent.TimeUnit;
-import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
-import org.jboss.resteasy.client.jaxrs.BasicAuthentication;
-import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
+import java.nio.charset.Charset;
+import java.util.Base64;
 import org.lockss.config.CurrentConfig;
 import org.lockss.util.Logger;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
 
 /**
  * A client for the REST web service operation that deletes the metadata of an
@@ -55,8 +60,8 @@ public class DeleteAuItemsClient {
     final String DEBUG_HEADER = "deleteAuItems(): ";
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "auId = " + auId);
 
-    String encodedAuId = URLEncoder.encode(auId, "UTF-8");
-    System.out.println("encodedAuId = '" + encodedAuId + "'");
+//    String encodedAuId = URLEncoder.encode(auId, "UTF-8");
+//    System.out.println("encodedAuId = '" + encodedAuId + "'");
 
     // Get the configured REST service location.
     String restServiceLocation =
@@ -81,15 +86,32 @@ public class DeleteAuItemsClient {
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "password = '" + password + "'");
 
+    // Initialize the request to the REST service.
+    RestTemplate restTemplate = new RestTemplate();
+    SimpleClientHttpRequestFactory requestFactory =
+	(SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
+
+    requestFactory.setReadTimeout(1000*timeoutValue);
+    requestFactory.setConnectTimeout(1000*timeoutValue);
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+
+    String credentials = userName + ":" + password;
+    String authHeaderValue = "Basic " + Base64.getEncoder()
+    .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
+    headers.set("Authorization", authHeaderValue);
+
     // Make the request to the REST service and get its response.
-    Integer mdItemSeq = new ResteasyClientBuilder()
-	.register(JacksonJsonProvider.class)
-	.establishConnectionTimeout(timeoutValue, TimeUnit.SECONDS)
-	.socketTimeout(timeoutValue, TimeUnit.SECONDS).build()
-	.target(restServiceLocation)
-	.register(new BasicAuthentication(userName, password))
-	.path("aus").path(encodedAuId).request()
-	.delete(Integer.class);
+    ResponseEntity<Integer> response =
+	restTemplate.exchange(restServiceLocation + "/aus/" + auId,
+	    HttpMethod.DELETE, new HttpEntity<String>(null, headers),
+	    Integer.class);
+
+    HttpStatus statusCode = response.getStatusCode();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+
+    Integer mdItemSeq = response.getBody();
     if (log.isDebug2()) log.debug2(DEBUG_HEADER + "mdItemSeq = " + mdItemSeq);
     return mdItemSeq;
   }

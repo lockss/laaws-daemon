@@ -27,27 +27,30 @@
  */
 package org.lockss.plugin;
 
-import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
 import java.net.Authenticator;
 import java.net.PasswordAuthentication;
 import java.net.URL;
-import java.net.URLEncoder;
+import java.nio.charset.Charset;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.TimeUnit;
-import javax.ws.rs.ProcessingException;
-import javax.ws.rs.core.MediaType;
 import javax.xml.namespace.QName;
 import javax.xml.ws.Service;
-import org.jboss.resteasy.client.jaxrs.BasicAuthentication;
-import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import org.lockss.config.CurrentConfig;
 import org.lockss.laaws.rs.model.Artifact;
 import org.lockss.laaws.rs.model.ArtifactPage;
 import org.lockss.util.Logger;
 import org.lockss.ws.status.DaemonStatusService;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
 
 /**
  * A client for the DaemonStatusService.getAuUrls() web service operation or for
@@ -100,26 +103,37 @@ public class GetAuUrlsClient {
 	if (log.isDebug3())
 	  log.debug3(DEBUG_HEADER + "password = '" + password + "'");
 
-	// Encode the Archival Unit identifier.
-	String encodedAuId = URLEncoder.encode(auId, "UTF-8");
-	if (log.isDebug3())
-	  log.debug3(DEBUG_HEADER + "encodedAuId = '" + encodedAuId + "'");
-
 	// Build the REST service URL.
-	String restServiceUrl =
-	    restServiceLocation.replace("{auid}", encodedAuId);
+	String restServiceUrl = restServiceLocation.replace("{auid}", auId);
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER
 	    + "Making request to '" + restServiceUrl + "'");
 
+	// Initialize the request to the REST service.
+	RestTemplate restTemplate = new RestTemplate();
+	SimpleClientHttpRequestFactory requestFactory =
+	    (SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
+
+	requestFactory.setReadTimeout(1000*timeoutValue);
+	requestFactory.setConnectTimeout(1000*timeoutValue);
+
+	HttpHeaders headers = new HttpHeaders();
+	headers.setContentType(MediaType.APPLICATION_JSON);
+
+	String credentials = userName + ":" + password;
+	String authHeaderValue = "Basic " + Base64.getEncoder()
+	.encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
+	headers.set("Authorization", authHeaderValue);
+
 	// Make the request to the REST service and get its response.
-	ArtifactPage result = new ResteasyClientBuilder()
-	    .register(JacksonJsonProvider.class)
-	    .establishConnectionTimeout(timeoutValue, TimeUnit.SECONDS)
-            .socketTimeout(timeoutValue, TimeUnit.SECONDS).build()
-            .target(restServiceUrl)
-            .register(new BasicAuthentication(userName, password))
-            .request().header("Content-Type", MediaType.APPLICATION_JSON_TYPE)
-            .get(ArtifactPage.class);
+	ResponseEntity<ArtifactPage> response =
+	    restTemplate.exchange(restServiceUrl, HttpMethod.GET,
+		new HttpEntity<String>(null, headers), ArtifactPage.class);
+
+	HttpStatus statusCode = response.getStatusCode();
+	if (log.isDebug3())
+	  log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+
+	ArtifactPage result = response.getBody();
 	if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result = " + result);
 
 	// Initialize the results.
@@ -138,10 +152,9 @@ public class GetAuUrlsClient {
       } catch (Exception e) {
 	log.error("Caught exception accessing REST service", e);
 
-	while (e instanceof ProcessingException && e.getCause() != null
-	    && e.getCause() instanceof Exception) {
+	while (e.getCause() != null && e.getCause() instanceof Exception) {
 	  e = (Exception)e.getCause();
-	  log.error("ProcessingException.getCause()", e);
+	  log.error("Exception.getCause()", e);
 	}
 
 	exceptions.put(auId, e);

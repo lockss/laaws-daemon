@@ -27,27 +27,28 @@
  */
 package org.lockss.plugin;
 
-import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.StringReader;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
+import java.nio.charset.Charset;
+import java.util.Base64;
 import java.util.Date;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 import javax.activation.DataHandler;
 import javax.activation.DataSource;
-import javax.ws.rs.core.MediaType;
-import org.jboss.resteasy.client.jaxrs.BasicAuthentication;
-import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import org.lockss.config.CurrentConfig;
-import org.lockss.util.LineEndingBufferedReader;
 import org.lockss.util.Logger;
-import org.lockss.util.ReaderInputStream;
 import org.lockss.ws.entities.ContentResult;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.RestTemplate;
 
 /**
  * A client for the Repository REST Service
@@ -84,28 +85,50 @@ public class GetArtifactContentClient {
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "password = '" + password + "'");
 
-    String encodedArtifactId = URLEncoder.encode(artifactId, "UTF-8");
-    if (log.isDebug3()) log.debug3(DEBUG_HEADER
-	+ "encodedArtifactId = '" + encodedArtifactId + "'");
-
     // Build the REST service URL.
     String restServiceUrl =
-	restServiceLocation.replace("{artifactid}", encodedArtifactId);
+	restServiceLocation.replace("{artifactid}", artifactId);
     if (log.isDebug3())
       log.debug3(DEBUG_HEADER + "Making request to '" + restServiceUrl + "'");
 
-    // Make the request to the REST service and get its response.
-    String result = new ResteasyClientBuilder()
-	.register(JacksonJsonProvider.class)
-	.establishConnectionTimeout(timeoutValue, TimeUnit.SECONDS)
-	.socketTimeout(timeoutValue, TimeUnit.SECONDS).build()
-	.target(restServiceUrl)
-	.register(new BasicAuthentication(userName, password))
-	.request().header("Content-Type", MediaType.MULTIPART_FORM_DATA)
-	.header("Accept", MediaType.MULTIPART_FORM_DATA)
-	.get(String.class);
-    //if (log.isDebug2()) log.debug2(DEBUG_HEADER + "result = " + result);
+    // Initialize the request to the REST service.
+    RestTemplate restTemplate = new RestTemplate();
+    SimpleClientHttpRequestFactory requestFactory =
+	(SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
 
+    requestFactory.setReadTimeout(1000*timeoutValue);
+    requestFactory.setConnectTimeout(1000*timeoutValue);
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.MULTIPART_FORM_DATA);
+
+    String credentials = userName + ":" + password;
+    String authHeaderValue = "Basic " + Base64.getEncoder()
+    .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
+    headers.set("Authorization", authHeaderValue);
+
+    // Make the request to the REST service and get its response.
+    ResponseEntity<MultiValueMap> response =
+	restTemplate.exchange(restServiceUrl, HttpMethod.GET,
+	    new HttpEntity<String>(null, headers), MultiValueMap.class);
+
+    HttpStatus statusCode = response.getStatusCode();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+
+    MultiValueMap<String, Object> result = response.getBody();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result = " + result);
+
+    HttpEntity<ByteArrayResource> contentPart =
+	(HttpEntity<ByteArrayResource>)result.getFirst("content");
+
+    HttpHeaders partHeaders = contentPart.getHeaders();
+
+    String contentType = partHeaders.getContentType().toString();
+    long contentLength = partHeaders.getContentLength();
+
+    InputStream inputStream = contentPart.getBody().getInputStream();
+
+    /*
     LineEndingBufferedReader lebr =
 	new LineEndingBufferedReader(new StringReader(result));
 
@@ -177,7 +200,7 @@ public class GetArtifactContentClient {
 //      } else {
 //	sb.append((char)code);
 //      }
-//    }
+//    }*/
 
     // Populate the response.
     ContentResult cr = new ContentResult();
@@ -195,13 +218,9 @@ public class GetArtifactContentClient {
     properties.setProperty("pragma", "no-cache");
     properties.setProperty("cache-control", "no-cache");
     properties.setProperty("org.lockss.version.number", "1");
-    // The content type from the Repository REST service is always
-    // application/octet-stream, which some metadata extractors cannot handle.
     properties.setProperty("content-type", contentType);
     properties.setProperty("x-lockss-content-type", contentType);
-//    properties.setProperty("content-type", "text/plain; charset=UTF-8");
-//    properties.setProperty("x-lockss-content-type", "text/plain; charset=UTF-8");
-    properties.setProperty("content-length", contentLength);
+    properties.setProperty("content-length", String.valueOf(contentLength));
 
     cr.setProperties(properties);
     cr.setDataHandler(new DataHandler(new InputStreamDataSource(inputStream)));

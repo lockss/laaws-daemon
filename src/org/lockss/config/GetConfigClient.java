@@ -27,12 +27,18 @@
  */
 package org.lockss.config;
 
-import com.fasterxml.jackson.jaxrs.json.JacksonJsonProvider;
+import java.nio.charset.Charset;
+import java.util.Base64;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
-import org.jboss.resteasy.client.jaxrs.BasicAuthentication;
-import org.jboss.resteasy.client.jaxrs.ResteasyClientBuilder;
 import org.lockss.util.Logger;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.web.client.RestTemplate;
 
 /**
  * A client for the Configuration REST web service operation that provides the
@@ -81,21 +87,32 @@ public class GetConfigClient {
       log.debug2(DEBUG_HEADER + "serviceTimeout = " + serviceTimeout);
     }
 
-    // Build the basic JSON client.
-    ResteasyClientBuilder builder = new ResteasyClientBuilder()
-	.register(JacksonJsonProvider.class);
+    // Initialize the request to the REST service.
+    RestTemplate restTemplate = new RestTemplate();
+    SimpleClientHttpRequestFactory requestFactory =
+	(SimpleClientHttpRequestFactory)restTemplate.getRequestFactory();
 
-    // Specify the timeout values, if necessary.
-    if (serviceTimeout != null) {
-      builder.establishConnectionTimeout(serviceTimeout, TimeUnit.SECONDS)
-	.socketTimeout(serviceTimeout, TimeUnit.SECONDS);
-    }
+    requestFactory.setReadTimeout(1000*serviceTimeout);
+    requestFactory.setConnectTimeout(1000*serviceTimeout);
+
+    HttpHeaders headers = new HttpHeaders();
+    headers.setContentType(MediaType.APPLICATION_JSON);
+
+    String credentials = serviceUser + ":" + servicePassword;
+    String authHeaderValue = "Basic " + Base64.getEncoder()
+    .encodeToString(credentials.getBytes(Charset.forName("US-ASCII")));
+    headers.set("Authorization", authHeaderValue);
 
     // Make the request to the REST service and get its response.
-    Properties result = (Properties)builder.build()
-	.target(serviceLocation)
-	.register(new BasicAuthentication(serviceUser, servicePassword))
-	.path("config").request().get(Properties.class);
+    ResponseEntity<Properties> response =
+	restTemplate.exchange(serviceLocation + "/config",
+	    HttpMethod.GET, new HttpEntity<String>(null, headers),
+	    Properties.class);
+
+    HttpStatus statusCode = response.getStatusCode();
+    if (log.isDebug3()) log.debug3(DEBUG_HEADER + "statusCode = " + statusCode);
+
+    Properties result = response.getBody();
     if (log.isDebug3()) log.debug3(DEBUG_HEADER + "result = " + result);
 
     // Convert the response into a the expected result.
