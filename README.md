@@ -1,16 +1,22 @@
+**ARCHIVED ARCHIVED ARCHIVED ARCHIVED ARCHIVED ARCHIVED ARCHIVED ARCHIVED**
+
 ```
-         AA    RRRR    CCC   H    H  III  V   V  EEEEE  DDDDD   
-        A  A   R   R  C   C  H    H   I   V   V  E       D   D  
-       A    A  R   R  C      H    H   I   V   V  E       D   D  
-       A    A  R   R  C      H    H   I    V V   E       D   D  
-       A    A  RRRR   C      HHHHHH   I    V V   EEEE    D   D  
-       AAAAAA  RR     C      H    H   I    V V   E       D   D  
-       A    A  R R    C      H    H   I     V    E       D   D  
-       A    A  R  R   C   C  H    H   I     V    E       D   D  
-       A    A  R   R   CCC   H    H  III    V    EEEEE  DDDDD  
+  ##    ####    ###   #    #  ###  #   #  #####  #####   
+ #  #   #   #  #   #  #    #   #   #   #  #       #   #  
+#    #  #   #  #      #    #   #   #   #  #       #   #  
+#    #  #   #  #      #    #   #    # #   #       #   #  
+#    #  ####   #      ######   #    # #   ####    #   #  
+######  ##     #      #    #   #    # #   #       #   #  
+#    #  # #    #      #    #   #     #    #       #   #  
+#    #  #  #   #   #  #    #   #     #    #       #   #  
+#    #  #   #   ###   #    #  ###    #    #####  #####  
 ```
 
-**This project is now archived and no longer being maintained. It may be removed from GitHub in the future.**
+**ARCHIVED ARCHIVED ARCHIVED ARCHIVED ARCHIVED ARCHIVED ARCHIVED ARCHIVED**
+
+**This Git repository is obsolete and has been archived.**
+
+----
 
 ## LAAWS for of the LOCKSS Daemon
 
